@@ -1,0 +1,7 @@
+OctaveDelay,300
+;Sets the application to always be visible. This is useful if you want to play Guild Wars 2 in Fullscreen.
+AlwaysOnTop,0
+;Sets the application to be transparent. You may like this if you play in Fullscreen.
+IsTransparent,0
+Name,Please enter your username!
+Ping,0
