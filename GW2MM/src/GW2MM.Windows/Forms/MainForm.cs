@@ -56,7 +56,8 @@ internal sealed class MainForm : Form, IHostView
         Ui.InitForm(this, Texts.AppTitle, 400, 620);
         KeyPreview = true;
 
-        Ui.Picture(this, "Title.png", 0, 0, 400, 75);
+        // Each original program had its own banner ("SERVER" / "CLIENT").
+        Ui.Picture(this, role == AppRole.Client ? "TitleClient.png" : "Title.png", 0, 0, 400, 75);
         // Added after the title picture they sit on, so they must be raised above it (WinForms stacks later controls below).
         Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this)).BringToFront();
         Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds).Show(this)).BringToFront();
@@ -426,6 +427,8 @@ internal sealed class MainForm : Form, IHostView
     }
 
     public void SetStatus(string text) => BeginInvokeSafe(() => _status.Text = text);
+
+    public void LogEvent(string line) => AppLog.Write("Event: " + line);
 
     public void AppendDialog(string line) => BeginInvokeSafe(() =>
     {

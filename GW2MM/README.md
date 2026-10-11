@@ -42,7 +42,17 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
    Player2, and so on.
 4. Select a song and press **F1** (or the Play icon). Every machine starts together about 4 s later. **F3** stops
    everyone and resets the instruments' octaves. **F2** pauses/resumes the host's own playback.
-   A client can press **F11** to have the host play the client's selected song, or type "Stop" in the chat to stop.
+   A client can press **F11** to have the host play the client's selected song, or type `stop` in the chat to stop.
+5. **Sync** needs Guild Wars 2 open on every machine. After you press OK on its prompt, GW2MM brings the game window
+   (*Player1*, or else any Guild Wars 2 window) to the front, waits briefly, then plays the 10 test notes.
+   A note is only sent while the game is in front. If the game isn't open, Sync says so and keeps the old value.
+
+### Chat
+
+Every message shows the sender's name (`bob > hi`; the host is `Host`). The host passes each client's message on
+to all the other clients. Chat is only ever displayed. The one command is `stop` (the whole message, any case),
+which stops the song for everyone like **F3**. Text that only contains "stop" ("don't stop") is ordinary chat.
+Joins appear as "bob joined as player 2." Internal network messages are written to `GW2MM.log`, not to the chat box.
 
 ### Hotkeys
 

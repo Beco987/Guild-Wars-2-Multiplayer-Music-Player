@@ -5,8 +5,13 @@ public interface ISessionView
 {
     /// <summary>The status line under the chat box ("Waiting for a peer...", "Connected to x!", ...).</summary>
     void SetStatus(string text);
-    /// <summary>Appends a line to the chat/dialog box ("You > ..." / "Peer > ...").</summary>
+    /// <summary>Appends a line to the chat box ("name > text", or a notice such as "bob joined as player 2.").</summary>
     void AppendDialog(string line);
+    /// <summary>
+    /// A protocol event (song part received, clock sync, ping, ...). The original echoed these into the chat box as
+    /// "Peer > Tick_Count,..."; they now go to the log only, so the chat box holds only chat.
+    /// </summary>
+    void LogEvent(string line);
     /// <summary>Enables or disables the chat input and Send button.</summary>
     void SetChatEnabled(bool enabled);
     /// <summary>Shows a message box without blocking the caller.</summary>
@@ -35,6 +40,24 @@ public interface IInputDelayMeter
 {
     /// <summary>Ten presses, 4 s apart; returns the delays of the presses that produced sound within the timeout.</summary>
     Task<IReadOnlyList<double>> MeasureAsync(CancellationToken ct);
+}
+
+/// <summary>The input-delay test could not run (for example, Guild Wars 2 is not open). The message is for the user.</summary>
+public sealed class InputDelayException(string message) : Exception(message);
+
+/// <summary>Chat rules shared by host and client.</summary>
+public static class ChatRules
+{
+    /// <summary>The name shown for the host's own chat lines.</summary>
+    public const string HostName = "Host";
+
+    /// <summary>
+    /// Typing exactly "stop" (any case, surrounding spaces ignored) stops the song for everyone. It is the only chat
+    /// command; any other text, including text that merely contains "stop", is just chat.
+    /// </summary>
+    public static bool IsStopCommand(string text) => text.Trim().Equals("stop", StringComparison.OrdinalIgnoreCase);
+
+    public static string Line(string name, string text) => $"{name} > {text}";
 }
 
 public static class InputDelay

@@ -26,6 +26,8 @@ public sealed class HostSession : IDisposable
     private readonly List<PeerConnection> _connections = new();
     private readonly string[] _inputDelays = Enumerable.Repeat("0", PortMapping.Slots + 1).ToArray();
     private readonly string?[] _names = new string?[PortMapping.Slots + 1];
+    /// <summary>Every connection's user name (also clients without a player slot), for chat.</summary>
+    private readonly Dictionary<PeerConnection, string> _connNames = new();
     private PortMapping _mapping = new();
     private System.Net.Sockets.TcpListener? _listener;
     private SongRun? _current;
@@ -149,6 +151,7 @@ public sealed class HostSession : IDisposable
             for (var s = 2; s <= PortMapping.Slots; s++)
                 if (ReferenceEquals(_slots[s], conn)) { _slots[s] = null; _names[s] = null; }
             _connections.Remove(conn);
+            _connNames.Remove(conn);
             none = _connections.Count == 0;
         }
         _view.ShowMessage("The client disconnected!");
@@ -169,32 +172,33 @@ public sealed class HostSession : IDisposable
         {
             case ClockReply r:
                 lock (_gate) _current?.OnClockReply(slot, r.Id, r.Tick, _clock.NowMs);
-                _view.AppendDialog($"Peer > Tick_Count,{socket},{r.Tick.ToString("0", CultureInfo.InvariantCulture)}");
+                _view.LogEvent($"Tick_Count,{socket},{r.Tick.ToString("0", CultureInfo.InvariantCulture)}");
                 break;
             case Pong p:
                 PingTracker.OnPong(slot, p.Id, _clock.NowMs);
-                _view.AppendDialog($"Peer > Return_Ping,{socket}");
+                _view.LogEvent($"Return_Ping,{socket}");
                 break;
             case Chat c:
-                _view.AppendDialog("Peer > " + c.Text);
-                // A client has no Stop hotkey; in the original, typing "Stop" in the chat stopped the song.
-                if (c.Text.Contains("Stop", StringComparison.OrdinalIgnoreCase)) Stop();
+                OnChat(conn, c.Text);
                 break;
             case Typing t:
-                _view.SetStatus(t.Active ? "Peer is typing..." : "Connected!");
+                _view.SetStatus(t.Active ? $"{NameOf(conn)} is typing..." : "Connected!");
                 break;
             case Hello h:
-                _view.AppendDialog($"Peer > {socket},{h.Name}");
-                if (slot != 0)
+                _view.LogEvent($"{socket},{h.Name}");
+                var name = h.Name.Trim();
+                if (name.Length > 40) name = name[..40];
+                lock (_gate)
                 {
-                    var name = h.Name.Trim();
-                    lock (_gate) _names[slot] = name.Length > 40 ? name[..40] : name;
-                    _view.OnPlayersChanged();
+                    if (name.Length > 0) _connNames[conn] = name;
+                    if (slot != 0) _names[slot] = name;
                 }
+                _view.AppendDialog(slot != 0 ? $"{NameOf(conn)} joined as player {slot}." : $"{NameOf(conn)} joined (all player slots are taken).");
+                if (slot != 0) _view.OnPlayersChanged();
                 break;
             case InputDelayReport d:
                 var value = d.Ms?.ToString(CultureInfo.InvariantCulture) ?? "";
-                _view.AppendDialog($"Peer > Socket_Ping,{socket},{value}");
+                _view.LogEvent($"Socket_Ping,{socket},{value}");
                 if (slot != 0)
                 {
                     lock (_gate) _inputDelays[slot] = value;
@@ -202,8 +206,8 @@ public sealed class HostSession : IDisposable
                 }
                 break;
             case PlayRequest pr:
-                _view.AppendDialog($"Peer > Play ({LegacyText.Lines(pr.Csv).Count} lines)");
-                _view.AppendDialog($"Peer > StartSong,{pr.Tempo}");
+                _view.LogEvent($"Play,{socket} ({LegacyText.Lines(pr.Csv).Count} lines)");
+                _view.LogEvent($"StartSong,{socket},{pr.Tempo}");
                 _ = PlayFromClientAsync(pr);
                 break;
         }
@@ -211,13 +215,44 @@ public sealed class HostSession : IDisposable
 
     // ------------------------------------------------------------------ chat
 
+    /// <summary>The host's chat box: shown here and sent to every client. "stop" also stops the song.</summary>
     public void SendChat(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
+        _view.AppendDialog(ChatRules.Line(ChatRules.HostName, text));
+        Broadcast(new Chat(text, ChatRules.HostName), except: null);
+        if (ChatRules.IsStopCommand(text)) _ = Stop();
+    }
+
+    /// <summary>
+    /// A client's chat message: shown here and passed on to every other client, labelled with the sender's name.
+    /// It never triggers anything on the other clients; "stop" stops the song (a client has no Stop hotkey).
+    /// </summary>
+    private void OnChat(PeerConnection from, string text)
+    {
+        var name = NameOf(from);
+        _view.AppendDialog(ChatRules.Line(name, text));
+        Broadcast(new Chat(text, name), except: from);
+        if (ChatRules.IsStopCommand(text)) _ = Stop();
+    }
+
+    private void Broadcast(Message message, PeerConnection? except)
+    {
         List<PeerConnection> all;
-        lock (_gate) all = _connections.ToList();
-        foreach (var c in all) c.Send(new Chat(text));
-        _view.AppendDialog("You > " + text);
+        lock (_gate) all = _connections.Where(c => !ReferenceEquals(c, except)).ToList();
+        foreach (var c in all) c.Send(message);
+    }
+
+    /// <summary>A client's user name, or "Player n" when it sent none.</summary>
+    private string NameOf(PeerConnection conn)
+    {
+        lock (_gate)
+        {
+            if (_connNames.TryGetValue(conn, out var name)) return name;
+            for (var s = 2; s <= PortMapping.Slots; s++)
+                if (ReferenceEquals(_slots[s], conn)) return "Player " + s.ToString(CultureInfo.InvariantCulture);
+        }
+        return "Player";
     }
 
     // ------------------------------------------------------------------ playback
@@ -396,9 +431,17 @@ public sealed class HostSession : IDisposable
                 string value;
                 if (slot == 1)
                 {
-                    await _view.ShowMessageAndWaitAsync("Open Gw2, then press OK").ConfigureAwait(false);
-                    var mean = InputDelay.Mean(await _meter.MeasureAsync(ct).ConfigureAwait(false));
-                    if (mean is null) _view.ReportProblem("No sound was detected, so the host's input delay was not changed.");
+                    await _view.ShowMessageAndWaitAsync("Open Gw2, then press OK. The game is brought to the front for the test.").ConfigureAwait(false);
+                    long? mean = null;
+                    try
+                    {
+                        mean = InputDelay.Mean(await _meter.MeasureAsync(ct).ConfigureAwait(false));
+                        if (mean is null) _view.ReportProblem("No sound was detected, so the host's input delay was not changed.");
+                    }
+                    catch (InputDelayException ex)
+                    {
+                        _view.ReportProblem(ex.Message + " The host's input delay was not changed.");
+                    }
                     value = mean?.ToString(CultureInfo.InvariantCulture) ?? InputDelayOf(1);
                 }
                 else

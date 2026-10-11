@@ -49,9 +49,17 @@ internal sealed class FakeMeter : IInputDelayMeter
     public Task<IReadOnlyList<double>> MeasureAsync(CancellationToken ct) => Task.FromResult(_samples);
 }
 
+/// <summary>A meter whose test cannot run (Guild Wars 2 is not open).</summary>
+internal sealed class GameClosedMeter : IInputDelayMeter
+{
+    public Task<IReadOnlyList<double>> MeasureAsync(CancellationToken ct) =>
+        Task.FromException<IReadOnlyList<double>>(new InputDelayException("Guild Wars 2 is not open. Start the game, then run Sync again."));
+}
+
 internal class FakeView : IHostView
 {
     public readonly ConcurrentQueue<string> Dialog = new();
+    public readonly ConcurrentQueue<string> Events = new();
     public readonly ConcurrentQueue<string> Statuses = new();
     public readonly ConcurrentQueue<string> Messages = new();
     public readonly ConcurrentQueue<string> Problems = new();
@@ -62,6 +70,7 @@ internal class FakeView : IHostView
 
     public void SetStatus(string text) => Statuses.Enqueue(text);
     public void AppendDialog(string line) => Dialog.Enqueue(line);
+    public void LogEvent(string line) => Events.Enqueue(line);
     public void SetChatEnabled(bool enabled) => ChatEnabled = enabled;
     public void ShowMessage(string text) => Messages.Enqueue(text);
     public Task ShowMessageAndWaitAsync(string text) { Messages.Enqueue(text); return Task.CompletedTask; }

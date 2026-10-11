@@ -21,15 +21,22 @@ public sealed class DataFileEditor
     public List<string> Lines { get; }
 
     /// <summary>
-    /// Opening the editor creates Data.csv with a header if it is missing and removes lines that are empty or contain
-    /// only commas (rewriting the file), as CsvEditor.ahk did on start.
+    /// CsvEditor.ahk wrote these two template lines into a missing Data.csv. They are not songs and only showed up as
+    /// odd rows in the editor, so they are no longer written and are removed when found.
+    /// </summary>
+    private static readonly string[] TemplateLines = { "col1,col2,col3,col4", "name,players,tempo,description" };
+
+    /// <summary>
+    /// Opening the editor creates an empty Data.csv if it is missing and removes lines that are empty, contain only
+    /// commas or are the old template lines (rewriting the file), as CsvEditor.ahk did on start.
     /// </summary>
     public static DataFileEditor Open(SongLibrary library)
     {
         var path = library.DataCsvPath;
-        if (!File.Exists(path)) LegacyText.Write(path, "col1,col2,col3,col4\nname,players,tempo,description");
+        if (!File.Exists(path)) LegacyText.Write(path, "");
         var text = LegacyText.ReadText(path);
-        var lines = text.Split('\n').Select(l => l.Trim('\r')).Where(l => l.Any(c => c != ',')).ToList();
+        var lines = text.Split('\n').Select(l => l.Trim('\r'))
+            .Where(l => l.Any(c => c != ',') && !TemplateLines.Contains(l.Trim(), StringComparer.OrdinalIgnoreCase)).ToList();
         LegacyText.Write(path, string.Concat(lines.Select(l => l + "\n")));
         return new DataFileEditor(library, lines);
     }

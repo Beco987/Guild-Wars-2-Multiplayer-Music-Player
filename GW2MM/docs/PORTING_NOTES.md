@@ -36,7 +36,8 @@ they are covered by the golden tests against the original code.
   *OctaveDelay* ms pauses. F4 resets octaves and exits. A song ending naturally does not reset octaves.
 * F2 pauses only the host; on resume it catches up overdue notes in a burst, as the paused AHK timer did.
 * F10/F11 on the host change a tempo value that is recalculated at the next Play, so they have no audible effect.
-* A client can stop the song by typing a chat message containing "Stop" (it has no stop hotkey).
+* A client can stop the song by typing "stop" in the chat (it has no stop hotkey). The whole message must be "stop"
+  (any case); see change 2.
 * Client slots are assigned in order (2–5) and reused after a disconnect. Extra clients can chat but get no slot.
 * A disconnect shows "The client disconnected!" and commits and hides the Port Mapping window.
 * Edits in the Port Mapping window take effect only on Save (or on a disconnect). Sync and client reports
@@ -53,7 +54,7 @@ they are covered by the golden tests against the original code.
 | # | Original behaviour | New behaviour | Reason |
 |---|---|---|---|
 | 1 | AHKsock frames with a 16-bit length | JSON lines (`Net/Messages.cs`) | Songs over ~32 000 characters overflowed the length field and corrupted the stream. The new protocol is **not compatible** with the AHK scripts. |
-| 2 | Any received text containing `Stop`, `Play`, `StartSong`, `Sync`, `Socket`, `Note_1`… triggered that command, even in chat | Commands are typed messages; only the chat "Stop" convention is kept | Ordinary chat could start songs or corrupt state. |
+| 2 | Any received text containing `Stop`, `Play`, `StartSong`, `Sync`, `Socket`, `Note_1`… triggered that command, even in chat. Clients never saw each other's messages | Commands are typed messages. Chat is only displayed. The host passes each message on to every other client, labelled with the sender's name. The one chat command is a message that is exactly "stop" (any case), which stops the song like F3 | Ordinary chat could start songs, stop them, or corrupt state. |
 | 3 | Client songs were sent as `Play;` chunks and cut at the first `;` | The whole CSV is sent in one message | Lines containing `;` (e.g. in titles) were truncated. |
 | 4 | A blank input delay or `Pings[1]` (e.g. before Sync, or after Port Mapping Save) made every note fire at once | Blank counts as 0. Latency = slot delay − host (Ip1) delay | Demonstrable bug. Relative timing between players is unchanged from the working case (Sync then play). |
 | 5 | A client that did not report its clock within 2 s got times based on a stale value, so its notes fired at once or never | That client's part is not sent and a warning is shown | Demonstrable bug. |
@@ -64,17 +65,18 @@ they are covered by the golden tests against the original code.
 | 10 | Settings → Save rewrote Config.txt and **restarted the script**, dropping all connections. A missing line could never be added | Values are applied live. Missing lines are appended | Avoids disconnecting everyone. |
 | 11 | The host asked for a "peer address" at start-up and tried to connect to it. The client also listened on 27015 | The host just listens. Clients only connect | Those connections were never used for playback. |
 | 12 | Ping pooled samples across clients and button presses | Per-client samples, matched by probe id | The displayed value was wrong for every client after the first. |
-| 13 | Sync waited forever for sound after each press and froze the client's network handling | Each press times out after 3 s. If nothing is heard the host keeps its old value (the client sends blank). Networking keeps running | The app could hang forever. |
+| 13 | Sync waited forever for sound after each press and froze the client's network handling. It pressed "1" in whatever window had focus (usually GW2MM itself, right after its "press OK" prompt) | Sync requires Guild Wars 2 to be open and brings it to the front before the first press; a press is only sent while the game is in front. Each press times out after 3 s. If nothing is heard, or the game isn't open, the host keeps its old value (the client sends blank). Networking keeps running | The app could hang forever, and the test measured nothing unless the user clicked into the game in time. |
 | 14 | MIDI conversion via a generated `.bat` running Midicsv.exe plus a blind 2 s wait | In-process converter with byte-identical output | Removes the race and the temp file. The `Csv`/`Midi` folders are created if missing. |
 | 15 | New Song accepted an empty title or no file, leaving a broken Data.csv entry. A file outside `Midi\` whose name matched one inside was *moved* | Title and file are required. Files outside `Midi\` are copied, files inside are renamed | Prevents broken entries and surprising file moves. |
 | 16 | Delete with no song selected offered to delete "" | Does nothing | Guard. |
-| 17 | The chat box echoed every raw protocol message (including whole songs) | It shows one short line per message (`Peer > Tick_Count`, `Peer > Note_1 (523 notes)`) | Readability. |
+| 17 | The chat box echoed every raw protocol message (including whole songs), and every line was labelled "Peer" | The chat box shows only chat, labelled with the sender's name (`bob > hi`, `Host > hi`), plus join notices. Protocol messages go to `GW2MM.log` (`Event: Tick_Count`, `Event: Note_1 (523 notes)`) | Readability. |
 | 18 | The client's Controls window said F1 plays (the hotkey is F11). The host's omitted F2 | Texts corrected | Documentation bug. |
 | 19 | `ConnectConfig.txt` "Name" prompt (value never used) | Dropped | Dead code. Neither shipped folder contains the file. |
 | 20 | Realtime process priority; AHK keyboard-hook hotkeys | High priority; `RegisterHotKey` (no auto-repeat). A key already taken by another program is reported in the chat box | Realtime priority can starve the system. |
 | 21 | Files relative to the working directory | Relative to the exe folder (or `--data`) | Fragile paths. |
 | 22 | Line breaks in descriptions were only partly removed | All line breaks are replaced by spaces | Data.csv consistency. |
 | 23 | Midicsv read past the end of malformed tracks (no End_track or truncated), printing uninitialised memory | Conversion stops at the end of the chunk | Undefined behaviour cannot be reproduced. Well-formed files are byte-identical. |
+| 24 | The Data Editor wrote `col1,col2,col3,col4` and `name,players,tempo,description` into a missing Data.csv, and showed them as rows | A missing Data.csv is created empty. Those two lines are removed when found | They are not songs. |
 
 Changes 5–8 were found by reading the original code (the oracle runs each case in a fresh process, so it cannot
 show cross-song or concurrency effects). The corrected behaviour is covered by the integration tests.

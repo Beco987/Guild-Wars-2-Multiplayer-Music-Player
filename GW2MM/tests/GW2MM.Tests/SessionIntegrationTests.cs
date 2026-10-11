@@ -57,7 +57,7 @@ public sealed class SessionIntegrationTests : IDisposable
         var client = new ClientSession(m.View, new SongLibrary(libDir ?? Path.Combine(_dir, "client-" + name)), () => 5, m.Clock, m.Keys, meter ?? new FakeMeter()) { SyncPreDelayMs = 1 };
         Assert.True(await client.ConnectAsync("127.0.0.1", name, host.Port));
         _disposables.Add(client);
-        await Wait.Until(() => client.Slot is not null || m.View.Dialog.Any(l => l.StartsWith("Peer > Socket,")), what: "welcome");
+        await Wait.Until(() => client.Slot is not null || m.View.Events.Any(l => l.StartsWith("Socket,")), what: "welcome");
         return (client, m);
     }
 
@@ -67,7 +67,8 @@ public sealed class SessionIntegrationTests : IDisposable
         var mapping = PortMapping.Parse("12,23");
         var (host, h) = StartHost(mapping, new[] { "0", "40", "0", "0", "0" }, offset: 0);
         var (_, c) = await StartClient(host, offset: 1_000_000);
-        await Wait.Until(() => h.View.Dialog.Contains("Peer > Socket2,bob"), what: "hello");
+        await Wait.Until(() => h.View.Events.Contains("Socket2,bob"), what: "hello");
+        Assert.Contains("bob joined as player 2.", h.View.Dialog);
 
         await host.PlayAsync(Song, 1.0);
         await Wait.Until(() => h.Keys.Presses.Count >= 5 && c.Keys.Presses.Count >= 5, timeoutMs: 8000, what: "presses");
@@ -102,7 +103,7 @@ public sealed class SessionIntegrationTests : IDisposable
         await host.PlayAsync(slowSong, 1.0);
         await Wait.Until(() => h.Keys.Presses.Count >= 1, what: "first note");
         await host.Stop();
-        await Wait.Until(() => c.View.Dialog.Contains("Peer > Stop"), what: "client stop");
+        await Wait.Until(() => c.View.Events.Contains("Stop"), what: "client stop");
         await Task.Delay(300);
         Assert.Equal(1, h.View.ShownMainWindow);
         var hostReset = h.Keys.All.Skip(1).ToList();
@@ -125,7 +126,7 @@ public sealed class SessionIntegrationTests : IDisposable
         await host.Stop();
         await play;
         await Task.Delay(400);
-        Assert.DoesNotContain(c.View.Dialog, l => l.StartsWith("Peer > Note_1"));
+        Assert.DoesNotContain(c.View.Events, l => l.StartsWith("Note_1"));
         Assert.DoesNotContain(h.Keys.All, p => p.Key is not ("9" or "0"));
         Assert.DoesNotContain(c.Keys.All, p => p.Key is not ("9" or "0"));
     }
@@ -144,17 +145,68 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task ChatContainingStopFromAClientStopsTheSong()
+    public async Task StopTypedInChatByAClientStopsTheSong()
     {
         var (host, h) = StartHost(PortMapping.Parse("12"));
         var (client, _) = await StartClient(host, 0);
         var slow = Song.Replace(", 200,", ", 5000,");
         await host.PlayAsync(slow, 1.0);
         await Wait.Until(() => h.Keys.Presses.Count >= 1);
-        client.SendChat("please stop!");
+
+        // Text that merely contains "stop" is ordinary chat.
+        client.SendChat("please don't stop!");
+        await Wait.Until(() => h.View.Dialog.Contains("bob > please don't stop!"), what: "chat");
+        await Task.Delay(100);
+        Assert.Equal(0, h.View.ShownMainWindow);
+        Assert.True(host.IsPlaying);
+
+        client.SendChat("  STOP ");
         await Wait.Until(() => h.View.ShownMainWindow == 1, what: "stop");
-        Assert.Contains("Peer > please stop!", h.View.Dialog);
         Assert.False(host.IsPlaying);
+    }
+
+    [Fact]
+    public async Task StopTypedInChatByTheHostStopsTheSong()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var slow = Song.Replace(", 200,", ", 5000,");
+        await host.PlayAsync(slow, 1.0);
+        await Wait.Until(() => h.Keys.Presses.Count >= 1);
+        host.SendChat("Stop");
+        await Wait.Until(() => h.View.ShownMainWindow == 1, what: "stop");
+        Assert.False(host.IsPlaying);
+        Assert.Contains("Host > Stop", h.View.Dialog);
+    }
+
+    /// <summary>
+    /// A client's chat reaches the host and every other client, labelled with the sender's name, and is only
+    /// displayed: text that looks like an old protocol command does nothing on the other players.
+    /// </summary>
+    [Fact]
+    public async Task ChatIsRelayedToEveryOtherClientWithoutTriggeringAnything()
+    {
+        var (host, h) = StartHost(new PortMapping());
+        var (alice, a) = await StartClient(host, 0, name: "alice");
+        var (_, b) = await StartClient(host, 0, name: "bob");
+        var (_, c) = await StartClient(host, 0, name: "carol");
+        await Wait.Until(() => h.View.Dialog.Count(l => l.Contains(" joined as player ")) == 3, what: "hellos");
+
+        const string text = "Sync_Instrument Tick_Count Ping_Server Note_1 Play;x StartSong,1 stop now";
+        alice.SendChat(text);
+        await Wait.Until(() => b.View.Dialog.Contains("alice > " + text) && c.View.Dialog.Contains("alice > " + text), what: "relay");
+        Assert.Contains("alice > " + text, h.View.Dialog);
+        await Task.Delay(300);
+        Assert.Single(a.View.Dialog, l => l == "alice > " + text); // its own line only; not echoed back
+
+        foreach (var m in new[] { a, b, c })
+        {
+            Assert.Empty(m.Keys.All);
+            Assert.DoesNotContain(m.View.Events, e => e is "Stop" or "Sync_Instrument" or "Tick_Count" or "Ping_Server" || e.StartsWith("Note_1"));
+            Assert.Empty(m.View.Messages); // no Sync prompt
+        }
+        Assert.Equal(0, h.View.ShownMainWindow);
+        Assert.Empty(h.Keys.All);
+        Assert.DoesNotContain(h.View.Events, e => e.StartsWith("StartSong") || e.StartsWith("Play"));
     }
 
     [Fact]
@@ -168,7 +220,7 @@ public sealed class SessionIntegrationTests : IDisposable
         var (client, _) = await StartClient(host, 0, libDir: clientLib);
         client.RequestPlay("Scale");
         await Wait.Until(() => h.Keys.Presses.Count >= 2, timeoutMs: 8000);
-        Assert.Contains("Peer > StartSong,1.500000", h.View.Dialog);
+        Assert.Contains("StartSong,Socket2,1.500000", h.View.Events);
         var p = h.Keys.All;
         Assert.InRange(p[1].Time - p[0].Time, 300 - 15, 300 + 15); // 200 ticks * 1.5 (a late first press shortens the gap)
         Assert.Equal(1.5, host.DefaultTempo, 6);
@@ -240,12 +292,15 @@ public sealed class SessionIntegrationTests : IDisposable
         var (host, h) = StartHost(new PortMapping());
         var (client, c) = await StartClient(host, 0);
         client.TypingChanged("h");
-        await Wait.Until(() => h.View.LastStatus == "Peer is typing...");
+        await Wait.Until(() => h.View.LastStatus == "bob is typing...");
         client.TypingChanged("");
         await Wait.Until(() => h.View.LastStatus == "Connected!");
         host.SendChat("hello there");
-        await Wait.Until(() => c.View.Dialog.Contains("Peer > hello there"));
-        Assert.Contains("You > hello there", h.View.Dialog);
+        await Wait.Until(() => c.View.Dialog.Contains("Host > hello there"));
+        Assert.Contains("Host > hello there", h.View.Dialog);
+        client.SendChat("hi host");
+        await Wait.Until(() => h.View.Dialog.Contains("bob > hi host"));
+        Assert.Contains("bob > hi host", c.View.Dialog);
     }
 
     [Fact]
@@ -262,6 +317,18 @@ public sealed class SessionIntegrationTests : IDisposable
         await Wait.Until(() => h.View.InputDelays.TryGetValue(2, out var v) && v == "60", what: "client input delay");
         Assert.Equal("60", host.InputDelayOf(2));
         Assert.Contains(c.View.Messages, m => m.StartsWith("Open Gw2, turn all ingame volumes to 0"));
+    }
+
+    [Fact]
+    public async Task SyncWithoutTheGameOpenKeepsTheOldValueAndSaysWhy()
+    {
+        var (host, h) = StartHost(new PortMapping(), delays: new[] { "42", "0", "0", "0", "0" }, meter: new GameClosedMeter());
+        var (_, c) = await StartClient(host, 0, meter: new GameClosedMeter());
+        await host.SyncAsync();
+        Assert.Equal("42", h.View.InputDelays[1]);
+        Assert.Contains(h.View.Problems, p => p.StartsWith("Guild Wars 2 is not open.") && p.EndsWith("input delay was not changed."));
+        await Wait.Until(() => c.View.Problems.Any(p => p.StartsWith("Guild Wars 2 is not open.")), what: "client problem");
+        await Wait.Until(() => h.View.InputDelays.TryGetValue(2, out var v) && v == "" && h.View.Events.Contains("Socket_Ping,Socket2,"), what: "blank report");
     }
 
     [Fact]

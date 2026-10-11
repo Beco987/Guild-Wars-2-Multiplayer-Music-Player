@@ -115,10 +115,20 @@ public sealed class LibraryAndConfigTests : IDisposable
     }
 
     [Fact]
-    public void DataEditorCreatesAMissingFile()
+    public void DataEditorCreatesAMissingFileWithoutTemplateRows()
     {
         var ed = DataFileEditor.Open(Lib());
-        Assert.Equal(new[] { "col1,col2,col3,col4", "name,players,tempo,description" }, ed.Lines);
+        Assert.Empty(ed.Lines);
+        Assert.Equal("", File.ReadAllText(P("Data.csv")));
+    }
+
+    [Fact]
+    public void DataEditorRemovesTemplateRowsLeftByEarlierVersions()
+    {
+        File.WriteAllText(P("Data.csv"), "col1,col2,col3,col4\nname,players,tempo,description\nAlpha, 3, -1, x\n");
+        var ed = DataFileEditor.Open(Lib());
+        Assert.Equal(new[] { "Alpha, 3, -1, x" }, ed.Lines);
+        Assert.Equal("Alpha, 3, -1, x\n", File.ReadAllText(P("Data.csv")));
     }
 
     [Fact]

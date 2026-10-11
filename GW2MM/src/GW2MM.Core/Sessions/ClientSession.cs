@@ -21,6 +21,7 @@ public sealed class ClientSession : IDisposable
     private PeerConnection? _conn;
     private PlaybackLoop? _loop;
     private bool _lastTyping;
+    private string _name = "";
     private int _syncBusy;
 
     public ClientSession(ISessionView view, SongLibrary library, Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, IInputDelayMeter meter)
@@ -51,7 +52,12 @@ public sealed class ClientSession : IDisposable
             _view.SetStatus("Failed to Connect...");
             return false;
         }
-        lock (_gate) _conn = conn;
+        lock (_gate)
+        {
+            _conn = conn;
+            _name = name.Trim();
+            if (_name.Length > 40) _name = _name[..40]; // the host's limit
+        }
         conn.Received += OnReceived;
         conn.Closed += OnClosed;
         conn.Start();
@@ -83,31 +89,31 @@ public sealed class ClientSession : IDisposable
             case ClockRequest r:
                 // Answer first, from the network thread, so the reported clock is as fresh as possible.
                 conn.Send(new ClockReply(r.Id, _clock.NowMs));
-                _view.AppendDialog("Peer > Tick_Count");
+                _view.LogEvent("Tick_Count");
                 break;
             case Ping p:
                 conn.Send(new Pong(p.Id));
-                _view.AppendDialog("Peer > Ping_Server");
+                _view.LogEvent("Ping_Server");
                 break;
             case SongPart s:
-                _view.AppendDialog($"Peer > Rest_1 ({s.Rests.Length} times)");
-                _view.AppendDialog($"Peer > Note_1 ({s.Notes.Length} notes)");
+                _view.LogEvent($"Rest_1 ({s.Rests.Length} times)");
+                _view.LogEvent($"Note_1 ({s.Notes.Length} notes)");
                 StartPart(s);
                 break;
             case StopPlayback:
-                _view.AppendDialog("Peer > Stop");
+                _view.LogEvent("Stop");
                 _ = StopAsync();
                 break;
             case Chat c:
-                _view.AppendDialog("Peer > " + c.Text);
-                if (c.Text.Contains("Stop", StringComparison.OrdinalIgnoreCase)) _ = StopAsync();
+                // Display only: chat text never triggers anything on a client.
+                _view.AppendDialog(ChatRules.Line(string.IsNullOrWhiteSpace(c.From) ? ChatRules.HostName : c.From, c.Text));
                 break;
             case Welcome w:
                 Slot = w.Slot;
-                _view.AppendDialog("Peer > Socket,Socket" + (w.Slot?.ToString(CultureInfo.InvariantCulture) ?? ""));
+                _view.LogEvent("Socket,Socket" + (w.Slot?.ToString(CultureInfo.InvariantCulture) ?? ""));
                 break;
             case SyncInstrument:
-                _view.AppendDialog("Peer > Sync_Instrument");
+                _view.LogEvent("Sync_Instrument");
                 _ = SyncAsync();
                 break;
         }
@@ -144,9 +150,16 @@ public sealed class ClientSession : IDisposable
         if (Interlocked.Exchange(ref _syncBusy, 1) != 0) return;
         try
         {
-            await _view.ShowMessageAndWaitAsync("Open Gw2, turn all ingame volumes to 0 EXCEPT for player instruments, then press OK").ConfigureAwait(false);
+            await _view.ShowMessageAndWaitAsync("Open Gw2, turn all ingame volumes to 0 EXCEPT for player instruments, then press OK. The game is brought to the front for the test.").ConfigureAwait(false);
             await Task.Delay(SyncPreDelayMs).ConfigureAwait(false);
-            var mean = InputDelay.Mean(await _meter.MeasureAsync(CancellationToken.None).ConfigureAwait(false));
+            long? mean;
+            try { mean = InputDelay.Mean(await _meter.MeasureAsync(CancellationToken.None).ConfigureAwait(false)); }
+            catch (InputDelayException ex)
+            {
+                _view.ReportProblem(ex.Message + " The host was sent a blank input delay.");
+                Send(new InputDelayReport(null));
+                return;
+            }
             if (mean is null) _view.ReportProblem("No sound was detected; the host was sent a blank input delay.");
             Send(new InputDelayReport(mean));
         }
@@ -158,7 +171,7 @@ public sealed class ClientSession : IDisposable
     {
         if (string.IsNullOrEmpty(text) || !IsConnected) return;
         Send(new Chat(text));
-        _view.AppendDialog("You > " + text);
+        _view.AppendDialog(ChatRules.Line(string.IsNullOrWhiteSpace(_name) ? "You" : _name, text));
     }
 
     /// <summary>Chat box text changed: tell the host when typing starts/stops (only on change).</summary>

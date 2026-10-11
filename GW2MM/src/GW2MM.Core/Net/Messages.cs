@@ -27,8 +27,12 @@ public abstract record Message;
 // ---- host -> client ----
 /// <summary>Player slot assigned to the client (2..5), or null when all slots are taken ("Socket,Socket&lt;n&gt;").</summary>
 public sealed record Welcome(int? Slot) : Message;
-/// <summary>Chat text (both directions).</summary>
-public sealed record Chat(string Text) : Message;
+/// <summary>
+/// Chat text (both directions). From is the sender's name, set by the host when it passes a message on to the
+/// other clients ("Host" for the host's own messages); a client leaves it empty, as the host knows who sent it.
+/// Chat is only ever displayed: the only chat command is "stop" (see ChatRules), which only the host acts on.
+/// </summary>
+public sealed record Chat(string Text, string? From = null) : Message;
 /// <summary>Asks for the client's clock ("Tick_Count").</summary>
 public sealed record ClockRequest(int Id) : Message;
 /// <summary>The client's part: key strings and the client-clock times ("Note_1"/"Rest_1").</summary>
