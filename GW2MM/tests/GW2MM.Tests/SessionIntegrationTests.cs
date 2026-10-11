@@ -10,7 +10,7 @@ namespace GW2MM.Tests;
 [Collection(TimingCollection.Name)]
 public sealed class SessionIntegrationTests : IDisposable
 {
-    private static readonly HostTimings FastTimings = new() { ClockWaitMs = 300, ClientPlayRequestDelayMs = 20, OctaveResetDelayMs = 5, PingCount = 4, PingIntervalMs = 20, SyncPreDelayMs = 1 };
+    private static readonly HostTimings FastTimings = new() { ClockWaitMs = 300, ClientPlayRequestDelayMs = 20, OctaveResetDelayMs = 5, PingCount = 4, PingIntervalMs = 20, SyncPreDelayMs = 1, SongTailMs = 50, PlaylistGapMs = 50 };
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "gw2mm-it-" + Guid.NewGuid().ToString("N"));
     private readonly List<IDisposable> _disposables = new();
 
@@ -344,5 +344,141 @@ public sealed class SessionIntegrationTests : IDisposable
         await Wait.Until(() => h.Keys.Presses.Count >= 5);
         var hp = h.Keys.All;
         Assert.True(hp[^1].Time - hp[0].Time < 50, "caught up in a burst after resuming");
+    }
+
+    // ------------------------------------------------------------------ playlists
+
+    private static readonly string[] ResetKeys = { "9", "0" };
+
+    /// <summary>Notes (not octave-reset presses) between resets: one group per song played.</summary>
+    private static List<List<string>> SongsPlayed(IEnumerable<Press> presses)
+    {
+        var groups = new List<List<string>> { new() };
+        foreach (var p in presses)
+        {
+            if (ResetKeys.Contains(p.Key)) { if (groups[^1].Count > 0) groups.Add(new List<string>()); }
+            else groups[^1].Add(p.Key);
+        }
+        return groups.Where(g => g.Count > 0).ToList();
+    }
+
+    private static QueuedSong Q(string name, string csv = Song) => new(name, csv, 1.0);
+
+    [Fact]
+    public async Task PlaylistPlaysEachSongInTurnAndResetsOctavesBetween()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        await host.PlayPlaylistAsync("Set", new[] { Q("A"), Q("B") }, 0, repeat: false);
+
+        var songs = SongsPlayed(h.Keys.All);
+        Assert.Equal(2, songs.Count);
+        Assert.All(songs, s => Assert.Equal(new[] { "1", "2", "3", "4", "5" }, s));
+        Assert.Equal(2 * 3 * 5, h.Keys.All.Count(p => ResetKeys.Contains(p.Key))); // 9, 9, 0 to Player1..5 after each song
+        Assert.Equal(new NowPlayingInfo?[] { new("A", "Set", 1, 2), new("B", "Set", 2, 2), null }, h.View.NowPlaying);
+        Assert.Contains("♪ Now playing: B (2/2 in Set)", h.View.Dialog);
+        Assert.Contains("♪ Playlist Set finished.", h.View.Dialog);
+        Assert.False(host.IsPlaylistRunning);
+    }
+
+    [Fact]
+    public async Task PlaylistStartsAtTheChosenSongAndClientsHearAboutIt()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var (_, c) = await StartClient(host, 0);
+        await host.PlayPlaylistAsync("Set", new[] { Q("A"), Q("B"), Q("C") }, 1, repeat: false);
+        Assert.Equal(2, SongsPlayed(h.Keys.All).Count);
+        await Wait.Until(() => c.View.Dialog.Contains("♪ Playlist Set finished."), what: "client notice");
+        Assert.Equal(new[] { "♪ Now playing: B (2/3 in Set)", "♪ Now playing: C (3/3 in Set)", "♪ Playlist Set finished." },
+            c.View.Dialog.Where(l => l.StartsWith("♪")));
+        Assert.Null(c.View.NowPlaying.Last());
+    }
+
+    [Fact]
+    public async Task NextSkipsToTheFollowingSong()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var slow = Song.Replace(", 200,", ", 5000,");
+        var playing = host.PlayPlaylistAsync("Set", new[] { Q("Slow", slow), Q("B") }, 0, repeat: false);
+        await Wait.Until(() => h.Keys.Presses.Count >= 1, what: "first note");
+        Assert.True(host.NextSong());
+        await playing.WaitAsync(TimeSpan.FromSeconds(8));
+        var songs = SongsPlayed(h.Keys.All);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, songs[^1]);
+        Assert.True(songs[0].Count < 5, "the slow song was cut short");
+        Assert.False(host.NextSong());
+    }
+
+    [Fact]
+    public async Task StopEndsThePlaylist()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var slow = Song.Replace(", 200,", ", 5000,");
+        var playing = host.PlayPlaylistAsync("Set", new[] { Q("Slow", slow), Q("B") }, 0, repeat: false);
+        await Wait.Until(() => h.Keys.Presses.Count >= 1, what: "first note");
+        await host.Stop();
+        await playing.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(host.IsPlaylistRunning);
+        Assert.DoesNotContain(h.View.Dialog, l => l.Contains("(2/2 in Set)") || l.Contains("finished"));
+        Assert.Null(h.View.NowPlaying.Last());
+    }
+
+    [Fact]
+    public async Task PlayingASingleSongEndsThePlaylist()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var slow = Song.Replace(", 200,", ", 5000,");
+        var playing = host.PlayPlaylistAsync("Set", new[] { Q("Slow", slow), Q("B") }, 0, repeat: false);
+        await Wait.Until(() => h.Keys.Presses.Count >= 1, what: "first note");
+        await host.PlayAsync(Song, 1.0, "Single");
+        await playing.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(host.IsPlaylistRunning);
+        Assert.Contains("♪ Now playing: Single", h.View.Dialog);
+        Assert.DoesNotContain(h.View.Dialog, l => l.Contains("(2/2 in Set)"));
+    }
+
+    [Fact]
+    public async Task RepeatStartsOverUntilStopped()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var playing = host.PlayPlaylistAsync("Loop", new[] { Q("A") }, 0, repeat: true);
+        await Wait.Until(() => SongsPlayed(h.Keys.All).Count >= 2 && h.View.NowPlaying.Count(i => i is not null) >= 3, timeoutMs: 15000, what: "repeats");
+        await host.Stop();
+        await playing.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.All(h.View.NowPlaying.Where(i => i is not null), i => Assert.Equal(new NowPlayingInfo("A", "Loop", 1, 1), i));
+        Assert.DoesNotContain("♪ Playlist Loop finished.", h.View.Dialog);
+    }
+
+    [Fact]
+    public async Task AClientsPlaylistPlaysForEveryoneFromItsOwnLibrary()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12,23"));
+        var clientLib = Path.Combine(_dir, "clientlib");
+        Directory.CreateDirectory(Path.Combine(clientLib, "Csv"));
+        File.WriteAllText(Path.Combine(clientLib, "Csv", "Scale.csv"), Song);
+        File.WriteAllText(Path.Combine(clientLib, "Data.csv"), "Scale, 2, 0, test");
+        var (client, c) = await StartClient(host, 0, libDir: clientLib);
+        Assert.True(client.RequestPlaylist(new Playlist("Mine", new[] { "Scale", "Not here", "Scale" }), 0, shuffle: false, repeat: false));
+        Assert.Contains(c.View.Problems, p => p.Contains("Not here"));
+
+        await Wait.Until(() => h.View.Dialog.Contains("♪ Playlist Mine finished."), timeoutMs: 15000, what: "playlist end");
+        Assert.Contains("bob started the playlist Mine.", h.View.Dialog);
+        Assert.Equal(2, SongsPlayed(h.Keys.All).Count);
+        Assert.Equal(2, c.Keys.All.Count(p => p.Key == "8")); // the client's part (track 3) opens with "8": played twice
+        await Wait.Until(() => c.View.Dialog.Contains("♪ Playlist Mine finished."), what: "client notice");
+        Assert.Contains("♪ Now playing: Scale (2/2 in Mine)", c.View.Dialog);
+    }
+
+    [Fact]
+    public async Task AClientsSingleSongRequestIsAnnouncedByName()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var clientLib = Path.Combine(_dir, "clientlib2");
+        Directory.CreateDirectory(Path.Combine(clientLib, "Csv"));
+        File.WriteAllText(Path.Combine(clientLib, "Csv", "Scale.csv"), Song);
+        File.WriteAllText(Path.Combine(clientLib, "Data.csv"), "Scale, 2, 0, test");
+        var (client, c) = await StartClient(host, 0, libDir: clientLib);
+        client.RequestPlay("Scale");
+        await Wait.Until(() => c.View.Dialog.Contains("♪ Now playing: Scale"), what: "notice");
+        Assert.Contains("♪ Now playing: Scale", h.View.Dialog);
     }
 }

@@ -108,6 +108,19 @@ public sealed class ClientSession : IDisposable
                 // Display only: chat text never triggers anything on a client.
                 _view.AppendDialog(ChatRules.Line(string.IsNullOrWhiteSpace(c.From) ? ChatRules.HostName : c.From, c.Text));
                 break;
+            case NowPlaying np:
+                if (np.Song is not null)
+                {
+                    var info = new NowPlayingInfo(np.Song, np.Playlist, np.Index, np.Count);
+                    _view.AppendDialog(info.Notice);
+                    _view.OnNowPlaying(info);
+                }
+                else
+                {
+                    if (np.Finished && np.Playlist is not null) _view.AppendDialog($"♪ Playlist {np.Playlist} finished.");
+                    _view.OnNowPlaying(null);
+                }
+                break;
             case Welcome w:
                 Slot = w.Slot;
                 _view.LogEvent("Socket,Socket" + (w.Slot?.ToString(CultureInfo.InvariantCulture) ?? ""));
@@ -192,7 +205,34 @@ public sealed class ClientSession : IDisposable
         var name = songName ?? "";
         var csv = Library.ReadSongCsv(name) ?? "";
         var tempo = Library.TempoFactor(name).ToString("0.000000", CultureInfo.InvariantCulture);
-        Send(new PlayRequest(csv, tempo));
+        Send(new PlayRequest(csv, tempo, name.Length > 0 ? name : null));
+    }
+
+    /// <summary>
+    /// Asks the host to play one of this library's playlists for everyone (the client's F11 / Play on the Playlists
+    /// tab). Songs missing from the library are skipped. Returns false when nothing could be sent.
+    /// </summary>
+    public bool RequestPlaylist(Playlist playlist, int startIndex, bool shuffle, bool repeat)
+    {
+        if (!IsConnected) return false;
+        var songs = new List<PlayRequest>();
+        var missing = new List<string>();
+        foreach (var name in playlist.Songs)
+        {
+            if (Library.ReadSongCsv(name) is not { } csv) { missing.Add(name); continue; }
+            songs.Add(new PlayRequest(csv, Library.TempoFactor(name).ToString("0.000000", CultureInfo.InvariantCulture), name));
+        }
+        if (missing.Count > 0) _view.ReportProblem($"Skipping songs that are not in the library: {string.Join(", ", missing)}.");
+        if (songs.Count == 0)
+        {
+            _view.ReportProblem($"The playlist {playlist.Name} has no songs to play.");
+            return false;
+        }
+        var startName = startIndex >= 0 && startIndex < playlist.Songs.Count ? playlist.Songs[startIndex] : null;
+        var start = startName is null ? 0 : Math.Max(0, songs.FindIndex(s => s.Name == startName));
+        var (ordered, first) = PlaylistOrder.Arrange(songs, start, shuffle);
+        Send(new PlaylistRequest(playlist.Name, ordered.ToArray(), first, repeat));
+        return true;
     }
 
     public void Dispose()

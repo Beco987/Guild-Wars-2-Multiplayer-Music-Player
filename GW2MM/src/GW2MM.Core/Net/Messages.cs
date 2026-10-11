@@ -22,6 +22,8 @@ namespace GW2MM.Core.Net;
 [JsonDerivedType(typeof(Pong), "pong")]
 [JsonDerivedType(typeof(InputDelayReport), "inputDelay")]
 [JsonDerivedType(typeof(PlayRequest), "play")]
+[JsonDerivedType(typeof(PlaylistRequest), "playlist")]
+[JsonDerivedType(typeof(NowPlaying), "nowPlaying")]
 public abstract record Message;
 
 // ---- host -> client ----
@@ -43,6 +45,11 @@ public sealed record StopPlayback : Message;
 public sealed record SyncInstrument : Message;
 /// <summary>Round-trip probe ("Ping_Server").</summary>
 public sealed record Ping(int Id) : Message;
+/// <summary>
+/// What is playing (not in the original). Song is null when nothing is; Finished marks the natural end of a playlist.
+/// Index is 1-based within Count songs of Playlist (0 for a single song).
+/// </summary>
+public sealed record NowPlaying(string? Song, string? Playlist, int Index, int Count, bool Finished = false) : Message;
 
 // ---- client -> host ----
 /// <summary>The client's user name, sent once connected.</summary>
@@ -55,8 +62,13 @@ public sealed record ClockReply(int Id, double Tick) : Message;
 public sealed record Pong(int Id) : Message;
 /// <summary>Measured input delay in ms, null if nothing was measured ("Socket_Ping").</summary>
 public sealed record InputDelayReport(long? Ms) : Message;
-/// <summary>Play this song for everyone ("Play;..." chunks + "StartSong,tempo"). Tempo is the 6-decimal text the original sent.</summary>
-public sealed record PlayRequest(string Csv, string Tempo) : Message;
+/// <summary>
+/// Play this song for everyone ("Play;..." chunks + "StartSong,tempo"). Tempo is the 6-decimal text the original
+/// sent. Name (not in the original) is the song's name, for "now playing" notices.
+/// </summary>
+public sealed record PlayRequest(string Csv, string Tempo, string? Name = null) : Message;
+/// <summary>Play these songs one after another, starting at StartIndex (not in the original).</summary>
+public sealed record PlaylistRequest(string Name, PlayRequest[] Songs, int StartIndex, bool Repeat) : Message;
 
 public static class MessageCodec
 {

@@ -101,6 +101,12 @@ reachable from any hotkey, button or message.
   (`97.118.35.47`). The prompt now offers the address last entered (saved as `HostAddress` in Config.txt), starts
   empty the first time, and asks again if left blank.
 
+* **Playlists** (not in the original). A Playlists tab next to the song list creates, edits and plays playlists
+  on host and client (a client's playlist is played by the host for everyone, like F11). The host plays the songs in
+  order (optionally shuffled or repeated), resets octaves between songs, and announces each song in the chat. Next
+  is F5 on the host. Stored as `Playlists\<name>.txt`. Single songs requested by a client are now announced by name too
+  (`PlayRequest` carries the name).
+
 * **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
   Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
   The window-naming defaults changed on request from F5–F9 (host also Shift+F6–F8) to **Shift+F1–Shift+F8 for

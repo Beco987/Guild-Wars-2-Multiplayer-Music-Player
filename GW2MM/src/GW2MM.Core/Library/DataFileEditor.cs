@@ -54,7 +54,10 @@ public sealed class DataFileEditor
         Lines[index] = string.Join(",", Clean(name), Clean(players), Clean(tempo), Clean(description));
     }
 
-    /// <summary>Writes Data.csv; for each line whose name changed (case-insensitively) moves Csv\old.csv and Midi\old.mid.</summary>
+    /// <summary>
+    /// Writes Data.csv; for each line whose name changed (case-insensitively) moves Csv\old.csv and Midi\old.mid
+    /// and renames the song in every playlist.
+    /// </summary>
     public void Save()
     {
         for (var i = 0; i < _beforeNames.Count && i < Lines.Count; i++)
@@ -64,6 +67,7 @@ public sealed class DataFileEditor
             if (string.Equals(before, after, StringComparison.OrdinalIgnoreCase)) continue;
             MoveIfExists(Path.Combine(_library.CsvDir, before + ".csv"), Path.Combine(_library.CsvDir, after + ".csv"));
             MoveIfExists(Path.Combine(_library.MidiDir, before + ".mid"), Path.Combine(_library.MidiDir, after + ".mid"));
+            _library.Playlists.RenameSong(before, after);
         }
         LegacyText.Write(_library.DataCsvPath, string.Concat(Lines.Select(l => l + "\n")));
     }

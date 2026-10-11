@@ -32,6 +32,18 @@ public sealed class AppSettings
 
     /// <summary>Client only: the user name announced to the host.</summary>
     public string Name { get; set; } = "";
+    /// <summary>Playlists tab: shuffle and repeat, and the playlist last shown (not in the original).</summary>
+    public bool PlaylistShuffle { get; set; }
+    public bool PlaylistRepeat { get; set; }
+    public string LastPlaylist { get; set; } = "";
+
+    /// <summary>Stores the Playlists tab's options.</summary>
+    public void SavePlaylistOptions(string dataDir) =>
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
+        {
+            ("PlaylistShuffle", PlaylistShuffle ? "1" : "0"), ("PlaylistRepeat", PlaylistRepeat ? "1" : "0"), ("LastPlaylist", LastPlaylist),
+        });
+
     /// <summary>Client only: the last host address entered, offered again on the next start (not in the original).</summary>
     public string HostAddress { get; set; } = "";
 
@@ -47,6 +59,9 @@ public sealed class AppSettings
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
+            PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
+            PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
+            LastPlaylist = c.Get("LastPlaylist") ?? "",
             CheckForUpdates = c.Get("CheckForUpdates") is not { } u || LegacyConfig.IsTrue(u),
             OpenPortAutomatically = c.Get("OpenPort") is not { } o || LegacyConfig.IsTrue(o),
             Hotkeys = c.WithPrefix(HotkeyPrefix).ToDictionary(kv => kv.Key[HotkeyPrefix.Length..], kv => kv.Value, StringComparer.Ordinal),

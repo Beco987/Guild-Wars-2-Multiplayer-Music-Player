@@ -32,6 +32,10 @@ internal sealed class MainForm : Form, IHostView
     private PortOpener? _portOpener;
 
     private readonly ListView _songs;
+    private readonly TabControl _tabs;
+    private readonly TabPage _playlistsPage;
+    private readonly PlaylistPanel _playlists;
+    private readonly Label _playLabel;
     private readonly TextBox _description, _dialog, _input;
     private readonly Button _send;
     private readonly Label _status;
@@ -62,15 +66,29 @@ internal sealed class MainForm : Form, IHostView
         Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this)).BringToFront();
         Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds).Show(this)).BringToFront();
 
-        _songs = Ui.Add(this, new ListView
+        // Songs and Playlists share the list area as two tabs; Play plays whichever is showing.
+        _tabs = Ui.Add(this, new TabControl(), 10, 75, 290, 305);
+        var songsPage = new TabPage("Songs");
+        _playlistsPage = new TabPage("Playlists");
+        _tabs.TabPages.Add(songsPage);
+        _tabs.TabPages.Add(_playlistsPage);
+        _songs = new ListView
         {
-            View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, ShowItemToolTips = true,
-        }, 10, 75, 290, 305);
-        _songs.Columns.Add("Name", 170);
-        _songs.Columns.Add("Players", 58);
-        _songs.Columns.Add("Date", 58);
+            View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, ShowItemToolTips = true, Dock = DockStyle.Fill,
+        };
+        songsPage.Controls.Add(_songs);
+        _songs.Columns.Add("Name", 162);
+        _songs.Columns.Add("Players", 54);
+        _songs.Columns.Add("Date", 62);
         _songs.ItemSelectionChanged += (_, e) => { if (e.IsSelected) SelectSong(e.Item!.Text); };
         _songs.ColumnClick += (_, e) => SortBy(e.Column);
+        _songs.ContextMenuStrip = SongMenu();
+
+        _playlists = new PlaylistPanel(_library.Playlists, settings, dataDir, () => _library.ListSongs(), ReportProblem,
+            role == AppRole.Host ? () => _host?.NextSong() : null) { Dock = DockStyle.Fill };
+        _playlistsPage.Controls.Add(_playlists);
+        _playlists.PlayRequested += Play;
+        _playlists.SongSelected += name => { if (name is not null && _description is not null) _description.Text = _library.Description(name); };
 
         Ui.Button(this, "↻", 300, 365, 20, 20, (_, _) => ReloadSongs());
         Ui.Picture(this, "Page.png", 310, 85, 80, 80, (_, _) => ShowNewSong());
@@ -81,7 +99,8 @@ internal sealed class MainForm : Form, IHostView
         Ui.Label(this, "Data Editor", 320, 365, 72, 15);
 
         Ui.Picture(this, "Fa.png", 10, 390, 80, 80, (_, _) => Play());
-        Ui.Label(this, "Play", 10, 470, 80, 15, ContentAlignment.TopCenter);
+        _playLabel = Ui.Label(this, "Play", 0, 470, 100, 15, ContentAlignment.TopCenter);
+        _tabs.SelectedIndexChanged += (_, _) => _playLabel.Text = _tabs.SelectedTab == _playlistsPage ? "Play playlist" : "Play";
         _description = Ui.Add(this, new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical }, 100, 390, 200, 80);
         Ui.Label(this, "Song Description", 100, 470, 200, 15, ContentAlignment.TopCenter);
         Ui.Picture(this, "return.png", 310, 390, 80, 80, (_, _) => new ControlsForm(this).Show(this));
@@ -158,6 +177,7 @@ internal sealed class MainForm : Form, IHostView
         {
             h["PlaySong"] = Play;
             h["PauseResume"] = () => _host.TogglePause();
+            h["NextSong"] = () => _host.NextSong();
             h["StopSong"] = () => _ = _host.Stop();
             h["TempoUp"] = () => _host.NudgeTempo(0.01);
             h["TempoDown"] = () => _host.NudgeTempo(-0.01);
@@ -321,11 +341,60 @@ internal sealed class MainForm : Form, IHostView
 
     // ------------------------------------------------------------------ commands
 
+    /// <summary>Play icon / F1 (host) / F11 (client): the selected song, or on the Playlists tab the playlist from the selected song.</summary>
     private void Play()
     {
+        if (_tabs.SelectedTab == _playlistsPage)
+        {
+            PlayPlaylist();
+            return;
+        }
         if (_host is not null) _ = RunLogged(() => _host.PlayLocalAsync(_highlighted));
         else _client?.RequestPlay(_highlighted);
     }
+
+    private void PlayPlaylist()
+    {
+        if (_playlists.Current is not { } playlist)
+        {
+            ReportProblem("Create a playlist first (Playlist ▾ → New playlist…).");
+            return;
+        }
+        if (playlist.Songs.Count == 0)
+        {
+            ReportProblem($"The playlist {playlist.Name} is empty. Add songs with \"Add songs…\".");
+            return;
+        }
+        if (_host is not null)
+            _ = RunLogged(() => _host.PlayPlaylistLocalAsync(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat));
+        else if (_client is not null)
+        {
+            if (!_client.IsConnected) ReportProblem("Connect to a host first: the host plays the playlist for everyone.");
+            else _client.RequestPlaylist(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat);
+        }
+    }
+
+    /// <summary>The Songs tab's right-click menu: add the song to a playlist (or a new one).</summary>
+    private ContextMenuStrip SongMenu()
+    {
+        var menu = new ContextMenuStrip();
+        var addTo = new ToolStripMenuItem("Add to playlist");
+        menu.Items.Add(addTo);
+        menu.Items.Add("Play", null, (_, _) => Play());
+        menu.Opening += (_, e) =>
+        {
+            if (_songs.SelectedItems.Count == 0) { e.Cancel = true; return; }
+            var song = _songs.SelectedItems[0].Text;
+            addTo.DropDownItems.Clear();
+            foreach (var name in _playlists.PlaylistNames)
+                addTo.DropDownItems.Add(name, null, (_, _) => _playlists.AddTo(name, new[] { song }));
+            if (addTo.DropDownItems.Count > 0) addTo.DropDownItems.Add(new ToolStripSeparator());
+            addTo.DropDownItems.Add("New playlist…", null, (_, _) => { _playlists.AddTo(null, new[] { song }); _tabs.SelectedTab = _playlistsPage; });
+        };
+        return menu;
+    }
+
+    public void OnNowPlaying(NowPlayingInfo? info) => BeginInvokeSafe(() => _playlists.SetNowPlaying(info));
 
     private void Rename(string title)
     {
@@ -368,6 +437,8 @@ internal sealed class MainForm : Form, IHostView
             ReportProblem("Could not read the song list: " + ex.Message);
         }
         _songs.EndUpdate();
+        try { _playlists.LibraryChanged(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ReportProblem("Could not read the playlists: " + ex.Message); }
     }
 
     private int _sortColumn = -1;

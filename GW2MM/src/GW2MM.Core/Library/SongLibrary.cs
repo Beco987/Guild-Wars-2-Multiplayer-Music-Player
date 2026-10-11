@@ -37,9 +37,11 @@ public sealed class SongLibrary
     {
         Root = root;
         _recycler = recycler ?? new DeleteFileRecycler();
+        Playlists = new PlaylistStore(root);
     }
 
     public string Root { get; }
+    public PlaylistStore Playlists { get; }
     public string DataCsvPath => Path.Combine(Root, "Data.csv");
     public string CsvDir => Path.Combine(Root, "Csv");
     public string MidiDir => Path.Combine(Root, "Midi");
@@ -123,11 +125,15 @@ public sealed class SongLibrary
         return File.Exists(path) ? LegacyText.ReadText(path) : null;
     }
 
-    /// <summary>"Delete Song": recycles the CSV and MIDI and removes every Data.csv line with a field equal to the name.</summary>
+    /// <summary>
+    /// "Delete Song": recycles the CSV and MIDI, removes every Data.csv line with a field equal to the name, and
+    /// removes the song from every playlist.
+    /// </summary>
     public void Delete(string name)
     {
         foreach (var path in new[] { SongCsvPath(name), Path.Combine(MidiDir, name + ".mid") })
             if (File.Exists(path)) _recycler.Recycle(path);
+        Playlists.RemoveSong(name);
         if (!File.Exists(DataCsvPath)) return;
         var kept = LegacyText.Lines(LegacyText.ReadText(DataCsvPath)).Where(l => l.Length == 0 || !l.Split(',').Contains(name)).ToList();
         LegacyText.Write(DataCsvPath, string.Join("\n", kept));

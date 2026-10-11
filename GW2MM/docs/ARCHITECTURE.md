@@ -85,6 +85,17 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
 The host cancels the current run, sends `StopPlayback` to every slot, brings its window forward and resets octaves
 (9, 9, 0 to Player1–5, 150 ms apart). A client stops its loop and resets octaves with *OctaveDelay* ms pauses.
 
+### 5. Playlists (`HostSession.PlayPlaylistAsync`)
+
+The host runs the queue; a client's playlist arrives as one `PlaylistRequest` (each song's CSV and tempo, like a
+single `PlayRequest`). For each song the host announces `NowPlaying` (to its own window and every client) and
+starts it as above. `StartSongAsync` also records the run's `EndMs`: the latest due time of any part that was played,
+on the host's clock. The host waits until `EndMs + SongTailMs`, ends the song like a Stop but without cancelling
+the queue (`StopPlayback` to every slot, octave reset), pauses `PlaylistGapMs`, and starts the next. `NextSong`
+cancels only the current wait. Stop, a single song (local or requested) or another playlist cancels the queue's
+token. A song that cannot be prepared is skipped. Repeat starts over until stopped (unless a whole pass played
+nothing). Storage is `Library/PlaylistStore` (`Playlists\<name>.txt`); the UI is `Forms/PlaylistPanel`.
+
 ### Concurrency rules
 
 * Every session mutation (slots, port mapping, input delays, current run, pause) happens under one lock, and no

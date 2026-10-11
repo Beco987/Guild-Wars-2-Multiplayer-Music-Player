@@ -18,6 +18,7 @@ internal static class HotkeyCatalog
             new HotkeyAction("PauseResume", "Pause / resume this computer's playback", "F2"),
             new HotkeyAction("StopSong", "Stop everyone and reset octaves", "F3"),
             new HotkeyAction("Exit", "Reset octaves and exit", "F4"),
+            new HotkeyAction("NextSong", "Skip to the next song of the playlist", "F5"),
         }.Concat(Windows()).Concat(new[]
         {
             new HotkeyAction("TempoUp", "Tempo +1% (no audible effect, as in the original)", "F10"),

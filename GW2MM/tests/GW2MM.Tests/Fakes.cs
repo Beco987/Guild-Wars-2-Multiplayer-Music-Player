@@ -71,6 +71,8 @@ internal class FakeView : IHostView
     public void SetStatus(string text) => Statuses.Enqueue(text);
     public void AppendDialog(string line) => Dialog.Enqueue(line);
     public void LogEvent(string line) => Events.Enqueue(line);
+    public readonly ConcurrentQueue<NowPlayingInfo?> NowPlaying = new();
+    public void OnNowPlaying(NowPlayingInfo? info) => NowPlaying.Enqueue(info);
     public void SetChatEnabled(bool enabled) => ChatEnabled = enabled;
     public void ShowMessage(string text) => Messages.Enqueue(text);
     public Task ShowMessageAndWaitAsync(string text) { Messages.Enqueue(text); return Task.CompletedTask; }

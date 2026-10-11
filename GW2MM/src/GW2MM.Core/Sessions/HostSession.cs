@@ -210,6 +210,10 @@ public sealed class HostSession : IDisposable
                 _view.LogEvent($"StartSong,{socket},{pr.Tempo}");
                 _ = PlayFromClientAsync(pr);
                 break;
+            case PlaylistRequest pl:
+                _view.LogEvent($"Playlist,{socket},{pl.Name} ({pl.Songs.Length} songs)");
+                _ = PlayPlaylistFromClientAsync(conn, pl);
+                break;
         }
     }
 
@@ -262,20 +266,32 @@ public sealed class HostSession : IDisposable
     {
         var name = songName ?? "";
         var csv = Library.ReadSongCsv(name) ?? "";
-        return PlayAsync(csv, Library.TempoFactor(name));
+        return PlayAsync(csv, Library.TempoFactor(name), name.Length > 0 ? name : null);
     }
 
     private async Task PlayFromClientAsync(PlayRequest request)
     {
         await Task.Delay(Timings.ClientPlayRequestDelayMs).ConfigureAwait(false);
-        await PlayAsync(request.Csv, AhkValue.Number(request.Tempo)).ConfigureAwait(false);
+        await PlayAsync(request.Csv, AhkValue.Number(request.Tempo), request.Name).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Starts a song for everyone. A song that is already preparing or playing is abandoned first (without the octave
-    /// reset a Stop does), so two songs can never play at once.
+    /// reset a Stop does), so two songs can never play at once. A running playlist stops.
     /// </summary>
-    public async Task PlayAsync(string csvText, double? tempoFactor)
+    public async Task PlayAsync(string csvText, double? tempoFactor, string? songName = null)
+    {
+        CancelPlaylist();
+        if (songName is not null) Announce(new NowPlayingInfo(songName, null, 0, 0));
+        await StartSongAsync(csvText, tempoFactor).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Arranges and starts a song (abandoning any current one). Returns the started run, whose <see cref="SongRun.EndMs"/>
+    /// is when the last note of any part is due on this computer's clock; null when the song could not be prepared or
+    /// was replaced or stopped before it started.
+    /// </summary>
+    private async Task<SongRun?> StartSongAsync(string csvText, double? tempoFactor)
     {
         var run = new SongRun();
         lock (_gate)
@@ -296,7 +312,7 @@ public sealed class HostSession : IDisposable
         {
             _view.ReportProblem("Could not prepare the song: " + ex.Message);
             lock (_gate) if (_current == run) _current = null;
-            return;
+            return null;
         }
 
         // Sample every machine's clock at (about) the same moment T1.
@@ -315,12 +331,14 @@ public sealed class HostSession : IDisposable
         }
 
         try { await Task.Delay(Timings.ClockWaitMs, run.Token).ConfigureAwait(false); }
-        catch (OperationCanceledException) { return; }
+        catch (OperationCanceledException) { return null; }
 
         lock (_gate)
         {
-            if (run.Token.IsCancellationRequested || _current != run) return;
+            if (run.Token.IsCancellationRequested || _current != run) return null;
             var hostDelay = DelayNumber(_inputDelays[1]);
+            var hostTick = run.Ticks[1]!.Value;
+            var end = _clock.NowMs;
             for (var slot = 2; slot <= PortMapping.Slots; slot++)
             {
                 var part = plan[slot];
@@ -334,16 +352,181 @@ public sealed class HostSession : IDisposable
                 }
                 var times = Schedule.AbsoluteTimes(part, tick, DelayNumber(_inputDelays[slot]) - hostDelay);
                 conn.Send(new SongPart(part.Notes.ToArray(), times.Select(x => (double?)x).ToArray()));
+                end = Math.Max(end, LastTime(Schedule.AbsoluteTimes(part, hostTick, 0)));
             }
 
             var host = plan[1];
-            var hostTimes = host.IsActive ? Schedule.AbsoluteTimes(host, run.Ticks[1]!.Value, 0) : new List<double>();
+            var hostTimes = host.IsActive ? Schedule.AbsoluteTimes(host, hostTick, 0) : new List<double>();
+            end = Math.Max(end, LastTime(hostTimes));
+            run.EndMs = end;
             var loop = new PlaybackLoop(Schedule.HostEvents(host.Notes, hostTimes), _clock, _keys, _paused);
             loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
             run.Loop = loop;
             loop.Start();
             _ = loop.Completion.ContinueWith(_ => { lock (_gate) if (_current == run) _current = null; }, TaskScheduler.Default);
+            return run;
         }
+
+        static double LastTime(List<double> times) => times.Count == 0 ? double.NegativeInfinity : times[^1];
+    }
+
+    // ------------------------------------------------------------------ playlists
+
+    private CancellationTokenSource? _playlist;
+    private CancellationTokenSource? _songWait;
+
+    /// <summary>True while a playlist is running (between its first song and its end, Stop, or another song).</summary>
+    public bool IsPlaylistRunning { get { lock (_gate) return _playlist is not null; } }
+
+    /// <summary>Play button on the Playlists tab: plays one of this library's playlists for everyone.</summary>
+    public Task PlayPlaylistLocalAsync(Playlist playlist, int startIndex, bool shuffle, bool repeat)
+    {
+        var songs = new List<QueuedSong>();
+        var missing = new List<string>();
+        foreach (var name in playlist.Songs)
+        {
+            if (Library.ReadSongCsv(name) is { } csv) songs.Add(new QueuedSong(name, csv, Library.TempoFactor(name)));
+            else missing.Add(name);
+        }
+        if (missing.Count > 0) _view.ReportProblem($"Skipping songs that are not in the library: {string.Join(", ", missing)}.");
+        // The start index refers to the playlist as shown; find the same song among the ones that exist.
+        var startName = startIndex >= 0 && startIndex < playlist.Songs.Count ? playlist.Songs[startIndex] : null;
+        var start = startName is null ? 0 : Math.Max(0, songs.FindIndex(s => s.Name == startName));
+        var (ordered, first) = PlaylistOrder.Arrange(songs, start, shuffle);
+        return PlayPlaylistAsync(playlist.Name, ordered, first, repeat);
+    }
+
+    private async Task PlayPlaylistFromClientAsync(PeerConnection from, PlaylistRequest request)
+    {
+        await Task.Delay(Timings.ClientPlayRequestDelayMs).ConfigureAwait(false);
+        var songs = request.Songs.Select((s, i) => new QueuedSong(string.IsNullOrWhiteSpace(s.Name) ? $"Song {i + 1}" : s.Name!, s.Csv, AhkValue.Number(s.Tempo))).ToList();
+        _view.AppendDialog($"{NameOf(from)} started the playlist {request.Name}.");
+        await PlayPlaylistAsync(request.Name, songs, request.StartIndex, request.Repeat).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Plays the songs one after another for everyone. After each song (when the last note of every part is due, plus
+    /// <see cref="HostTimings.SongTailMs"/> for it to ring out) everyone's octaves are reset, and the next song starts
+    /// after <see cref="HostTimings.PlaylistGapMs"/>. Stop, playing another song or another playlist ends it;
+    /// <see cref="NextSong"/> skips ahead.
+    /// </summary>
+    public async Task PlayPlaylistAsync(string name, IReadOnlyList<QueuedSong> songs, int startIndex, bool repeat)
+    {
+        var cts = new CancellationTokenSource();
+        lock (_gate)
+        {
+            _playlist?.Cancel();
+            _playlist = cts;
+        }
+        var ct = cts.Token;
+        var finished = false;
+        try
+        {
+            if (songs.Count == 0)
+            {
+                _view.ReportProblem($"The playlist {name} has no songs to play.");
+                return;
+            }
+            var from = Math.Clamp(startIndex, 0, songs.Count - 1);
+            while (true)
+            {
+                var played = 0;
+                for (var i = from; i < songs.Count; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var song = songs[i];
+                    Announce(new NowPlayingInfo(song.Name, name, i + 1, songs.Count));
+                    var run = await StartSongAsync(song.Csv, song.Tempo).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+                    if (run is null) continue; // could not be prepared (already reported): go on with the next one
+                    played++;
+
+                    using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    lock (_gate) _songWait = wait;
+                    try
+                    {
+                        var remaining = run.EndMs + Timings.SongTailMs - _clock.NowMs;
+                        if (remaining > 0) await Task.Delay(TimeSpan.FromMilliseconds(remaining), wait.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested) { } // Next
+                    finally { lock (_gate) if (_songWait == wait) _songWait = null; }
+                    ct.ThrowIfCancellationRequested();
+
+                    await EndSongAsync(run).ConfigureAwait(false);
+                    if (i < songs.Count - 1 || repeat) await Task.Delay(Timings.PlaylistGapMs, ct).ConfigureAwait(false);
+                }
+                if (!repeat || played == 0) break;
+                from = 0;
+            }
+            finished = true;
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            bool stillOurs;
+            lock (_gate)
+            {
+                stillOurs = _playlist == cts;
+                if (stillOurs) _playlist = null;
+            }
+            if (stillOurs)
+            {
+                if (finished) _view.AppendDialog($"♪ Playlist {name} finished.");
+                _view.OnNowPlaying(null);
+                Broadcast(new NowPlaying(null, name, 0, songs.Count, finished), except: null);
+            }
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>Next (hotkey / button): ends the current playlist song now and moves on. False when no playlist is playing.</summary>
+    public bool NextSong()
+    {
+        lock (_gate)
+        {
+            if (_playlist is null || _songWait is null) return false;
+            _songWait.Cancel();
+            return true;
+        }
+    }
+
+    /// <summary>A playlist song is over (or skipped): stop whatever is left of it everywhere and reset everyone's octaves.</summary>
+    private Task EndSongAsync(SongRun run)
+    {
+        List<PeerConnection> clients;
+        lock (_gate)
+        {
+            if (_current == run)
+            {
+                run.Cancel();
+                _current = null;
+            }
+            clients = _slots.Where(c => c is not null).Select(c => c!).ToList();
+        }
+        foreach (var c in clients) c.Send(new StopPlayback());
+        return ResetOctavesAsync();
+    }
+
+    private void CancelPlaylist()
+    {
+        CancellationTokenSource? cts;
+        lock (_gate)
+        {
+            cts = _playlist;
+            _playlist = null;
+        }
+        if (cts is null) return;
+        cts.Cancel();
+        _view.OnNowPlaying(null);
+        Broadcast(new NowPlaying(null, null, 0, 0), except: null);
+    }
+
+    /// <summary>Tells everyone (this window and every client) what is now playing.</summary>
+    private void Announce(NowPlayingInfo info)
+    {
+        _view.AppendDialog(info.Notice);
+        _view.OnNowPlaying(info);
+        Broadcast(new NowPlaying(info.Song, info.Playlist, info.Index, info.Count), except: null);
     }
 
     // A blank or non-numeric input delay counts as 0 (in the original it made every note fire at once).
@@ -352,6 +535,7 @@ public sealed class HostSession : IDisposable
     /// <summary>F3 (and "Stop" in a client's chat): stops everyone and resets the instruments' octaves.</summary>
     public Task Stop()
     {
+        CancelPlaylist();
         List<PeerConnection> clients;
         lock (_gate)
         {
@@ -460,6 +644,8 @@ public sealed class HostSession : IDisposable
     {
         lock (_gate)
         {
+            _playlist?.Cancel();
+            _playlist = null;
             _current?.Cancel();
             _current = null;
         }
@@ -478,6 +664,8 @@ public sealed class HostSession : IDisposable
         public readonly double?[] Ticks = new double?[PortMapping.Slots + 1];
         public PlaybackLoop? Loop;
         public CancellationToken Token => _cts.Token;
+        /// <summary>When the last note of any part is due, on the host's clock (set when the song starts).</summary>
+        public double EndMs { get; set; }
 
         public void ExpectClock(int slot, int id) => _expected[slot] = id;
 
@@ -496,6 +684,9 @@ public sealed class HostSession : IDisposable
     }
 }
 
+/// <summary>A song waiting in a playlist: its name (for notices), CSV text and tempo factor.</summary>
+public sealed record QueuedSong(string Name, string Csv, double? Tempo);
+
 /// <summary>A player slot's occupant: this computer (slot 1), a connected client (with the name it announced, if
 /// any yet), or nobody.</summary>
 public sealed record PlayerInfo(int Slot, bool Connected, bool IsHost, string? Name, string? Address);
@@ -513,6 +704,10 @@ public sealed record HostTimings
     public int PingIntervalMs { get; init; } = 1000;
     /// <summary>Pause before each Sync measurement (Sleep, 150).</summary>
     public int SyncPreDelayMs { get; init; } = 150;
+    /// <summary>Playlists: time after a song's last note before it counts as over (lets it ring out).</summary>
+    public int SongTailMs { get; init; } = 1500;
+    /// <summary>Playlists: pause between the octave reset after one song and the start of the next.</summary>
+    public int PlaylistGapMs { get; init; } = 1500;
 }
 
 /// <summary>Round-trip bookkeeping for the Ping button.</summary>

@@ -20,6 +20,14 @@ public interface ISessionView
     Task ShowMessageAndWaitAsync(string text);
     /// <summary>Something went wrong that the user should know about (also logged).</summary>
     void ReportProblem(string text);
+    /// <summary>The song now playing changed (null: nothing from a playlist or song request is playing).</summary>
+    void OnNowPlaying(NowPlayingInfo? info);
+}
+
+/// <summary>A song that is playing, and where it is in its playlist (Index is 1-based; 0 for a single song).</summary>
+public sealed record NowPlayingInfo(string Song, string? Playlist, int Index, int Count)
+{
+    public string Notice => Playlist is null ? $"♪ Now playing: {Song}" : $"♪ Now playing: {Song} ({Index}/{Count} in {Playlist})";
 }
 
 public interface IHostView : ISessionView

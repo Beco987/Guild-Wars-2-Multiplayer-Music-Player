@@ -55,6 +55,29 @@ to all the other clients. Chat is only ever displayed. The one command is `stop`
 which stops the song for everyone like **F3**. Text that only contains "stop" ("don't stop") is ordinary chat.
 Joins appear as "bob joined as player 2." Internal network messages are written to `GW2MM.log`, not to the chat box.
 
+### Playlists
+
+The song list has two tabs, **Songs** and **Playlists**; the Play icon (host F1, client F11) plays whatever the
+tab shows.
+
+* **Make a playlist:** Playlists tab → **Playlist ▾ → New playlist…**, then **Add songs…** (tick songs, filter by
+  name). Or right-click a song on the Songs tab → **Add to playlist**.
+* **Arrange it:** select songs and use **▲ / ▼** (or Alt+Up / Alt+Down), drag them, or **Remove** (Delete key).
+  The same menu renames or deletes the playlist and turns **Shuffle** and **Repeat** on or off.
+* **Play it:** select the song to start from (or none, to start at the top) and press Play, double-click a song, or
+  press Enter. With Shuffle, the chosen song plays first and the rest in random order.
+* **While it plays:** everyone sees "♪ Now playing: … (2/5 in …)" in the chat and the current song is marked ♪.
+  After each song (when every player's last note has rung out) all octaves are reset and the next song starts. The
+  host's **Next ►** button or **F5** skips ahead. **F3**, typing `stop` in the chat, or playing any other song or
+  playlist ends it.
+* **From a client:** a client plays its own playlists the same way. Its songs are sent to the host, which plays them
+  for everyone, exactly like a single song requested with F11.
+
+Playlists are plain text files in the `Playlists` folder next to the exe (one song name per line; **Playlist ▾ →
+Open Playlists folder**), so they are easy to copy to another computer. Songs that are not in the song list are
+shown in grey and skipped. Deleting a song removes it from playlists, and renaming one in the Data Editor renames it
+there too.
+
 ### Hotkeys
 
 Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybinds…**; they are saved in Config.txt as
@@ -62,12 +85,13 @@ Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybin
 
 | Keys | Host | Client |
 |---|---|---|
-| F1 | Play the selected song | – |
+| F1 | Play the selected song (on the Playlists tab: the playlist) | – |
 | F2 | Pause/resume this computer's playback | – |
 | F3 | Stop everyone, reset octaves | – |
 | F4 | Reset octaves, exit | Reset octaves, exit |
+| F5 | Skip to the next song of the playlist | – |
 | Shift+F1 … Shift+F8 | Rename the active Guild Wars 2 window to Player1 … Player8 | same |
-| F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song |
+| F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song (or playlist) |
 | Esc | Close (main window) | – |
 
 Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.
