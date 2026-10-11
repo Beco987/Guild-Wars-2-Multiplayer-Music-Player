@@ -28,6 +28,22 @@ public sealed class LibraryAndConfigTests : IDisposable
         Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", songs[0].Date);
     }
 
+    /// <summary>A copied file gets a new creation time but keeps its modified time; the earlier one is the added date.</summary>
+    [Fact]
+    public void SongDateSurvivesCopyingTheFile()
+    {
+        File.WriteAllText(P("Data.csv"), "Old, 1, 0, x\r\nNew, 1, 0, y\r\n");
+        File.WriteAllText(P("Csv", "Old.csv"), "");
+        File.WriteAllText(P("Csv", "New.csv"), "");
+        var original = new DateTime(2024, 3, 5, 14, 30, 0);
+        File.SetLastWriteTime(P("Csv", "Old.csv"), original); // as a copy-paste leaves it: created now, modified then
+        var songs = Lib().ListSongs();
+        var old = songs.Single(s => s.Name == "Old");
+        Assert.Equal("2024-03-05", old.Date);
+        Assert.Equal(original, old.Added);
+        Assert.True(songs.Single(s => s.Name == "New").Added > old.Added);
+    }
+
     [Fact]
     public void DescriptionAndTempoFactorFollowTheOriginalLookups()
     {

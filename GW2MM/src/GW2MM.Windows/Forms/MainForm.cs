@@ -361,7 +361,7 @@ internal sealed class MainForm : Form, IHostView
         _songs.Items.Clear();
         try
         {
-            foreach (var s in _library.ListSongs()) _songs.Items.Add(new ListViewItem(new[] { s.Name, s.Players, s.Date }));
+            foreach (var s in _library.ListSongs()) _songs.Items.Add(new ListViewItem(new[] { s.Name, s.Players, s.Date }) { Tag = s });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -380,15 +380,26 @@ internal sealed class MainForm : Form, IHostView
         _songs.ListViewItemSorter = new ItemComparer(column, numeric: column == 1, _sortDescending);
     }
 
+    /// <summary>Name and Players sort as text/numbers; Date sorts by the full timestamp, so songs added on the same day keep their order.</summary>
     private sealed class ItemComparer(int column, bool numeric, bool descending) : IComparer
     {
+        private const int DateColumn = 2;
+
         public int Compare(object? x, object? y)
         {
-            var a = ((ListViewItem)x!).SubItems[column].Text;
-            var b = ((ListViewItem)y!).SubItems[column].Text;
-            var r = numeric && double.TryParse(a, out var na) && double.TryParse(b, out var nb)
-                ? na.CompareTo(nb)
-                : string.Compare(a, b, StringComparison.CurrentCultureIgnoreCase);
+            var ix = (ListViewItem)x!;
+            var iy = (ListViewItem)y!;
+            int r;
+            if (column == DateColumn && ix.Tag is Core.Library.SongEntry ex && iy.Tag is Core.Library.SongEntry ey)
+                r = ex.Added.CompareTo(ey.Added);
+            else
+            {
+                var a = ix.SubItems[column].Text;
+                var b = iy.SubItems[column].Text;
+                r = numeric && double.TryParse(a, out var na) && double.TryParse(b, out var nb)
+                    ? na.CompareTo(nb)
+                    : string.Compare(a, b, StringComparison.CurrentCultureIgnoreCase);
+            }
             return descending ? -r : r;
         }
     }

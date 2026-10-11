@@ -17,7 +17,8 @@ public sealed class DeleteFileRecycler : IFileRecycler
 }
 
 /// <summary>A row of the main song list.</summary>
-public sealed record SongEntry(string Name, string Players, string Date);
+/// <param name="Added">When the song was added: the full timestamp behind <paramref name="Date"/>, for sorting.</param>
+public sealed record SongEntry(string Name, string Players, string Date, DateTime Added = default);
 
 public sealed record NewSongRequest(string Title, string Players, string TempoModifier, string Description, string SelectedMidiPath);
 
@@ -57,8 +58,21 @@ public sealed class SongLibrary
 
     /// <summary>
     /// The main list (ReloadSongs): every file in Csv\ whose name (with ".csv" removed, case-sensitively) appears
-    /// in Data.csv, once per matching field, showing the next field as Players and the file's creation date.
+    /// in Data.csv, once per matching field, showing the next field as Players and the date the song was added
+    /// (see <see cref="AddedTime"/>).
     /// </summary>
+    /// <summary>
+    /// When a song file was added: its creation time, or its last-modified time when that is earlier. Copying a file
+    /// (to another PC, or a backup restored by copy-paste) gives the copy a new creation time but keeps the
+    /// modified time, so the earlier of the two is still the original date. (The original showed the creation time.)
+    /// </summary>
+    public static DateTime AddedTime(string file)
+    {
+        var created = File.GetCreationTime(file);
+        var modified = File.GetLastWriteTime(file);
+        return modified < created ? modified : created;
+    }
+
     public List<SongEntry> ListSongs()
     {
         var result = new List<SongEntry>();
@@ -70,8 +84,8 @@ public sealed class SongLibrary
             for (var i = 0; i < fields.Count; i++)
             {
                 if (fields[i] != name) continue;
-                var date = File.GetCreationTime(file).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                result.Add(new SongEntry(name, i + 1 < fields.Count ? fields[i + 1] : "", date));
+                var added = AddedTime(file);
+                result.Add(new SongEntry(name, i + 1 < fields.Count ? fields[i + 1] : "", added.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), added));
             }
         }
         return result;
