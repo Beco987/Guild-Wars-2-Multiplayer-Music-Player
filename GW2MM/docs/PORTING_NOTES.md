@@ -90,6 +90,14 @@ reachable from any hotkey, button or message.
   newer one; see the README. It is on by default and can be switched off in Settings (`CheckForUpdates` in
   Config.txt). The only network request it makes is to `api.github.com` and the release download.
 
+* **Automatic port opening (UPnP)** (not in the original, which needed a manual port forward). The host asks the
+  router to forward TCP 27015 to itself on start-up and removes that forward on exit. It never touches a forward
+  it did not create. On by default; switch it off in Settings (`OpenPort` in Config.txt). Code: `Net/Upnp.cs`
+  (SSDP discovery and the IGD SOAP calls) and `Net/PortOpener.cs`. Tests use a fake router (`UpnpTests`).
+
+* **No preset host address.** The original client's IP prompt was pre-filled with the author's address
+  (`97.118.35.47`). The prompt now starts empty and asks again if left blank.
+
 * **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
   Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
   The window-naming defaults changed on request from F5–F9 (host also Shift+F6–F8) to **Shift+F1–Shift+F8 for

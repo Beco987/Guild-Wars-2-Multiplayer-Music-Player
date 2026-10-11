@@ -132,10 +132,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
     }

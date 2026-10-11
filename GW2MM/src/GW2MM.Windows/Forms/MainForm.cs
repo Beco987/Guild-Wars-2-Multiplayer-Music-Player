@@ -1,5 +1,6 @@
 using System.Collections;
 using GW2MM.Core.Config;
+using GW2MM.Core.Net;
 using GW2MM.Core.Library;
 using GW2MM.Core.Playback;
 using GW2MM.Core.Sessions;
@@ -27,6 +28,8 @@ internal sealed class MainForm : Form, IHostView
     private readonly HotkeyWindow _hotkeys = new();
     private readonly HashSet<string> _renaming = new();
     private readonly CancellationTokenSource _closing = new();
+    private static readonly HttpClient RouterHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private PortOpener? _portOpener;
 
     private readonly ListView _songs;
     private readonly TextBox _description, _dialog, _input;
@@ -54,8 +57,9 @@ internal sealed class MainForm : Form, IHostView
         KeyPreview = true;
 
         Ui.Picture(this, "Title.png", 0, 0, 400, 75);
-        Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this));
-        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, ApplyDisplaySettings, ShowKeybinds).Show(this));
+        // Added after the title picture they sit on, so they must be raised above it (WinForms stacks later controls below).
+        Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this)).BringToFront();
+        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds).Show(this)).BringToFront();
 
         _songs = Ui.Add(this, new ListView
         {
@@ -114,7 +118,11 @@ internal sealed class MainForm : Form, IHostView
         base.OnShown(e);
         if (_host is not null)
         {
-            try { _host.Start(); }
+            try
+            {
+                _host.Start();
+                if (_settings.OpenPortAutomatically) _ = OpenPortAsync();
+            }
             catch (System.Net.Sockets.SocketException ex)
             {
                 MessageBox.Show(this, $"Could not listen for players on port {Core.Net.PeerConnection.DefaultPort}: {ex.Message}", Texts.AppTitle);
@@ -210,9 +218,65 @@ internal sealed class MainForm : Form, IHostView
         base.OnKeyDown(e);
     }
 
+    /// <summary>Host: asks the router to forward the listening port here (UPnP) and reports how that went in the chat box.</summary>
+    private async Task OpenPortAsync()
+    {
+        if (_host is null || _portOpener is not null) return;
+        var opener = _portOpener = new PortOpener(RouterHttp);
+        try
+        {
+            var result = await opener.OpenAsync(_host.Port, _closing.Token);
+            AppLog.Write("UPnP: " + result.Message);
+            if (!ReferenceEquals(_portOpener, opener)) // turned off in Settings while the router was answering
+            {
+                await opener.CloseAsync(_closing.Token);
+                return;
+            }
+            AppendDialog(result.Message);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            AppLog.Write("UPnP failed: " + ex);
+            AppendDialog("Could not open the port automatically: " + ex.Message);
+        }
+    }
+
+    /// <summary>Host: removes the router forward this program added (waits briefly; the program is closing).</summary>
+    private void ClosePort()
+    {
+        var opener = _portOpener;
+        _portOpener = null;
+        if (opener is null || !opener.OwnsMapping) return;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            Task.Run(() => opener.CloseAsync(cts.Token)).Wait(TimeSpan.FromSeconds(2.5));
+            AppLog.Write("UPnP: port forward removed.");
+        }
+        catch (Exception ex) { AppLog.Write("UPnP: could not remove the port forward: " + ex.Message); }
+    }
+
+    private void SettingsSaved()
+    {
+        ApplyDisplaySettings();
+        if (_host is null) return;
+        if (_settings.OpenPortAutomatically) _ = OpenPortAsync();
+        else if (_portOpener is { } opener)
+        {
+            _portOpener = null;
+            if (opener.OwnsMapping) _ = Task.Run(async () =>
+            {
+                await opener.CloseAsync(_closing.Token);
+                AppendDialog($"Port {_host.Port} is no longer forwarded by GW2MM.");
+            });
+        }
+    }
+
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _closing.Cancel();
+        ClosePort();
         _hotkeys.Dispose();
         _host?.Dispose();
         _client?.Dispose();

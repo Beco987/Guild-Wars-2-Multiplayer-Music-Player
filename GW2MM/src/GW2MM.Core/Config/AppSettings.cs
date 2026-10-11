@@ -13,6 +13,8 @@ public sealed class AppSettings
     public bool IsTransparent { get; set; }
     /// <summary>Look for a newer GitHub release on launch (not in the original; on unless Config.txt says 0).</summary>
     public bool CheckForUpdates { get; set; } = true;
+    /// <summary>Host: open the port on the router with UPnP (not in the original; on unless Config.txt says 0).</summary>
+    public bool OpenPortAutomatically { get; set; } = true;
     /// <summary>Hotkey overrides from Config.txt ("Key_&lt;action&gt;,Shift+1"), by action id.</summary>
     public Dictionary<string, string> Hotkeys { get; private set; } = new(StringComparer.Ordinal);
     private const string HotkeyPrefix = "Key_";
@@ -43,16 +45,17 @@ public sealed class AppSettings
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
             CheckForUpdates = c.Get("CheckForUpdates") is not { } u || LegacyConfig.IsTrue(u),
+            OpenPortAutomatically = c.Get("OpenPort") is not { } o || LegacyConfig.IsTrue(o),
             Hotkeys = c.WithPrefix(HotkeyPrefix).ToDictionary(kv => kv.Key[HotkeyPrefix.Length..], kv => kv.Value, StringComparer.Ordinal),
         };
     }
 
-    /// <summary>Settings window "Save": OctaveDelay, AlwaysOnTop, IsTransparent (and the added CheckForUpdates).</summary>
+    /// <summary>Settings window "Save": OctaveDelay, AlwaysOnTop, IsTransparent (and the added CheckForUpdates, OpenPort).</summary>
     public void SaveDisplaySettings(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
         {
             ("OctaveDelay", OctaveDelay), ("AlwaysOnTop", AlwaysOnTop ? "1" : "0"), ("IsTransparent", IsTransparent ? "1" : "0"),
-            ("CheckForUpdates", CheckForUpdates ? "1" : "0"),
+            ("CheckForUpdates", CheckForUpdates ? "1" : "0"), ("OpenPort", OpenPortAutomatically ? "1" : "0"),
         });
 
     /// <summary>Client start-up: the original rewrote all four values after asking for the user name.</summary>

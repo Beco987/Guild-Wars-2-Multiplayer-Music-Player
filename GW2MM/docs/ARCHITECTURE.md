@@ -94,6 +94,22 @@ The host cancels the current run, sends `StopPlayback` to every slot, brings its
 * A run is identified by a `SongRun` object. Clock replies and loop-completion callbacks for an old run are
   ignored, so a stale event cannot affect a newer song.
 
+## Port opening (UPnP)
+
+`Net/UpnpClient` finds the router with an SSDP `M-SEARCH`. The search is sent to the multicast group from every
+active IPv4 adapter, and as unicast to each default gateway. The client then reads the router's device
+description and picks its `WANIPConnection:2`/`:1` or `WANPPPConnection:1` service. `Net/PortOpener` runs the
+host's sequence:
+
+1. `GetSpecificPortMappingEntry`. A forward to another device fails with a message. A forward to this computer
+   is reused, and is only removed on exit when its description is `GW2MM` (left by an earlier run).
+2. `AddPortMapping`, with a permanent lease. If the router refuses it, a 7-day lease is used instead (IGDv2's
+   maximum).
+3. `GetExternalIPAddress`. A private or carrier-grade NAT address means the router is behind another NAT.
+
+`MainForm` runs this in the background after the listener starts and writes the result to the chat box and
+`GW2MM.log`. On exit it calls `DeletePortMapping`, waiting at most 2 seconds.
+
 ## Protocol
 
 Newline-delimited JSON over TCP port 27015, defined in `Net/Messages.cs`. Each message documents the original

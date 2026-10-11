@@ -21,8 +21,9 @@ No AutoHotkey, .NET runtime or other installation is required: each exe is self-
    **Midi Player - Client** folder. The exe uses the files next to it: `Data.csv`, `Csv\`, `Midi\` and
    `Config.txt`. These are read and written in the original formats (and encoding), so your library carries over
    unchanged, and the folders still work with the old scripts. (`--data <folder>` uses another folder.)
-3. Allow `GW2MM-Host.exe` through the Windows firewall (TCP port **27015**, as before) and forward that port
-   on your router if clients connect over the internet.
+3. Allow `GW2MM-Host.exe` through the Windows firewall (TCP port **27015**, as before). For clients connecting over
+   the internet, the host opens that port on the router by itself with UPnP (see *Port opening* below). Forward it
+   by hand only if that fails.
 
 Host and clients must all run the new version, because the network protocol changed (see porting notes).
 
@@ -32,8 +33,9 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 
 1. Start Guild Wars 2 (Gw2Launcher for several accounts). Focus each game window and press **Shift+F1 … Shift+F8**
    to rename it to *Player1…Player8*.
-2. Start `GW2MM-Host.exe`. It listens for clients straight away. Each client starts `GW2MM-Client.exe`, enters a
-   user name and the host's IP address, and gets the next free player slot (Ip2–Ip5).
+2. Start `GW2MM-Host.exe`. It listens for clients straight away and reports in the chat box whether it opened the
+   port and which address players connect to. Each client starts `GW2MM-Client.exe`, enters a user name and the
+   host's IP address (there is no preset address), and gets the next free player slot (Ip2–Ip5).
 3. On the host, open **Port**. For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
    the input delays (or use **Sync**), then press **Save**.
    The host plays track *n* in its window Player*n*. A client plays its 1st ticked track in its Player1, its 2nd in
@@ -58,6 +60,24 @@ Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybin
 | Esc | Close (main window) | – |
 
 Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.
+
+## Port opening (UPnP)
+
+When the host starts, it asks the router to forward TCP port 27015 to this computer using UPnP, so you don't have
+to set up port forwarding by hand. The chat box shows the result:
+
+* *Opened port 27015 on your router (UPnP). Players connect to 203.0.113.7.* Give that address to your players.
+* *…already forwarded to this computer.* An existing forward (for example one you made by hand) is used as it is
+  and is never removed.
+* *…your router already forwards it to another device (192.168.1.50).* Change or delete that forward on the router.
+* *…no router answered.* UPnP is off on the router (or not supported). Turn it on, or forward the port by hand.
+* *…the router itself is behind another network.* Your provider (carrier-grade NAT) or a second router sits in front
+  of yours. Players outside your network still can't reach you. Use a VPN such as Tailscale, or ask your provider
+  for a public IP address.
+
+The forward GW2MM added is removed when the host closes. If the host crashes, the forward is cleaned up the next time
+it closes normally. Turn this off in Settings (⚙) → *Auto-open port (UPnP)?*, stored as `OpenPort,0` in
+Config.txt. Clients never need an open port.
 
 ## Updates
 

@@ -53,7 +53,9 @@ public static class AppMain
                 settings.Name = name;
                 try { settings.SaveWithName(dataDir); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { AppLog.Write("Could not save Config.txt: " + ex.Message); }
-                var (ok, host) = InputDialog.Ask("Peer IP address", "Please enter your peer's IP address:", Texts.DefaultHostAddress);
+                var (ok, host) = InputDialog.Ask("Peer IP address", "Please enter your peer's IP address:", "");
+                while (ok && host.Trim().Length == 0)
+                    (ok, host) = InputDialog.Ask("Peer IP address", "Please enter the host's IP address (ask the host for it):", "");
                 if (!ok) return 0;
                 form = new MainForm(role, dataDir, settings, args, host.Trim(), name);
             }
