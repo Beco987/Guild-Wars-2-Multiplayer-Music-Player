@@ -64,15 +64,16 @@ writable, or the release has no matching file, it offers to open the release pag
 GitHub unreachable) is silent; the details go to `GW2MM.log`. Turn it off in Settings (⚙) → *Check for updates
 on launch?*, stored as `CheckForUpdates,0` in Config.txt. Drafts and pre-releases are never offered.
 
-**Publishing a release:** set the version in `Directory.Build.props`, then push a matching tag:
+**Publishing a release:** use any one of these. Each runs the tests, builds `GW2MM-Host.exe` and `GW2MM-Client.exe`
+stamped with the version, and attaches them to the GitHub release:
 
-```
-git tag v2.0.1
-git push origin v2.0.1
-```
+* On GitHub: **Releases → Draft a new release**, type a new tag such as `v2.0.1`, then **Publish release**.
+  The executables are added to it a few minutes later.
+* On GitHub: **Actions → GW2MM (.NET port) → Run workflow**, enter the version (e.g. `2.0.1`).
+* From git: `git tag v2.0.1` then `git push origin v2.0.1`.
 
-The workflow builds and tests, publishes `GW2MM-Host.exe` and `GW2MM-Client.exe` stamped with that version, and
-attaches them to a new GitHub release. Every installed copy older than that version will then offer the update.
+Every installed copy older than that version then offers the update on its next launch. Also bump `<Version>` in
+`Directory.Build.props` so local builds report the new version.
 
 ## Building and testing
 
