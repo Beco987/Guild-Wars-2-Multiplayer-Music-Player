@@ -38,8 +38,11 @@ internal sealed class MainForm : Form, IHostView
     private string _highlighted = "";
     private bool _exiting;
 
-    public MainForm(AppRole role, string dataDir, AppSettings settings, string clientHostAddress = "", string clientName = "")
+    private readonly string[] _args;
+
+    public MainForm(AppRole role, string dataDir, AppSettings settings, string[] args, string clientHostAddress = "", string clientName = "")
     {
+        _args = args;
         _role = role;
         _dataDir = dataDir;
         _settings = settings;
@@ -121,7 +124,12 @@ internal sealed class MainForm : Form, IHostView
         }
         else if (_client is not null)
         {
-            await _client.ConnectAsync(_clientHostAddress, _clientName);
+            _ = _client.ConnectAsync(_clientHostAddress, _clientName);
+        }
+        if (_settings.CheckForUpdates && !IsDisposed)
+        {
+            var exeName = _role == AppRole.Host ? "GW2MM-Host.exe" : "GW2MM-Client.exe";
+            await AppUpdater.CheckOnLaunchAsync(this, exeName, _args, SetStatus);
         }
     }
 

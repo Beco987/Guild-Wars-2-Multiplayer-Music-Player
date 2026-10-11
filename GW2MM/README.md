@@ -55,6 +55,25 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 | F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song |
 | Esc | Close (main window) | – |
 
+## Updates
+
+On launch the app checks the repository's latest GitHub release in the background. If it is newer than the
+running version, it asks whether to install it. On "Yes" it downloads the executable for its role (checked against
+the release's size and SHA-256), replaces itself, and restarts with the same arguments. If the exe's folder is not
+writable, or the release has no matching file, it offers to open the release page instead. A failed check (offline,
+GitHub unreachable) is silent; the details go to `GW2MM.log`. Turn it off in Settings (⚙) → *Check for updates
+on launch?*, stored as `CheckForUpdates,0` in Config.txt. Drafts and pre-releases are never offered.
+
+**Publishing a release:** set the version in `Directory.Build.props`, then push a matching tag:
+
+```
+git tag v2.0.1
+git push origin v2.0.1
+```
+
+The workflow builds and tests, publishes `GW2MM-Host.exe` and `GW2MM-Client.exe` stamped with that version, and
+attaches them to a new GitHub release. Every installed copy older than that version will then offer the update.
+
 ## Building and testing
 
 Requires the .NET 8 SDK.

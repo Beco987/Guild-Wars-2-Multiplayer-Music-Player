@@ -36,6 +36,9 @@ public static class AppMain
             if (f is not null && f.IsHandleCreated) f.BeginInvoke(f.Close);
         });
 
+        // Leftovers of a previous self-update (the replaced .exe) can be removed once that process has exited.
+        if (Environment.ProcessPath is { } exe) _ = Task.Run(() => Core.Updates.SelfUpdater.CleanUp(exe));
+
         // 1 ms timer resolution for the playback loop's sleeps (the original called timeBeginPeriod(1) too).
         NativeMethods.timeBeginPeriod(1);
         try
@@ -52,11 +55,11 @@ public static class AppMain
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { AppLog.Write("Could not save Config.txt: " + ex.Message); }
                 var (ok, host) = InputDialog.Ask("Peer IP address", "Please enter your peer's IP address:", Texts.DefaultHostAddress);
                 if (!ok) return 0;
-                form = new MainForm(role, dataDir, settings, host.Trim(), name);
+                form = new MainForm(role, dataDir, settings, args, host.Trim(), name);
             }
             else
             {
-                form = new MainForm(role, dataDir, settings);
+                form = new MainForm(role, dataDir, settings, args);
             }
             Application.Run(form);
             return 0;

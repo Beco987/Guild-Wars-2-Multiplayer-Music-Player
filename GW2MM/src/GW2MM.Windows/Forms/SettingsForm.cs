@@ -20,6 +20,7 @@ internal sealed class SettingsForm : Form
         Ui.Button(this, "?", 170, 30, 20, 20, (_, _) => Ui.ShowText(this, "AlwaysOnTop Explanation", Texts.AlwaysOnTop));
         var transparent = Ui.Add(this, new CheckBox { Text = "Enable Transparency?", Checked = settings.IsTransparent }, 0, 50, 170, 20);
         Ui.Button(this, "?", 170, 50, 20, 20, (_, _) => Ui.ShowText(this, "Transparency Explanation", Texts.Transparency));
+        var updates = Ui.Add(this, new CheckBox { Text = "Check for updates on launch?", Checked = settings.CheckForUpdates }, 0, 70, 200, 20);
         Ui.Button(this, "Save", 0, 160, 200, 40, (_, _) =>
         {
             if (delay.Text.Length > 0 && !AhkValue.TryNumber(delay.Text, out _))
@@ -30,6 +31,7 @@ internal sealed class SettingsForm : Form
             settings.OctaveDelay = delay.Text;
             settings.AlwaysOnTop = onTop.Checked;
             settings.IsTransparent = transparent.Checked;
+            settings.CheckForUpdates = updates.Checked;
             try { settings.SaveDisplaySettings(dataDir); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

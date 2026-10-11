@@ -84,7 +84,13 @@ Dead code that was not ported: the client's legacy single-player engine (`OnePla
 `Return_Start_*` messages; and `WinSet Region/TransColor`, which had no window to act on. None of these was
 reachable from any hotkey, button or message.
 
-## 3. Verification
+## 3. Added features
+
+* **Update check on launch** (not in the original). It looks up the latest GitHub release and offers to install a
+  newer one; see the README. It is on by default and can be switched off in Settings (`CheckForUpdates` in
+  Config.txt). The only network request it makes is to `api.github.com` and the release download.
+
+## 4. Verification
 
 | Area | How | Result |
 |---|---|---|
@@ -98,5 +104,7 @@ reachable from any hotkey, button or message.
 
 **Not verified here** (needs Windows with Guild Wars 2): key delivery into the real game windows, the F-key
 hotkeys, renaming game windows, the Core Audio peak meter used by Sync, and actual synchronisation across real
-machines over the internet. The code for these follows the original's Win32 calls one-to-one (`PostMessage`
+machines over the internet. The updater's release parsing, version comparison, download checks and file swap are
+unit-tested. Replacing the running exe on real Windows and a live GitHub release have not been exercised yet;
+the first tagged release will do that. The code for these follows the original's Win32 calls one-to-one (`PostMessage`
 WM_KEYDOWN/UP with the same lParam, `SetWindowText`, `IAudioMeterInformation::GetPeakValue`, `SendInput "1"`).

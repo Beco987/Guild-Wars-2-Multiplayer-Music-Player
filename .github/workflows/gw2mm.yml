@@ -2,10 +2,16 @@ name: GW2MM (.NET port)
 
 on:
   push:
+    branches: ["**"]
     paths: ["GW2MM/**", ".github/workflows/gw2mm.yml"]
+    # Pushing a tag such as v2.0.1 builds, tests and publishes a GitHub release. The apps check that release on launch.
+    tags: ["v*"]
   pull_request:
     paths: ["GW2MM/**", ".github/workflows/gw2mm.yml"]
   workflow_dispatch:
+
+permissions:
+  contents: write  # needed only to create the release on tag pushes
 
 jobs:
   build:
@@ -13,20 +19,38 @@ jobs:
     defaults:
       run:
         working-directory: GW2MM
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
       - name: Test
         run: dotnet test GW2MM.sln -c Release --logger "console;verbosity=normal"
       - name: Publish
         run: |
-          dotnet publish src/GW2MM.Host -c Release -o publish
-          dotnet publish src/GW2MM.Client -c Release -o publish
+          V="${{ steps.version.outputs.value }}"
+          EXTRA=""; [ -n "$V" ] && EXTRA="-p:Version=$V"
+          dotnet publish src/GW2MM.Host -c Release -o publish $EXTRA
+          dotnet publish src/GW2MM.Client -c Release -o publish $EXTRA
       - uses: actions/upload-artifact@v4
         with:
           name: GW2MM
           path: |
             GW2MM/publish/GW2MM-Host.exe
             GW2MM/publish/GW2MM-Client.exe
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" publish/GW2MM-Host.exe publish/GW2MM-Client.exe \
+            --repo "$GITHUB_REPOSITORY" --title "GW2MM $GITHUB_REF_NAME" --generate-notes
