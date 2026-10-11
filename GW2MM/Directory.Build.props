@@ -2,6 +2,6 @@
   <PropertyGroup>
     <!-- Application version. Release builds override it from the git tag (vX.Y.Z); the updater compares it with
          the latest GitHub release. -->
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
   </PropertyGroup>
 </Project>
