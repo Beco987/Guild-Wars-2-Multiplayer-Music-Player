@@ -20,6 +20,16 @@ public sealed class LegacyConfig
         return new LegacyConfig(fields);
     }
 
+    /// <summary>All (name, value) pairs whose name starts with <paramref name="prefix"/> (last occurrence wins).</summary>
+    public Dictionary<string, string> WithPrefix(string prefix)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 0; i < _fields.Count; i++)
+            if (_fields[i].StartsWith(prefix, StringComparison.Ordinal))
+                result[_fields[i]] = i + 1 < _fields.Count ? _fields[i + 1] : "";
+        return result;
+    }
+
     /// <summary>The value of <paramref name="key"/> (case-sensitive name), "" when the name is the last field, null when absent.</summary>
     public string? Get(string key)
     {

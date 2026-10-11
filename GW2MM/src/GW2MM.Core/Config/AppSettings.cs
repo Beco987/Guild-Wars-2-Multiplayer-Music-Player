@@ -13,6 +13,21 @@ public sealed class AppSettings
     public bool IsTransparent { get; set; }
     /// <summary>Look for a newer GitHub release on launch (not in the original; on unless Config.txt says 0).</summary>
     public bool CheckForUpdates { get; set; } = true;
+    /// <summary>Hotkey overrides from Config.txt ("Key_&lt;action&gt;,Shift+1"), by action id.</summary>
+    public Dictionary<string, string> Hotkeys { get; private set; } = new(StringComparer.Ordinal);
+    private const string HotkeyPrefix = "Key_";
+
+    /// <summary>The hotkey for an action: the stored one if it is valid, otherwise <paramref name="defaultText"/>.</summary>
+    public Hotkey HotkeyFor(string actionId, string defaultText) =>
+        Hotkeys.TryGetValue(actionId, out var text) && Hotkey.TryParse(text, out var h) ? h : Hotkey.Parse(defaultText);
+
+    /// <summary>Stores the hotkeys (one "Key_&lt;action&gt;,&lt;keys&gt;" line each) and keeps them in memory.</summary>
+    public void SaveHotkeys(string dataDir, IReadOnlyDictionary<string, Hotkey> bindings)
+    {
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), bindings.Select(b => (HotkeyPrefix + b.Key, b.Value.ToString())).ToList());
+        foreach (var (id, h) in bindings) Hotkeys[id] = h.ToString();
+    }
+
     /// <summary>Client only: the user name announced to the host.</summary>
     public string Name { get; set; } = "";
 
@@ -28,6 +43,7 @@ public sealed class AppSettings
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
             CheckForUpdates = c.Get("CheckForUpdates") is not { } u || LegacyConfig.IsTrue(u),
+            Hotkeys = c.WithPrefix(HotkeyPrefix).ToDictionary(kv => kv.Key[HotkeyPrefix.Length..], kv => kv.Value, StringComparer.Ordinal),
         };
     }
 

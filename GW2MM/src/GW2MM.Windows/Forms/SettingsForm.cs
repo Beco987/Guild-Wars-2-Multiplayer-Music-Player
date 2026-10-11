@@ -9,7 +9,7 @@ namespace GW2MM.Windows.Forms;
 /// </summary>
 internal sealed class SettingsForm : Form
 {
-    public SettingsForm(AppSettings settings, string dataDir, Action applied)
+    public SettingsForm(AppSettings settings, string dataDir, Action applied, Action<IWin32Window> showKeybinds)
     {
         Ui.InitForm(this, "Settings", 200, 200);
         ShowInTaskbar = false;
@@ -21,6 +21,7 @@ internal sealed class SettingsForm : Form
         var transparent = Ui.Add(this, new CheckBox { Text = "Enable Transparency?", Checked = settings.IsTransparent }, 0, 50, 170, 20);
         Ui.Button(this, "?", 170, 50, 20, 20, (_, _) => Ui.ShowText(this, "Transparency Explanation", Texts.Transparency));
         var updates = Ui.Add(this, new CheckBox { Text = "Check for updates on launch?", Checked = settings.CheckForUpdates }, 0, 70, 200, 20);
+        Ui.Button(this, "Keybinds…", 0, 100, 200, 28, (_, _) => showKeybinds(this));
         Ui.Button(this, "Save", 0, 160, 200, 40, (_, _) =>
         {
             if (delay.Text.Length > 0 && !AhkValue.TryNumber(delay.Text, out _))

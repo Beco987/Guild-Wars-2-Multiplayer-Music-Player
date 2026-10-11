@@ -30,8 +30,8 @@ Host and clients must all run the new version, because the network protocol chan
 
 The workflow is the one described in the [GW2MM Guide](https://docs.google.com/document/d/1Ek9sHKd0PQw9vmecujCG7tVtNIkKMtPnIPPEBio5ZoU/edit).
 
-1. Start Guild Wars 2 (Gw2Launcher for several accounts). Focus each game window and press **F5–F9**
-   (host also **Shift+F6–F8**) to rename it to *Player1…Player8*.
+1. Start Guild Wars 2 (Gw2Launcher for several accounts). Focus each game window and press **Shift+F1 … Shift+F8**
+   to rename it to *Player1…Player8*.
 2. Start `GW2MM-Host.exe`. It listens for clients straight away. Each client starts `GW2MM-Client.exe`, enters a
    user name and the host's IP address, and gets the next free player slot (Ip2–Ip5).
 3. On the host, open **Port**. For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
@@ -44,16 +44,20 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 
 ### Hotkeys
 
-| Key | Host | Client |
+Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybinds…**; they are saved in Config.txt as
+`Key_<action>,<keys>` lines):
+
+| Keys | Host | Client |
 |---|---|---|
 | F1 | Play the selected song | – |
 | F2 | Pause/resume this computer's playback | – |
 | F3 | Stop everyone, reset octaves | – |
 | F4 | Reset octaves, exit | Reset octaves, exit |
-| F5–F9 | Rename the active Guild Wars 2 window to Player1–Player5 | same |
-| Shift+F6–F8 | Rename to Player6–Player8 | – |
+| Shift+F1 … Shift+F8 | Rename the active Guild Wars 2 window to Player1 … Player8 | same |
 | F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song |
 | Esc | Close (main window) | – |
+
+Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.
 
 ## Updates
 

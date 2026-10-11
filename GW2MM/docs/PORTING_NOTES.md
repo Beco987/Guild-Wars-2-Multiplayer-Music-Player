@@ -90,6 +90,10 @@ reachable from any hotkey, button or message.
   newer one; see the README. It is on by default and can be switched off in Settings (`CheckForUpdates` in
   Config.txt). The only network request it makes is to `api.github.com` and the release download.
 
+* **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
+  Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
+  The window-naming defaults changed on request from F5–F9 (host also Shift+F6–F8) to **Shift+F1–Shift+F8 for
+  Player1–Player8**, now on the client too (it could only name Player1–5 before). The other defaults are unchanged.
 * **Redesigned dialogs** (New Song, Data Editor, Controls, Port Mapping). Same fields and the same effects on
   files and playback, with a cleaner layout:
   * *Port Mapping* shows each slot's player: "You (host)", the name a client announced (live as players join and

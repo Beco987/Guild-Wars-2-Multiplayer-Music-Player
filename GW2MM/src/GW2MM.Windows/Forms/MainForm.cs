@@ -55,7 +55,7 @@ internal sealed class MainForm : Form, IHostView
 
         Ui.Picture(this, "Title.png", 0, 0, 400, 75);
         Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this));
-        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, ApplyDisplaySettings).Show(this));
+        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, ApplyDisplaySettings, ShowKeybinds).Show(this));
 
         _songs = Ui.Add(this, new ListView
         {
@@ -79,7 +79,7 @@ internal sealed class MainForm : Form, IHostView
         Ui.Label(this, "Play", 10, 470, 80, 15, ContentAlignment.TopCenter);
         _description = Ui.Add(this, new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical }, 100, 390, 200, 80);
         Ui.Label(this, "Song Description", 100, 470, 200, 15, ContentAlignment.TopCenter);
-        Ui.Picture(this, "return.png", 310, 390, 80, 80, (_, _) => new ControlsForm(_role).Show(this));
+        Ui.Picture(this, "return.png", 310, 390, 80, 80, (_, _) => new ControlsForm(this).Show(this));
         Ui.Label(this, "Controls", 310, 470, 80, 15, ContentAlignment.TopCenter);
 
         _dialog = Ui.Add(this, new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical }, 50, 490, 300, 80);
@@ -132,37 +132,63 @@ internal sealed class MainForm : Form, IHostView
         }
     }
 
-    private void RegisterHotkeys()
+    /// <summary>What each hotkey action does in this role (ids from <see cref="HotkeyCatalog"/>).</summary>
+    private Dictionary<string, Action> HotkeyHandlers()
     {
-        var failed = new List<string>();
-        void Reg(Keys key, bool shift, Action action)
+        var h = new Dictionary<string, Action>
         {
-            if (!_hotkeys.Register(key, shift, action)) failed.Add((shift ? "Shift+" : "") + key);
+            ["Exit"] = () => _ = ExitWithOctaveResetAsync(),
+        };
+        for (var n = 1; n <= 8; n++)
+        {
+            var title = "Player" + n;
+            h["Window" + n] = () => Rename(title);
         }
-
-        Reg(Keys.F4, false, () => _ = ExitWithOctaveResetAsync());
-        Reg(Keys.F5, false, () => Rename("Player1"));
-        Reg(Keys.F6, false, () => Rename("Player2"));
-        Reg(Keys.F7, false, () => Rename("Player3"));
-        Reg(Keys.F8, false, () => Rename("Player4"));
-        Reg(Keys.F9, false, () => Rename("Player5"));
         if (_host is not null)
         {
-            Reg(Keys.F1, false, Play);
-            Reg(Keys.F2, false, () => _host.TogglePause());
-            Reg(Keys.F3, false, () => _ = _host.Stop());
-            Reg(Keys.F6, true, () => Rename("Player6"));
-            Reg(Keys.F7, true, () => Rename("Player7"));
-            Reg(Keys.F8, true, () => Rename("Player8"));
-            Reg(Keys.F10, false, () => _host.NudgeTempo(0.01));
-            Reg(Keys.F11, false, () => _host.NudgeTempo(-0.01));
+            h["PlaySong"] = Play;
+            h["PauseResume"] = () => _host.TogglePause();
+            h["StopSong"] = () => _ = _host.Stop();
+            h["TempoUp"] = () => _host.NudgeTempo(0.01);
+            h["TempoDown"] = () => _host.NudgeTempo(-0.01);
         }
         else
         {
-            Reg(Keys.F11, false, Play);
+            h["RequestSong"] = Play;
         }
+        return h;
+    }
+
+    /// <summary>The key combination currently assigned to each action of this role.</summary>
+    public IReadOnlyList<(HotkeyAction Action, Hotkey Keys)> CurrentBindings() =>
+        HotkeyCatalog.For(_role).Select(a => (a, _settings.HotkeyFor(a.Id, a.Default))).ToList();
+
+    /// <summary>(Re)registers every hotkey from the current settings; keys owned by another program are reported.</summary>
+    private void RegisterHotkeys()
+    {
+        _hotkeys.UnregisterAll();
+        var handlers = HotkeyHandlers();
+        var failed = new List<string>();
+        foreach (var (action, keys) in CurrentBindings())
+            if (handlers.TryGetValue(action.Id, out var handler) && !_hotkeys.Register(keys, handler))
+                failed.Add(keys.ToString());
         if (failed.Count > 0)
             AppendDialog("Could not register hotkey(s) " + string.Join(", ", failed) + " (in use by another program).");
+    }
+
+    /// <summary>Opens the Keybinds window. Hotkeys are off while it is open so the keys can be pressed into it.</summary>
+    public void ShowKeybinds(IWin32Window? owner = null)
+    {
+        _hotkeys.UnregisterAll();
+        try
+        {
+            using var dlg = new KeybindsForm(_role, CurrentBindings(), saved => _settings.SaveHotkeys(_dataDir, saved));
+            dlg.ShowDialog(owner ?? this);
+        }
+        finally
+        {
+            RegisterHotkeys();
+        }
     }
 
     private async Task ExitWithOctaveResetAsync()

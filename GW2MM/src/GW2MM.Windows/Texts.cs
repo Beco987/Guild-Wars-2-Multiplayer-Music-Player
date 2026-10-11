@@ -1,6 +1,6 @@
 namespace GW2MM.Windows;
 
-/// <summary>User-facing texts from the original GUI scripts (the Controls lists are corrected to match the real hotkeys).</summary>
+/// <summary>User-facing texts from the original GUI scripts .</summary>
 internal static class Texts
 {
     public const string AppTitle = "GW2MM";
@@ -12,25 +12,4 @@ internal static class Texts
     public const string AlwaysOnTop = "Sets the application to always be visible. This is useful if you want to play Guild Wars 2 in Fullscreen.";
     public const string Transparency = "Sets the application to be transparent. You may like this if you play Guild Wars 2 in Fullscreen.";
 
-    public const string HostControls =
-        "F1 - Play the selected song for everyone\n" +
-        "F2 - Pause / resume this computer's playback\n" +
-        "F3 - Stop everyone and reset octaves\n" +
-        "F4 - Reset octaves and exit\n" +
-        "F5 - Name the active Guild Wars 2 window Player 1\n" +
-        "F6 - Name it Player 2\n" +
-        "F7 - Name it Player 3\n" +
-        "F8 - Name it Player 4\n" +
-        "F9 - Name it Player 5\n" +
-        "Shift+F6 - Name it Player 6\n" +
-        "Shift+F7 - Name it Player 7\n" +
-        "Shift+F8 - Name it Player 8";
-    public const string ClientControls =
-        "F11 - Ask the host to play the selected song\n" +
-        "F4 - Reset octaves and exit\n" +
-        "F5 - Name the active Guild Wars 2 window Player 1\n" +
-        "F6 - Name it Player 2\n" +
-        "F7 - Name it Player 3\n" +
-        "F8 - Name it Player 4\n" +
-        "F9 - Name it Player 5";
 }

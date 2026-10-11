@@ -9,13 +9,20 @@ internal sealed class HotkeyWindow : NativeWindow, IDisposable
     public HotkeyWindow() => CreateHandle(new CreateParams());
 
     /// <summary>Registers a hotkey; returns false if another program already owns it.</summary>
-    public bool Register(Keys key, bool shift, Action action)
+    public bool Register(GW2MM.Core.Config.Hotkey hotkey, Action action)
     {
+        if (hotkey.IsNone) return true;
         var id = _nextId++;
-        var mods = NativeMethods.MOD_NOREPEAT | (shift ? NativeMethods.MOD_SHIFT : 0);
-        if (!NativeMethods.RegisterHotKey(Handle, id, mods, (uint)key)) return false;
+        var mods = NativeMethods.MOD_NOREPEAT | (uint)hotkey.Modifiers;
+        if (!NativeMethods.RegisterHotKey(Handle, id, mods, hotkey.VirtualKey)) return false;
         _actions[id] = action;
         return true;
+    }
+
+    public void UnregisterAll()
+    {
+        foreach (var id in _actions.Keys) NativeMethods.UnregisterHotKey(Handle, id);
+        _actions.Clear();
     }
 
     protected override void WndProc(ref Message m)
@@ -26,8 +33,7 @@ internal sealed class HotkeyWindow : NativeWindow, IDisposable
 
     public void Dispose()
     {
-        foreach (var id in _actions.Keys) NativeMethods.UnregisterHotKey(Handle, id);
-        _actions.Clear();
+        UnregisterAll();
         DestroyHandle();
     }
 }
