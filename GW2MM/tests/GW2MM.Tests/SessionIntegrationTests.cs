@@ -10,7 +10,7 @@ namespace GW2MM.Tests;
 [Collection(TimingCollection.Name)]
 public sealed class SessionIntegrationTests : IDisposable
 {
-    private static readonly HostTimings FastTimings = new() { ClockWaitMs = 300, ClientPlayRequestDelayMs = 20, OctaveResetDelayMs = 5, PingCount = 4, PingIntervalMs = 20, SyncPreDelayMs = 1, SongTailMs = 50, PlaylistGapMs = 50 };
+    private static readonly HostTimings FastTimings = new() { ClockWaitMs = 300, ClientPlayRequestDelayMs = 20, OctaveResetDelayMs = 5, PingCount = 4, PingIntervalMs = 20, SyncPreDelayMs = 1, SongTailMs = 50, PlaylistGapMs = 50, ClockProbeIntervalMs = 20 };
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "gw2mm-it-" + Guid.NewGuid().ToString("N"));
     private readonly List<IDisposable> _disposables = new();
 

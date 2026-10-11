@@ -77,6 +77,7 @@ they are covered by the golden tests against the original code.
 | 22 | Line breaks in descriptions were only partly removed | All line breaks are replaced by spaces | Data.csv consistency. |
 | 23 | Midicsv read past the end of malformed tracks (no End_track or truncated), printing uninitialised memory | Conversion stops at the end of the chunk | Undefined behaviour cannot be reproduced. Well-formed files are byte-identical. |
 | 24 | The Data Editor wrote `col1,col2,col3,col4` and `name,players,tempo,description` into a missing Data.csv, and showed them as rows | A missing Data.csv is created empty. Those two lines are removed when found | They are not songs. |
+| 25 | Each client's clock was sampled once per song, so a lag spike at that moment put that player early or late for the whole song | 8 probes, 50 ms apart, within the same 2 s wait; the reply with the shortest round trip is used | A single unlucky sample could offset a player by tens of ms. |
 
 Changes 5–8 were found by reading the original code (the oracle runs each case in a fresh process, so it cannot
 show cross-song or concurrency effects). The corrected behaviour is covered by the integration tests.

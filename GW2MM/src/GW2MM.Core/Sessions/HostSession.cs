@@ -321,16 +321,26 @@ public sealed class HostSession : IDisposable
         {
             clients = Enumerable.Range(2, PortMapping.Slots - 1).Where(s => _slots[s] is not null).Select(s => (s, _slots[s]!)).ToList();
             run.T1 = _clock.NowMs;
-            foreach (var (slot, conn) in clients)
-            {
-                var id = ++_nextId;
-                run.ExpectClock(slot, id);
-                conn.Send(new ClockRequest(id));
-            }
+            SendClockProbes(run, clients);
             run.Ticks[1] = _clock.NowMs;
         }
 
-        try { await Task.Delay(Timings.ClockWaitMs, run.Token).ConfigureAwait(false); }
+        // More probes a little apart: a single one could hit a lag spike and shift that player for the whole song.
+        // The reply with the shortest round trip is kept (ClockSampler).
+        try
+        {
+            for (var p = 1; p < Timings.ClockProbes; p++)
+            {
+                await Task.Delay(Timings.ClockProbeIntervalMs, run.Token).ConfigureAwait(false);
+                lock (_gate)
+                {
+                    if (_current != run) return null;
+                    SendClockProbes(run, clients.Where(c => ReferenceEquals(_slots[c.Slot], c.Conn)).ToList());
+                }
+            }
+            var remaining = run.T1 + Timings.ClockWaitMs - _clock.NowMs;
+            if (remaining > 0) await Task.Delay(TimeSpan.FromMilliseconds(remaining), run.Token).ConfigureAwait(false);
+        }
         catch (OperationCanceledException) { return null; }
 
         lock (_gate)
@@ -463,6 +473,17 @@ public sealed class HostSession : IDisposable
         Broadcast(new NowPlaying(info.Song, info.Playlist, info.Index, info.Count), except: null);
     }
 
+    /// <summary>Sends one clock probe ("Tick_Count") to each client. Call under the lock.</summary>
+    private void SendClockProbes(SongRun run, List<(int Slot, PeerConnection Conn)> clients)
+    {
+        foreach (var (slot, conn) in clients)
+        {
+            var id = ++_nextId;
+            run.ExpectClock(slot, id, _clock.NowMs);
+            conn.Send(new ClockRequest(id));
+        }
+    }
+
     // A blank or non-numeric input delay counts as 0 (in the original it made every note fire at once).
     private static double DelayNumber(string value) => AhkValue.Number(value) ?? 0;
 
@@ -592,22 +613,16 @@ public sealed class HostSession : IDisposable
     private sealed class SongRun
     {
         private readonly CancellationTokenSource _cts = new();
-        private readonly Dictionary<int, int> _expected = new();
-        public double T1;
-        public readonly double?[] Ticks = new double?[PortMapping.Slots + 1];
+        public readonly ClockSampler Clocks = new(PortMapping.Slots);
+        public double T1 { get => Clocks.T1; set => Clocks.T1 = value; }
+        public double?[] Ticks => Clocks.Ticks;
         public PlaybackLoop? Loop;
         public CancellationToken Token => _cts.Token;
         /// <summary>When the last note of any part is due, on the host's clock (set when the song starts).</summary>
         public double EndMs { get; set; }
 
-        public void ExpectClock(int slot, int id) => _expected[slot] = id;
-
-        /// <summary>The client's clock at host time T1: its reported clock minus half the round trip.</summary>
-        public void OnClockReply(int slot, int id, double tick, double now)
-        {
-            if (slot == 0 || !_expected.TryGetValue(slot, out var want) || want != id) return;
-            Ticks[slot] = tick - (now - T1) / 2;
-        }
+        public void ExpectClock(int slot, int id, double sent) => Clocks.Sent(slot, id, sent);
+        public void OnClockReply(int slot, int id, double tick, double now) => Clocks.Reply(slot, id, tick, now);
 
         public void Cancel()
         {
@@ -626,6 +641,9 @@ public sealed record HostTimings
 {
     /// <summary>Time allowed for clients to report their clocks before parts are sent (the original Sleep, 2000).</summary>
     public int ClockWaitMs { get; init; } = 2000;
+    /// <summary>Clock probes per client and song (the original sent one); the fastest round trip wins.</summary>
+    public int ClockProbes { get; init; } = 8;
+    public int ClockProbeIntervalMs { get; init; } = 50;
     /// <summary>Pause before acting on a client's play request (Sleep, 250).</summary>
     public int ClientPlayRequestDelayMs { get; init; } = 250;
     /// <summary>Pause before each octave-reset round on the host (Sleep, 150).</summary>

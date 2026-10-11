@@ -57,8 +57,10 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
 ### 2. Synchronised start (host, `HostSession.PlayAsync`)
 
 1. Cancel whatever song is preparing or playing (no duplicate loops).
-2. T1 = host clock; send `ClockRequest` to every connected client. Each client answers immediately with its
-   own clock; the host records `clientClock − RTT/2` (the client's clock at host time T1).
+2. T1 = host clock; send `ClockRequest` to every connected client, then 7 more 50 ms apart. Each client
+   answers immediately with its own clock. For every reply, `ClockSampler` estimates the client's clock at host
+   time T1 as `tick − ((sent + received)/2 − T1)`, and keeps the estimate from the shortest round trip. With one
+   probe at T1 that is the original `clientClock − RTT/2`.
 3. Wait 2 s (as the original did). This step is cancellable: Stop or a new Play during the wait abandons the run
    before anything is sent.
 4. For each active slot: `time[k] = clock_at_T1 + 4000 − latency + Σ gaps[0..k]` in **that machine's clock**,
