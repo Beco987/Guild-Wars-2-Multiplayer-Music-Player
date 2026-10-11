@@ -55,6 +55,16 @@ to all the other clients. Chat is only ever displayed. The one command is `stop`
 which stops the song for everyone like **F3**. Text that only contains "stop" ("don't stop") is ordinary chat.
 Joins appear as "bob joined as player 2." Internal network messages are written to `GW2MM.log`, not to the chat box.
 
+### Playing solo (client, not connected)
+
+When the client is not connected to a host (it could not connect, or the host went away), Play / F11 plays the song
+or playlist on this computer's own game windows instead of asking a host. The song's tracks that contain notes go,
+in order, to the open windows named Player1…Player8: the first track to the lowest-numbered window, and so on. This
+is the same arrangement a host gives a client assigned those tracks. If the song has more parts than windows are
+open, the extra parts are not played (the chat says so). **Ctrl+F3** stops and resets octaves, **Ctrl+F5** (or Next ►)
+skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
+Once the client is connected, the host takes over again.
+
 ### Playlists
 
 The song list has two tabs, **Songs** and **Playlists**; the Play icon (host F1, client F11) plays whatever the
@@ -87,11 +97,11 @@ Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybin
 |---|---|---|
 | F1 | Play the selected song (on the Playlists tab: the playlist) | – |
 | F2 | Pause/resume this computer's playback | – |
-| F3 | Stop everyone, reset octaves | – |
+| F3 | Stop everyone, reset octaves | Ctrl+F3: stop solo playback, reset octaves |
 | F4 | Reset octaves, exit | Reset octaves, exit |
-| F5 | Skip to the next song of the playlist | – |
+| F5 | Skip to the next song of the playlist | Ctrl+F5: same, when playing solo |
 | Shift+F1 … Shift+F8 | Rename the active Guild Wars 2 window to Player1 … Player8 | same |
-| F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song (or playlist) |
+| F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song (or playlist); not connected: play it solo |
 | Esc | Close (main window) | – |
 
 Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.

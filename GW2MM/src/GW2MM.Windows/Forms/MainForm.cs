@@ -23,6 +23,9 @@ internal sealed class MainForm : Form, IHostView
     private readonly Win32KeyOutput _keys = new();
     private readonly HostSession? _host;
     private readonly ClientSession? _client;
+    /// <summary>Client only: plays on this computer's game windows while not connected to a host.</summary>
+    private readonly SoloSession? _solo;
+    private readonly WindowFinder _windowFinder = new();
     private readonly string _clientHostAddress = "";
     private readonly string _clientName = "";
     private readonly HotkeyWindow _hotkeys = new();
@@ -85,7 +88,7 @@ internal sealed class MainForm : Form, IHostView
         _songs.ContextMenuStrip = SongMenu();
 
         _playlists = new PlaylistPanel(_library.Playlists, settings, dataDir, () => _library.ListSongs(), ReportProblem,
-            role == AppRole.Host ? () => _host?.NextSong() : null) { Dock = DockStyle.Fill };
+            () => { if (_host is not null) _host.NextSong(); else _solo?.NextSong(); }) { Dock = DockStyle.Fill };
         _playlistsPage.Controls.Add(_playlists);
         _playlists.PlayRequested += Play;
         _playlists.SongSelected += name => { if (name is not null && _description is not null) _description.Text = _library.Description(name); };
@@ -124,6 +127,7 @@ internal sealed class MainForm : Form, IHostView
         {
             _client = new ClientSession(this, _library, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
             _input.TextChanged += (_, _) => _client.TypingChanged(_input.Text);
+            _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys);
         }
 
         ApplyDisplaySettings();
@@ -185,6 +189,8 @@ internal sealed class MainForm : Form, IHostView
         else
         {
             h["RequestSong"] = Play;
+            h["StopSong"] = () => { if (_solo is not null && (_solo.IsPlaying || _solo.IsPlaylistRunning)) _ = RunLogged(_solo.StopAsync); };
+            h["NextSong"] = () => _solo?.NextSong();
         }
         return h;
     }
@@ -336,6 +342,7 @@ internal sealed class MainForm : Form, IHostView
         _hotkeys.Dispose();
         _host?.Dispose();
         _client?.Dispose();
+        _solo?.Dispose();
         base.OnFormClosed(e);
     }
 
@@ -350,8 +357,13 @@ internal sealed class MainForm : Form, IHostView
             return;
         }
         if (_host is not null) _ = RunLogged(() => _host.PlayLocalAsync(_highlighted));
-        else _client?.RequestPlay(_highlighted);
+        else if (_client is { IsConnected: true }) _client.RequestPlay(_highlighted);
+        else _solo?.PlaySong(_highlighted);
     }
+
+    /// <summary>The open game windows named Player1..Player8, by number.</summary>
+    private IReadOnlyList<int> OpenGameWindows() =>
+        Enumerable.Range(1, Core.Arrangement.KeyMap.WindowCount).Where(n => _windowFinder.Find(Core.Arrangement.KeyMap.WindowTitle(n)) != IntPtr.Zero).ToList();
 
     private void PlayPlaylist()
     {
@@ -367,11 +379,10 @@ internal sealed class MainForm : Form, IHostView
         }
         if (_host is not null)
             _ = RunLogged(() => _host.PlayPlaylistLocalAsync(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat));
-        else if (_client is not null)
-        {
-            if (!_client.IsConnected) ReportProblem("Connect to a host first: the host plays the playlist for everyone.");
-            else _client.RequestPlaylist(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat);
-        }
+        else if (_client is { IsConnected: true })
+            _client.RequestPlaylist(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat);
+        else if (_solo is not null)
+            _ = RunLogged(() => _solo.PlayPlaylistAsync(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat));
     }
 
     /// <summary>The Songs tab's right-click menu: add the song to a playlist (or a new one).</summary>
@@ -394,7 +405,12 @@ internal sealed class MainForm : Form, IHostView
         return menu;
     }
 
-    public void OnNowPlaying(NowPlayingInfo? info) => BeginInvokeSafe(() => _playlists.SetNowPlaying(info));
+    public void OnNowPlaying(NowPlayingInfo? info)
+    {
+        // Next works for the host's playlists and a client's solo playlist (a client cannot skip the host's songs).
+        var canSkip = info?.Playlist is not null && (_host is not null || _solo?.IsPlaylistRunning == true);
+        BeginInvokeSafe(() => _playlists.SetNowPlaying(info, canSkip));
+    }
 
     private void Rename(string title)
     {
@@ -555,6 +571,7 @@ internal sealed class MainForm : Form, IHostView
 
     public void SetChatEnabled(bool enabled) => BeginInvokeSafe(() =>
     {
+        if (enabled) _solo?.Cancel(); // connected: the host takes over playback
         _send.Enabled = enabled;
         _input.ReadOnly = !enabled;
         if (enabled) _input.Focus(); else _input.Clear();

@@ -76,4 +76,10 @@ public sealed class HotkeyTests : IDisposable
         File.WriteAllText(Path.Combine(_dir, "Config.txt"), "Key_Window3,Banana\n");
         Assert.Equal(Hotkey.Parse("Shift+F3"), AppSettings.Load(_dir).HotkeyFor("Window3", "Shift+F3"));
     }
+
+    [Theory]
+    [InlineData("Ctrl+F3")]
+    [InlineData("Ctrl+F5")]
+    [InlineData("F5")]
+    public void PlaylistAndSoloDefaultsParse(string text) => Assert.Equal(text, Core.Config.Hotkey.Parse(text).ToString());
 }

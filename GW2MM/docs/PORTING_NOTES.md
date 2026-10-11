@@ -107,6 +107,9 @@ reachable from any hotkey, button or message.
   is F5 on the host. Stored as `Playlists\<name>.txt`. Single songs requested by a client are now announced by name too
   (`PlayRequest` carries the name).
 
+* **Solo play on a client** (not in the original). While the client is not connected, Play / F11 plays songs and
+  playlists on its own Player windows, each track with notes on the next open window. Ctrl+F3 stops, Ctrl+F5 skips.
+
 * **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
   Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
   The window-naming defaults changed on request from F5–F9 (host also Shift+F6–F8) to **Shift+F1–Shift+F8 for

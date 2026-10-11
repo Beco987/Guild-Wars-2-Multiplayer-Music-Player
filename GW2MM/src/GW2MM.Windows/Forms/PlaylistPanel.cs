@@ -26,7 +26,7 @@ internal sealed class PlaylistPanel : UserControl
     private NowPlayingInfo? _nowPlaying;
     private bool _loading;
 
-    /// <param name="next">The host's Next action (null on a client, which has no Next button).</param>
+    /// <param name="next">Next: skips the playlist song that is playing (null for no Next button).</param>
     public PlaylistPanel(PlaylistStore store, AppSettings settings, string dataDir, Func<IReadOnlyList<SongEntry>> librarySongs,
         Action<string> report, Action? next)
     {
@@ -93,7 +93,7 @@ internal sealed class PlaylistPanel : UserControl
         var tips = new ToolTip();
         tips.SetToolTip(_up, "Move up (Alt+Up)");
         tips.SetToolTip(_down, "Move down (Alt+Down)");
-        if (_next is not null) tips.SetToolTip(_next, "Skip to the next song of the playlist that is playing");
+        if (_next is not null) tips.SetToolTip(_next, "Skip to the next song of the playlist that is playing (F5 on the host, Ctrl+F5 on a client)");
         tips.SetToolTip(menuButton, "New, rename, delete, shuffle, repeat");
 
         _picker.SelectedIndexChanged += (_, _) =>
@@ -145,11 +145,11 @@ internal sealed class PlaylistPanel : UserControl
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _report("Could not save the playlist: " + ex.Message); }
     }
 
-    /// <summary>Highlights the song now playing when it belongs to the playlist on show; enables Next during a playlist.</summary>
-    public void SetNowPlaying(NowPlayingInfo? info)
+    /// <summary>Highlights the song now playing when it belongs to the playlist on show; enables Next when it can skip.</summary>
+    public void SetNowPlaying(NowPlayingInfo? info, bool canSkip)
     {
         _nowPlaying = info;
-        if (_next is not null) _next.Enabled = info?.Playlist is not null;
+        if (_next is not null) _next.Enabled = canSkip;
         Render(keepSelection: true);
     }
 

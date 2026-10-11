@@ -85,7 +85,7 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
 The host cancels the current run, sends `StopPlayback` to every slot, brings its window forward and resets octaves
 (9, 9, 0 to Player1–5, 150 ms apart). A client stops its loop and resets octaves with *OctaveDelay* ms pauses.
 
-### 5. Playlists (`HostSession.PlayPlaylistAsync`)
+### 5. Playlists (`PlaylistRunner`, used by `HostSession` and `SoloSession`)
 
 The host runs the queue; a client's playlist arrives as one `PlaylistRequest` (each song's CSV and tempo, like a
 single `PlayRequest`). For each song the host announces `NowPlaying` (to its own window and every client) and
@@ -94,7 +94,17 @@ on the host's clock. The host waits until `EndMs + SongTailMs`, ends the song li
 the queue (`StopPlayback` to every slot, octave reset), pauses `PlaylistGapMs`, and starts the next. `NextSong`
 cancels only the current wait. Stop, a single song (local or requested) or another playlist cancels the queue's
 token. A song that cannot be prepared is skipped. Repeat starts over until stopped (unless a whole pass played
-nothing). Storage is `Library/PlaylistStore` (`Playlists\<name>.txt`); the UI is `Forms/PlaylistPanel`.
+nothing). The queue itself is `Sessions/PlaylistRunner`, which takes "start a song" and "end a song" functions, so
+the host and a solo client share it. Storage is `Library/PlaylistStore` (`Playlists\<name>.txt`); the UI is
+`Forms/PlaylistPanel`.
+
+### 6. Solo play (`SoloSession`, client not connected)
+
+The client arranges the song itself. It maps the song's tracks that contain notes to slot 2, at most one per open
+`Player<n>` window, so `TrackWriter` gives the k-th track window k exactly as for a client part. It anchors the part
+500 ms ahead on its own clock and plays it with the client loop (`Schedule.ClientEvents`). Window k's keys go to the
+k-th open window, so Player1 + Player3 works. The end time feeds the same `PlaylistRunner`. Stop and the end of each
+playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback.
 
 ### Concurrency rules
 

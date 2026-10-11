@@ -1,0 +1,111 @@
+using GW2MM.Core.Library;
+using GW2MM.Core.Playback;
+using GW2MM.Core.Sessions;
+
+namespace GW2MM.Tests;
+
+/// <summary>A client playing on its own game windows while it is not connected.</summary>
+[Collection(TimingCollection.Name)]
+public sealed class SoloSessionTests : IDisposable
+{
+    // Track 2: a rising scale; track 3: a few notes; tempo 500000 => 1 tick == 1 ms.
+    private const string Song = "0, 0, Header, 1, 3, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
+        "2, 0, Start_track\n2, 0, Note_on_c, 0, 60, 90\n2, 200, Note_on_c, 0, 62, 90\n2, 400, Note_on_c, 0, 64, 90\n2, 600, Note_on_c, 0, 65, 90\n2, 800, Note_on_c, 0, 67, 90\n2, 800, End_track\n" +
+        "3, 0, Start_track\n3, 100, Note_on_c, 0, 72, 90\n3, 300, Note_on_c, 0, 74, 90\n3, 500, Note_on_c, 0, 76, 90\n3, 700, Note_on_c, 0, 77, 90\n3, 700, End_track\n0, 0, End_of_file\n";
+
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "gw2mm-solo-" + Guid.NewGuid().ToString("N"));
+    private readonly OffsetClock _clock = new(0);
+    private readonly RecordingKeys _keys;
+    private readonly FakeView _view = new();
+    private List<int> _windows = new() { 1, 2 };
+    private readonly SoloSession _solo;
+
+    public SoloSessionTests()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "Csv"));
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Duet.csv"), Song);
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Other.csv"), Song);
+        File.WriteAllText(Path.Combine(_dir, "Data.csv"), "Duet, 2, 0, x\nOther, 2, 0, y\n");
+        _keys = new RecordingKeys(_clock);
+        _solo = new SoloSession(_view, new SongLibrary(_dir), () => _windows, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50);
+    }
+
+    public void Dispose()
+    {
+        _solo.Dispose();
+        try { Directory.Delete(_dir, true); } catch (IOException) { }
+    }
+
+    private List<string> KeysIn(int window) => _keys.All.Where(p => p.Window == window).Select(p => p.Key).ToList();
+
+    [Fact]
+    public void EachTrackPlaysOnTheNextOpenWindowWithTheSongsTiming()
+    {
+        _windows = new() { 1, 3 }; // Player2 is not open
+        _solo.PlaySong("Duet");
+        Assert.Contains("♪ Now playing: Duet", _view.Dialog);
+        Assert.Contains("Not connected: playing on Player1, Player3.", _view.Dialog);
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 10, 5000);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, KeysIn(1));       // track 2
+        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, KeysIn(3));       // track 3
+        var p1 = _keys.All.Where(p => p.Window == 1).ToList();
+        for (var k = 1; k < p1.Count; k++) Assert.InRange(p1[k].Time - p1[k - 1].Time, 200 - 15, 200 + 15);
+        var first = _keys.All.Min(p => p.Time);
+        Assert.Empty(_keys.All.Where(p => p.Window == 2));
+        Assert.True(first > 0);
+    }
+
+    [Fact]
+    public void ExtraTracksAreSkippedWhenThereAreTooFewWindows()
+    {
+        _windows = new() { 1 };
+        _solo.PlaySong("Duet");
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 5, 5000);
+        Thread.Sleep(300);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, KeysIn(1));
+        Assert.Equal(5, _keys.All.Count);
+        Assert.Contains(_view.Dialog, l => l == "This song has 2 parts but only 1 game window is open, so only the first part is played.");
+    }
+
+    [Fact]
+    public void NoGameWindowsMeansNothingPlays()
+    {
+        _windows = new();
+        _solo.PlaySong("Duet");
+        Thread.Sleep(200);
+        Assert.Empty(_keys.All);
+        Assert.Contains(_view.Problems, p => p.StartsWith("No Guild Wars 2 windows are named Player1"));
+        Assert.False(_solo.IsPlaying);
+    }
+
+    [Fact]
+    public async Task PlaylistsPlaySoloWithOctaveResetsBetweenSongs()
+    {
+        _windows = new() { 1 };
+        await _solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Duet", "Missing", "Other" }), 0, shuffle: false, repeat: false)
+            .WaitAsync(TimeSpan.FromSeconds(10));
+        var notes = _keys.All.Where(p => p.Window == 1 && p.Key != "9" && p.Key != "0").Select(p => p.Key).ToList();
+        Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, notes);
+        Assert.Equal(2 * 3 * 5, _keys.All.Count(p => p.Key is "9" or "0")); // 9, 9, 0 to Player1..5 after each song
+        Assert.Contains(_view.Problems, p => p.Contains("Missing"));
+        Assert.Contains("♪ Now playing: Other (2/2 in Set)", _view.Dialog);
+        Assert.Contains("♪ Playlist Set finished.", _view.Dialog);
+        Assert.Equal(1, _view.Dialog.Count(l => l.StartsWith("Not connected: playing on")));
+    }
+
+    [Fact]
+    public async Task StopEndsSoloPlaybackAndResetsOctaves()
+    {
+        _windows = new() { 1 };
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Slow.csv"), Song.Replace(", 200,", ", 5000,"));
+        File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Slow, 1, 0, z\n");
+        var playing = _solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Slow", "Other" }), 0, false, false);
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 1, 5000);
+        await _solo.StopAsync();
+        await playing.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(_solo.IsPlaying);
+        Assert.False(_solo.IsPlaylistRunning);
+        Assert.Equal(new[] { "9", "9", "0" }, _keys.All.Where(p => p.Window == 1).Skip(1).Select(p => p.Key));
+        Assert.DoesNotContain(_view.Dialog, l => l.Contains("(2/2 in Set)"));
+    }
+}

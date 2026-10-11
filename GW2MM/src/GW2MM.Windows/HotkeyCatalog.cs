@@ -26,7 +26,9 @@ internal static class HotkeyCatalog
         }).ToList()
         : new[]
         {
-            new HotkeyAction("RequestSong", "Ask the host to play the selected song", "F11"),
+            new HotkeyAction("RequestSong", "Ask the host to play the selected song (not connected: play it here)", "F11"),
+            new HotkeyAction("StopSong", "Not connected: stop playing and reset octaves", "Ctrl+F3"),
             new HotkeyAction("Exit", "Reset octaves and exit", "F4"),
+            new HotkeyAction("NextSong", "Not connected: skip to the next song of the playlist", "Ctrl+F5"),
         }.Concat(Windows()).ToList();
 }
