@@ -3,6 +3,7 @@ using GW2MM.Core.Playback;
 
 namespace GW2MM.Tests;
 
+[Collection(TimingCollection.Name)]
 public class PlaybackLoopTests
 {
     private static string K(int window, int offset) => ((char)(192 + 16 * (window - 1) + offset)).ToString();
@@ -172,9 +173,29 @@ public class PlaybackLoopTests
     }
 
     [Fact]
-    public void PrecisionClockWaitsAccurately()
+    public void PrecisionClockWaitsAccurately() => AssertPunctual(PrecisionClock.Instance);
+
+    /// <summary>
+    /// Windows without 1 ms timer resolution rounds sleeps up to 15.6 ms ticks (seen on the CI runner): the clock
+    /// must learn that and spin the rest instead of oversleeping.
+    /// </summary>
+    [Fact]
+    public void PrecisionClockStaysPunctualWithACoarseSleep()
     {
-        var clock = PrecisionClock.Instance;
+        var reference = System.Diagnostics.Stopwatch.StartNew();
+        var clock = new PrecisionClock((t, ct) =>
+        {
+            var tick = 15.625;
+            var wake = Math.Ceiling((reference.Elapsed.TotalMilliseconds + t.TotalMilliseconds) / tick) * tick;
+            while (reference.Elapsed.TotalMilliseconds < wake)
+                if (ct.WaitHandle.WaitOne(1)) return true;
+            return false;
+        });
+        AssertPunctual(clock);
+    }
+
+    private static void AssertPunctual(PrecisionClock clock)
+    {
         var errors = new List<double>();
         for (var i = 0; i < 40; i++)
         {

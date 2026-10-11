@@ -7,6 +7,7 @@ using GW2MM.Core.Sessions;
 namespace GW2MM.Tests;
 
 /// <summary>Host and clients talking over real loopback TCP, each "machine" on its own clock.</summary>
+[Collection(TimingCollection.Name)]
 public sealed class SessionIntegrationTests : IDisposable
 {
     private static readonly HostTimings FastTimings = new() { ClockWaitMs = 300, ClientPlayRequestDelayMs = 20, OctaveResetDelayMs = 5, PingCount = 4, PingIntervalMs = 20, SyncPreDelayMs = 1 };
@@ -171,7 +172,7 @@ public sealed class SessionIntegrationTests : IDisposable
         await Wait.Until(() => h.Keys.Presses.Count >= 2, timeoutMs: 8000);
         Assert.Contains("Peer > StartSong,1.500000", h.View.Dialog);
         var p = h.Keys.All;
-        Assert.InRange(p[1].Time - p[0].Time, 300 - 5, 300 + 15); // 200 ticks * 1.5
+        Assert.InRange(p[1].Time - p[0].Time, 300 - 15, 300 + 15); // 200 ticks * 1.5 (a late first press shortens the gap)
         Assert.Equal(1.5, host.DefaultTempo, 6);
     }
 
