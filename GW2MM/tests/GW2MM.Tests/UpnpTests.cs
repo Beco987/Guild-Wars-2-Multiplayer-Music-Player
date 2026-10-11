@@ -143,9 +143,13 @@ public sealed class UpnpTests : IDisposable
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(5) };
     public void Dispose() { _router.Dispose(); _http.Dispose(); }
 
+    /// <summary>What the "what is my IP" lookup answers (null = lookup failed).</summary>
+    private string? _publicAddress = "203.0.113.7";
+
     /// <summary>Discovery aimed at the fake router's SSDP socket instead of the multicast group.</summary>
     private PortOpener Opener() => new(_http, (upnp, ct) =>
-        upnp.DiscoverAsync(TimeSpan.FromSeconds(3), ct, new[] { (IPAddress.Loopback, _router.SsdpEndPoint) }));
+        upnp.DiscoverAsync(TimeSpan.FromSeconds(3), ct, new[] { (IPAddress.Loopback, _router.SsdpEndPoint) }),
+        _ => Task.FromResult(_publicAddress));
 
     [Fact]
     public async Task DiscoversTheRouterOverSsdpAndFindsItsPortForwardingService()
@@ -238,6 +242,29 @@ public sealed class UpnpTests : IDisposable
         Assert.Contains("behind another network", result.Message);
     }
 
+    /// <summary>
+    /// A router behind carrier-grade NAT can report a public-looking address that is not the real one; only an
+    /// outside lookup shows it. Opening the port then does not let players in, so success must not be claimed.
+    /// </summary>
+    [Fact]
+    public async Task WarnsWhenTheRoutersAddressIsNotThePublicAddress()
+    {
+        _router.ExternalAddress = "198.51.100.4";
+        var result = await Opener().OpenAsync(27015, CancellationToken.None);
+        Assert.Contains("is not your public address (203.0.113.7)", result.Message);
+        Assert.DoesNotContain("Players connect to", result.Message);
+        Assert.Equal("203.0.113.7", result.ExternalAddress);
+        Assert.Contains("Router's internet address: 198.51.100.4; public address: 203.0.113.7", result.Details);
+    }
+
+    [Fact]
+    public async Task FallsBackToTheRoutersAddressWhenThePublicLookupFails()
+    {
+        _publicAddress = null;
+        var result = await Opener().OpenAsync(27015, CancellationToken.None);
+        Assert.Contains("Players connect to 203.0.113.7", result.Message);
+    }
+
     [Fact]
     public async Task WorksWithPppRouters()
     {
@@ -249,9 +276,11 @@ public sealed class UpnpTests : IDisposable
     [Fact]
     public async Task NoRouterGivesAHelpfulMessage()
     {
-        var result = await new PortOpener(_http, (_, _) => Task.FromResult<UpnpGateway?>(null)).OpenAsync(27015, CancellationToken.None);
+        var result = await new PortOpener(_http, (_, _) => Task.FromResult<UpnpGateway?>(null), _ => Task.FromResult(_publicAddress))
+            .OpenAsync(27015, CancellationToken.None);
         Assert.False(result.Open);
         Assert.Contains("Forward the port by hand", result.Message);
+        Assert.Contains("Your public address is 203.0.113.7", result.Message);
     }
 
     [Theory]
@@ -300,5 +329,32 @@ public sealed class UpnpTests : IDisposable
             Assert.Contains("OpenPort,0", File.ReadAllText(Path.Combine(dir, "Config.txt")));
         }
         finally { Directory.Delete(dir, true); }
+    }
+}
+
+public sealed class FirewallCheckTests
+{
+    [Theory]
+    [InlineData("*", true)]
+    [InlineData("", true)]
+    [InlineData("27015", true)]
+    [InlineData("80,27015", true)]
+    [InlineData("27000-27100", true)]
+    [InlineData("27016-27100,443", false)]
+    [InlineData("2701", false)]
+    public void PortRanges(string ports, bool matches) => Assert.Equal(matches, FirewallCheck.PortMatches(ports, 27015));
+
+    /// <summary>On Windows (CI), the firewall settings can actually be read through COM; elsewhere it says Unknown.</summary>
+    [Fact]
+    public void ReadsTheWindowsFirewall()
+    {
+        var exe = Environment.ProcessPath ?? "test.exe";
+        var (status, detail) = FirewallCheck.Check(exe, 27015);
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(FirewallStatus.Unknown, status);
+            return;
+        }
+        Assert.True(status != FirewallStatus.Unknown, detail);
     }
 }

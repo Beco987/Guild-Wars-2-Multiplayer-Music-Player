@@ -123,6 +123,7 @@ internal sealed class MainForm : Form, IHostView
             {
                 _host.Start();
                 if (_settings.OpenPortAutomatically) _ = OpenPortAsync();
+                _ = CheckFirewallAsync();
             }
             catch (System.Net.Sockets.SocketException ex)
             {
@@ -228,6 +229,7 @@ internal sealed class MainForm : Form, IHostView
         {
             var result = await opener.OpenAsync(_host.Port, _closing.Token);
             AppLog.Write("UPnP: " + result.Message);
+            if (result.Details.Length > 0) AppLog.Write("UPnP details: " + result.Details);
             if (!ReferenceEquals(_portOpener, opener)) // turned off in Settings while the router was answering
             {
                 await opener.CloseAsync(_closing.Token);
@@ -241,6 +243,39 @@ internal sealed class MainForm : Form, IHostView
             AppLog.Write("UPnP failed: " + ex);
             AppendDialog("Could not open the port automatically: " + ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Host: makes sure Windows Firewall lets players in on the current network, offering to add a rule if not.
+    /// (UPnP only opens the router; the firewall is checked whether or not UPnP is used.)
+    /// </summary>
+    private async Task CheckFirewallAsync()
+    {
+        if (_host is null || Environment.ProcessPath is not { } exe) return;
+        var port = _host.Port;
+        try
+        {
+            var (status, detail) = await Task.Run(() => FirewallCheck.Check(exe, port));
+            AppLog.Write("Firewall: " + detail);
+            if (status is FirewallStatus.Allowed or FirewallStatus.Unknown || IsDisposed) return;
+            var answer = MessageBox.Show(this,
+                detail + Environment.NewLine + Environment.NewLine +
+                "Players on other computers can't connect until the host is allowed through Windows Firewall. " +
+                "Allow it now? Windows will ask for administrator permission.",
+                Texts.AppTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (answer != DialogResult.Yes)
+            {
+                AppendDialog("Windows Firewall is blocking players from connecting. Restart the host to be asked again, or allow GW2MM-Host in Windows Firewall yourself.");
+                return;
+            }
+            var added = await Task.Run(() => FirewallCheck.AddAllowRule(exe, port));
+            var (after, afterDetail) = await Task.Run(() => FirewallCheck.Check(exe, port));
+            AppLog.Write($"Firewall rule added: {added}; now: {afterDetail}");
+            AppendDialog(added && after == FirewallStatus.Allowed
+                ? "Windows Firewall now lets players connect."
+                : "Could not change Windows Firewall (" + afterDetail + ")");
+        }
+        catch (Exception ex) { AppLog.Write("Firewall check failed: " + ex); }
     }
 
     /// <summary>Host: removes the router forward this program added (waits briefly; the program is closing).</summary>

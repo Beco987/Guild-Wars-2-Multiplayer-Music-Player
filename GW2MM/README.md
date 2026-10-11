@@ -82,9 +82,23 @@ to set up port forwarding by hand. The chat box shows the result:
   and is never removed.
 * *…your router already forwards it to another device (192.168.1.50).* Change or delete that forward on the router.
 * *…no router answered.* UPnP is off on the router (or not supported). Turn it on, or forward the port by hand.
-* *…the router itself is behind another network.* Your provider (carrier-grade NAT) or a second router sits in front
-  of yours. Players outside your network still can't reach you. Use a VPN such as Tailscale, or ask your provider
-  for a public IP address.
+* *…the router itself is behind another network* or *…the router's internet address is not your public address.*
+  Your provider (carrier-grade NAT) or a second router sits in front of yours, so the forward never sees outside
+  players. Forward the port on the outer router too, ask your provider for a public IP address, or use a VPN such
+  as Tailscale.
+
+The "Players connect to" address comes from asking `api.ipify.org` for this network's public address. (The router's
+own answer is wrong behind another NAT.) If that lookup fails, the router's answer is shown instead.
+
+**Windows Firewall** is a separate gate from the router. When the host starts, it checks whether the firewall lets
+other computers reach it on the current network. If not, it offers to add a rule ("GW2MM Host", TCP 27015, all
+networks) and Windows asks for administrator permission. This matters because the firewall prompt Windows shows the
+first time ticks *Private* networks only, and home networks are often classed as *Public*. Pressing *Cancel* on
+that prompt makes Windows block the program outright. Third-party firewalls or antivirus suites are not checked.
+
+**Still can't connect?** Players outside your network must use the public address, and port 27015 must reach this
+computer. Testing your own public address from inside your network often fails even when everything works (many
+routers don't support it). `GW2MM.log` records the router, the forwarded address and the firewall result.
 
 The forward GW2MM added is removed when the host closes. If the host crashes, the forward is cleaned up the next time
 it closes normally. Turn this off in Settings (⚙) → *Auto-open port (UPnP)?*, stored as `OpenPort,0` in
