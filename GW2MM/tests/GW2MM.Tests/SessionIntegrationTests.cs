@@ -81,18 +81,16 @@ public sealed class SessionIntegrationTests : IDisposable
         // (200 ticks) is at least OctaveDelay (130) the "0" swap is pressed on its own halfway through the gap.
         Assert.Equal(new[] { "8", "0", "2", "3", "4" }, cp.Select(p => p.Key));
         Assert.All(cp, p => Assert.Equal(1, p.Window));
-        Assert.InRange(c.Clock.ToReal(cp[1].Time) - c.Clock.ToReal(cp[0].Time), 100 - 10, 100 + 15);
-        cp = cp.Where(p => p.Key != "0").ToList();
 
-        // Same timeline: host note k at 200k ms, client note k at 100 + 200k ms, client 40 ms early (its input delay).
-        var hostStart = h.Clock.ToReal(hp[0].Time);
-        for (var k = 0; k < 4; k++)
-        {
-            var hostAt = h.Clock.ToReal(hp[k].Time) - hostStart;
-            var clientAt = c.Clock.ToReal(cp[k].Time) - hostStart;
-            Assert.InRange(hostAt, 200 * k - 5, 200 * k + 15);
-            Assert.InRange(clientAt, 100 + 200 * k - 40 - 15, 100 + 200 * k - 40 + 15);
-        }
+        // One timeline: host note k at 200k ms; client presses at 100 ("8"), 200 ("0", mid-gap swap), 300, 500, 700 ms,
+        // each 40 ms early (the client's input delay). A press can be late but never early, so the song's start is
+        // estimated from the least-late host press rather than from the first one.
+        var hostStart = Enumerable.Range(0, 5).Min(k => h.Clock.ToReal(hp[k].Time) - 200 * k);
+        for (var k = 0; k < 5; k++)
+            Assert.InRange(h.Clock.ToReal(hp[k].Time) - hostStart, 200 * k - 2, 200 * k + 15);
+        var clientExpected = new[] { 100, 200, 300, 500, 700 };
+        for (var k = 0; k < 5; k++)
+            Assert.InRange(c.Clock.ToReal(cp[k].Time) - hostStart, clientExpected[k] - 40 - 10, clientExpected[k] - 40 + 15);
     }
 
     [Fact]
