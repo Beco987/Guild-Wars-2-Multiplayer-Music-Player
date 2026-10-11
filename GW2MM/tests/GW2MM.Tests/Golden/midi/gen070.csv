@@ -1,0 +1,148 @@
+0, 0, Header, 2, 4, 480
+1, 0, Start_track
+1, 0, Tempo, 400000
+1, 0, Program_c, 12, 77
+1, 438, Note_on_c, 0, 81, 0
+1, 438, Note_on_c, 2, 121, 0
+1, 438, Note_on_c, 3, 97, 77
+1, 438, Channel_aftertouch_c, 11, 47
+1, 243822, Sequence_number, 24527
+1, 243823, Instrument_name_t, "Piano, Piano, Piano\000"
+1, 405798, Note_off_c, 14, 96, 34
+1, 406199, Note_on_c, 14, 96, 82
+1, 406200, Control_c, 9, 115, 25
+1, 540829, Note_on_c, 15, 52, 48
+1, 540829, Poly_aftertouch_c, 1, 97, 72
+1, 540829, Note_on_c, 3, 72, 83
+1, 540839, Note_on_c, 2, 97, 83
+1, 540840, Note_off_c, 6, 52, 10
+1, 540841, Instrument_name_t, "\000\001\177\200éÿ"
+1, 741767, Program_c, 4, 112
+1, 742210, Note_on_c, 12, 86, 34
+1, 742210, Note_on_c, 12, 52, 0
+1, 781587, Copyright_t, "a, b, c"
+1, 781588, System_exclusive_packet, 0
+1, 897914, Note_on_c, 1, 96, 124
+1, 897914, Channel_aftertouch_c, 7, 41
+1, 959191, System_exclusive_packet, 6, 43, 15, 22, 35, 26, 42
+1, 959192, Note_on_c, 13, 96, 0
+1, 959192, Unknown_meta_event, 96, 5, 174, 160, 1, 138, 87
+1, 959192, Note_off_c, 4, 70, 30
+1, 959407, Note_on_c, 11, 96, 46
+1, 959408, Text_t, "a, b, c"
+1, 959408, Note_on_c, 8, 98, 42
+1, 959677, Unknown_meta_event, 8, 7, 97, 44, 32, 98, 44, 32, 99
+1, 959677, Channel_aftertouch_c, 14, 102
+1, 959746, Note_on_c, 9, 68, 114
+1, 960089, Channel_aftertouch_c, 3, 12
+1, 960089, Tempo, 1026490
+1, 960090, Note_off_c, 6, 96, 98
+1, 960322, Note_on_c, 12, 42, 35
+1, 960322, Note_on_c, 12, 73, 49
+1, 960323, Sequence_number, 63775
+1, 960327, Channel_aftertouch_c, 13, 98
+1, 984249, Note_off_c, 4, 8, 100
+1, 1226396, Pitch_bend_c, 7, 7710
+1, 1226436, Note_on_c, 13, 96, 0
+1, 1304848, Channel_aftertouch_c, 2, 66
+1, 1410906, Copyright_t, "tab\011new\012line"
+1, 1410906, Pitch_bend_c, 5, 5553
+1, 1411270, Pitch_bend_c, 1, 4853
+1, 1411630, Note_on_c, 11, 68, 0
+1, 1559275, Note_on_c, 11, 71, 0
+1, 1559276, Poly_aftertouch_c, 7, 96, 17
+1, 1559276, Note_on_c, 14, 65, 0
+1, 1559276, End_track
+2, 0, Start_track
+2, 0, Poly_aftertouch_c, 2, 66, 94
+2, 432, MIDI_port, 6
+2, 433, Control_c, 2, 23, 11
+2, 94562, Program_c, 11, 96
+2, 94562, Control_c, 10, 60, 12
+2, 94563, Poly_aftertouch_c, 4, 78, 21
+2, 94564, Pitch_bend_c, 0, 9021
+2, 94564, System_exclusive, 2, 73, 247
+2, 94564, Channel_aftertouch_c, 9, 124
+2, 99058, Note_on_c, 8, 97, 92
+2, 196982, Control_c, 4, 34, 36
+2, 197252, SMPTE_offset, 22, 39, 29, 19, 7
+2, 197275, System_exclusive, 7, 35, 90, 0, 88, 127, 41, 247
+2, 197514, Pitch_bend_c, 12, 6165
+2, 197515, Note_on_c, 1, 97, 83
+2, 197516, Pitch_bend_c, 7, 11929
+2, 197516, Note_on_c, 9, 96, 27
+2, 197516, End_track
+3, 0, Start_track
+3, 0, Sequence_number, 12832
+3, 225027, Pitch_bend_c, 0, 2075
+3, 225028, Pitch_bend_c, 8, 6616
+3, 225028, Note_on_c, 6, 40, 72
+3, 225268, Note_on_c, 6, 96, 9
+3, 225627, Poly_aftertouch_c, 7, 91, 42
+3, 225627, Note_on_c, 1, 96, 0
+3, 466214, Note_on_c, 2, 97, 57
+3, 466324, Note_on_c, 12, 96, 86
+3, 466324, Control_c, 7, 21, 47
+3, 466324, Note_on_c, 8, 97, 80
+3, 742034, Note_on_c, 15, 73, 11
+3, 868140, Poly_aftertouch_c, 7, 97, 41
+3, 868463, Unknown_meta_event, 9, 20, 80, 105, 97, 110, 111, 44, 32, 80, 105, 97, 110, 111, 44, 32, 80, 105, 97, 110, 111, 0
+3, 868463, Control_c, 0, 119, 79
+3, 868463, Note_off_c, 10, 97, 81
+3, 868463, Note_off_c, 7, 96, 22
+3, 868463, Note_on_c, 9, 97, 115
+3, 868463, Note_on_c, 5, 96, 50
+3, 868464, Note_off_c, 5, 51, 93
+3, 868464, Copyright_t, "back\\slash"
+3, 868464, Control_c, 8, 60, 120
+3, 868831, Channel_aftertouch_c, 3, 80
+3, 869193, Note_on_c, 11, 96, 0
+3, 869424, Channel_aftertouch_c, 6, 11
+3, 869668, Program_c, 5, 104
+3, 869916, Control_c, 5, 2, 64
+3, 869916, Control_c, 1, 63, 87
+3, 869916, Tempo, 15496954
+3, 962023, Channel_aftertouch_c, 0, 48
+3, 962024, Note_off_c, 13, 94, 38
+3, 962399, Note_on_c, 6, 22, 0
+3, 962399, End_track
+4, 0, Start_track
+4, 22487, System_exclusive_packet, 7, 107, 39, 42, 14, 4, 2, 112
+4, 306910, Marker_t, "back\\slash"
+4, 397069, Note_on_c, 5, 72, 0
+4, 397069, Note_off_c, 9, 63, 111
+4, 397070, Note_off_c, 0, 96, 67
+4, 397071, Lyric_t, "tab\011new\012line"
+4, 397538, System_exclusive, 4, 60, 14, 56, 247
+4, 591287, Note_on_c, 1, 97, 0
+4, 591287, MIDI_port, 15
+4, 591663, System_exclusive_packet, 4, 79, 70, 110, 47
+4, 591663, Text_t, "a, b, c"
+4, 591923, Note_off_c, 5, 96, 87
+4, 591923, Poly_aftertouch_c, 8, 96, 54
+4, 591923, System_exclusive_packet, 0
+4, 591923, Poly_aftertouch_c, 11, 97, 66
+4, 591924, Note_on_c, 3, 74, 101
+4, 591925, System_exclusive_packet, 5, 89, 86, 13, 70, 27
+4, 591926, Note_off_c, 9, 103, 34
+4, 591926, Program_c, 2, 120
+4, 591927, Program_c, 3, 28
+4, 592180, Pitch_bend_c, 4, 568
+4, 592598, Note_off_c, 4, 97, 43
+4, 592599, System_exclusive_packet, 5, 79, 82, 111, 107, 52
+4, 592747, Note_on_c, 5, 72, 75
+4, 592747, Note_on_c, 1, 96, 116
+4, 592747, Tempo, 12245166
+4, 592748, System_exclusive, 7, 68, 125, 58, 47, 89, 73, 247
+4, 876598, Note_off_c, 3, 46, 98
+4, 876598, Pitch_bend_c, 8, 8543
+4, 876598, Copyright_t, "¬\030\035»"
+4, 876598, Note_off_c, 15, 97, 50
+4, 876598, Note_on_c, 0, 72, 63
+4, 876598, Text_t, "back\\slash"
+4, 876708, Program_c, 0, 38
+4, 876708, Note_on_c, 5, 97, 104
+4, 920148, Copyright_t, "back\\slash"
+4, 920149, Note_off_c, 5, 47, 127
+4, 920149, End_track
+0, 0, End_of_file

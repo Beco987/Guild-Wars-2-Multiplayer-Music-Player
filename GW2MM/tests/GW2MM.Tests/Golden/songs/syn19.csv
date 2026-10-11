@@ -1,0 +1,240 @@
+0, 0, Header, 1, 10, 96
+1, 0, Start_track
+1, 0, Tempo, 1000000
+1, 0, Title_t, "Track, 64, text"
+1, 0, Note_on_c, 6, 97, 95
+1, 96, Note_on_c, 4, 107, 27
+1, 96, Note_on_c, 2, 97, 19
+1, 96, Note_on_c, 11, 67, 95
+1, 96, Note_on_c, 12, 60, 2
+1, 98, Note_on_c, 6, 84, 58
+1, 98, Note_on_c, 2, 75, 0
+1, 98, Note_on_c, 8, 97, 106
+1, 98, Note_on_c, 14, 97, 91
+1, 100, Note_on_c, 0, 101, 120
+1, 101, Note_on_c, 11, 97, 43
+1, 101, End_track
+2, 0, Start_track
+2, 1, Note_on_c, 15, 71, 119
+2, 3, Tempo, 600000
+2, 3, Note_on_c, 2, 46, 35
+2, 3, Note_on_c, 3, 97, 16
+2, 3, Note_on_c, 8, 99, 0
+2, 4, Note_on_c, 2, 51, 21
+2, 124, Note_off_c, 6, 97, 125
+2, 124, Note_on_c, 14, 54, 122
+2, 174, Control_c, 0, 119, 19
+2, 174, Note_on_c, 5, 97, 67
+2, 233, Control_c, 0, 2, 113
+2, 233, Note_on_c, 6, 96, 6
+2, 233, Note_on_c, 10, 65, 11
+2, 233, Note_on_c, 10, 66, 0
+2, 233, Note_on_c, 8, 96, 107
+2, 329, Note_on_c, 1, 49, 55
+2, 331, Note_on_c, 2, 97, 110
+2, 331, Note_on_c, 5, 97, 0
+2, 333, Note_on_c, 2, 106, 0
+2, 333, Note_on_c, 3, 96, 115
+2, 333, Note_on_c, 8, 68, 41
+2, 335, Note_on_c, 15, 96, 0
+2, 335, Note_on_c, 10, 63, 118
+2, 335, Note_on_c, 14, 76, 45
+2, 703, Note_on_c, 0, 96, 46
+2, 704, Note_on_c, 6, 97, 76
+2, 1184, Note_on_c, 2, 96, 122
+2, 1184, Note_on_c, 12, 96, 0
+2, 1185, Control_c, 0, 3, 45
+2, 1186, Note_on_c, 7, 58, 66
+2, 1186, Note_on_c, 1, 97, 105
+2, 233, Tempo, 450000
+2, 1186, End_track
+3, 0, Start_track
+3, 0, Title_t, "Track, 67, text"
+3, 2, Note_off_c, 8, 62, 0
+3, 2, Note_on_c, 12, 81, 0
+3, 3, Note_on_c, 1, 41, 50
+3, 243, Note_on_c, 12, 96, 3
+3, 243, Note_on_c, 9, 95, 19
+3, 243, Note_on_c, 6, 64, 0
+3, 244, Note_on_c, 15, 72, 34
+3, 244, Note_on_c, 5, 97, 0
+3, 1184, Tempo, 450000
+3, 244, End_track
+4, 0, Start_track
+4, 0, Title_t, "Track, 56, text"
+4, 1, Control_c, 0, 85, 23
+4, 97, Note_on_c, 0, 50, 89
+4, 97, Note_off_c, 11, 38, 0
+4, 97, Note_on_c, 12, 82, 0
+4, 97, Control_c, 0, 34, 59
+4, 97, Note_on_c, 15, 65, 3
+4, 577, Note_off_c, 11, 97, 87
+4, 1057, Note_off_c, 0, 98, 55
+4, 1058, Control_c, 0, 63, 5
+4, 1538, Note_off_c, 9, 81, 113
+4, 1538, Note_on_c, 14, 97, 0
+4, 1933, Note_on_c, 11, 87, 0
+4, 1933, Note_on_c, 13, 75, 0
+4, 1933, Note_on_c, 15, 93, 0
+4, 2040, Note_on_c, 2, 97, 0
+4, 2160, Note_on_c, 4, 77, 0
+4, 2160, Note_on_c, 14, 97, 0
+4, 2160, Note_on_c, 10, 52, 42
+4, 2162, Control_c, 0, 3, 79
+4, 2162, Note_on_c, 11, 96, 87
+4, 2162, Note_on_c, 8, 50, 104
+4, 2162, Note_on_c, 3, 81, 0
+4, 2163, Note_on_c, 13, 96, 0
+4, 2238, Note_on_c, 7, 96, 68
+4, 2238, Note_on_c, 3, 96, 0
+4, 2238, Note_on_c, 3, 105, 95
+4, 2238, End_track
+5, 0, Start_track
+5, 3, Tempo, 450000
+5, 0, End_track
+6, 0, Start_track
+6, 0, Note_on_c, 5, 96, 42
+6, 0, Note_on_c, 15, 74, 13
+6, 0, Note_off_c, 15, 61, 81
+6, 2, Note_off_c, 4, 98, 0
+6, 138, Note_on_c, 0, 81, 0
+6, 138, Note_on_c, 8, 71, 0
+6, 258, Note_off_c, 11, 97, 103
+6, 259, Note_on_c, 6, 97, 19
+6, 259, Note_on_c, 10, 51, 0
+6, 259, Note_on_c, 10, 96, 0
+6, 601, Note_off_c, 12, 91, 110
+6, 603, Note_on_c, 13, 50, 0
+6, 911, Tempo, 600000
+6, 911, Note_on_c, 8, 69, 36
+6, 911, Control_c, 0, 4, 73
+6, 704, Tempo, 450000
+6, 911, End_track
+7, 0, Start_track
+7, 0, Control_c, 0, 79, 27
+7, 142, Note_on_c, 15, 97, 0
+7, 142, Note_on_c, 2, 97, 114
+7, 143, Note_on_c, 11, 97, 6
+7, 143, Note_on_c, 15, 88, 91
+7, 143, Note_on_c, 4, 84, 0
+7, 143, Note_on_c, 11, 79, 0
+7, 279, Control_c, 0, 24, 46
+7, 281, Note_off_c, 15, 97, 118
+7, 281, Note_on_c, 7, 69, 0
+7, 281, Note_on_c, 7, 97, 0
+7, 283, Note_on_c, 9, 97, 0
+7, 283, Note_on_c, 14, 96, 58
+7, 283, Note_on_c, 14, 57, 56
+7, 283, Note_on_c, 3, 72, 115
+7, 283, Note_on_c, 8, 96, 53
+7, 283, Note_on_c, 6, 58, 8
+7, 283, Note_on_c, 3, 96, 43
+7, 283, Note_off_c, 6, 44, 0
+7, 283, Note_on_c, 11, 49, 0
+7, 283, Note_on_c, 13, 50, 79
+7, 283, Note_on_c, 11, 97, 0
+7, 383, Control_c, 0, 106, 18
+7, 384, Note_on_c, 4, 62, 97
+7, 385, Note_on_c, 11, 97, 0
+7, 385, Note_on_c, 8, 96, 67
+7, 387, Note_on_c, 15, 96, 76
+7, 387, Note_on_c, 12, 97, 103
+7, 448, Note_on_c, 13, 54, 0
+7, 688, Note_on_c, 14, 65, 0
+7, 688, Note_on_c, 0, 88, 0
+7, 688, Note_on_c, 4, 97, 0
+7, 689, Note_on_c, 11, 96, 108
+7, 689, Note_off_c, 15, 97, 101
+7, 895, Note_on_c, 4, 97, 3
+7, 895, Note_on_c, 4, 96, 0
+7, 895, Note_on_c, 14, 88, 0
+7, 688, Tempo, 450000
+7, 895, End_track
+8, 0, Start_track
+8, 1, Note_on_c, 6, 97, 0
+8, 1, End_track
+9, 0, Start_track
+9, 240, Note_on_c, 3, 97, 0
+9, 240, Note_on_c, 14, 67, 116
+9, 240, Note_off_c, 14, 59, 0
+9, 720, Note_on_c, 8, 64, 13
+9, 720, Note_on_c, 6, 84, 18
+9, 720, Note_on_c, 14, 96, 115
+9, 840, Note_on_c, 11, 96, 102
+9, 960, Note_on_c, 7, 68, 31
+9, 960, Note_on_c, 10, 62, 0
+9, 960, Note_on_c, 9, 79, 0
+9, 960, Note_on_c, 3, 96, 22
+9, 960, Note_on_c, 11, 70, 18
+9, 960, Note_on_c, 15, 48, 0
+9, 1200, Control_c, 0, 6, 72
+9, 1200, Note_on_c, 10, 49, 40
+9, 1200, Note_on_c, 0, 71, 3
+9, 1440, Control_c, 0, 64, 127
+9, 1440, Note_on_c, 2, 97, 31
+9, 1441, Note_on_c, 4, 97, 0
+9, 1441, End_track
+10, 0, Start_track
+10, 1, Note_on_c, 11, 97, 0
+10, 1, Note_on_c, 7, 96, 73
+10, 2, Note_on_c, 15, 96, 69
+10, 2, Note_on_c, 5, 96, 79
+10, 2, Note_on_c, 1, 97, 0
+10, 2, Note_on_c, 8, 96, 115
+10, 2, Note_on_c, 6, 66, 78
+10, 2, Note_off_c, 13, 97, 6
+10, 373, Note_on_c, 5, 96, 84
+10, 373, Note_on_c, 1, 97, 17
+10, 429, Note_on_c, 15, 52, 0
+10, 429, Note_on_c, 11, 96, 114
+10, 429, Note_on_c, 8, 96, 0
+10, 750, Note_on_c, 12, 96, 62
+10, 751, Note_on_c, 0, 86, 68
+10, 751, Note_on_c, 9, 55, 15
+10, 991, Note_off_c, 1, 97, 0
+10, 991, Note_on_c, 11, 76, 31
+10, 991, Note_on_c, 3, 96, 121
+10, 991, Note_on_c, 10, 97, 0
+10, 991, Note_on_c, 12, 83, 11
+10, 991, Note_off_c, 2, 70, 91
+10, 991, Note_on_c, 2, 69, 20
+10, 993, Note_off_c, 7, 42, 0
+10, 993, Note_on_c, 2, 67, 0
+10, 993, Control_c, 0, 58, 25
+10, 993, Control_c, 0, 64, 28
+10, 993, Tempo, 600000
+10, 993, Note_off_c, 3, 97, 0
+10, 993, Note_on_c, 10, 62, 11
+10, 993, Note_on_c, 6, 74, 0
+10, 1160, Note_on_c, 0, 97, 0
+10, 1160, Note_on_c, 2, 97, 89
+10, 1160, Note_on_c, 9, 96, 116
+10, 1160, Note_off_c, 11, 97, 19
+10, 1400, Note_on_c, 14, 82, 117
+10, 1400, Note_on_c, 12, 54, 75
+10, 1400, Note_on_c, 4, 93, 72
+10, 1402, Note_on_c, 14, 67, 117
+10, 1402, Note_on_c, 10, 83, 119
+10, 1402, Note_on_c, 3, 48, 0
+10, 1404, Note_on_c, 1, 96, 0
+10, 1406, Note_on_c, 4, 97, 2
+10, 1406, Note_on_c, 2, 83, 45
+10, 1406, Control_c, 0, 89, 42
+10, 1408, Note_on_c, 2, 76, 3
+10, 1408, Note_on_c, 3, 96, 94
+10, 1408, Note_on_c, 2, 68, 21
+10, 1408, Note_on_c, 2, 97, 0
+10, 1408, Note_on_c, 10, 96, 0
+10, 1408, Note_on_c, 2, 96, 20
+10, 1408, Note_off_c, 13, 97, 0
+10, 1549, Note_off_c, 8, 59, 67
+10, 1789, Note_on_c, 2, 96, 126
+10, 1791, Note_on_c, 1, 96, 0
+10, 1791, Note_on_c, 13, 96, 0
+10, 1792, Note_on_c, 14, 79, 108
+10, 1793, Tempo, 500000
+10, 1793, Note_on_c, 2, 96, 120
+10, 1793, Note_off_c, 2, 40, 0
+10, 384, Tempo, 450000
+10, 1793, End_track
+0, 0, End_of_file

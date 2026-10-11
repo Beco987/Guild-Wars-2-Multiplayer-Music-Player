@@ -1,0 +1,197 @@
+0, 0, Header, 1, 6, -6360
+1, 0, Start_track
+1, 0, Tempo, 1000000
+1, 230, Note_on_c, 4, 46, 103
+1, 231, Channel_aftertouch_c, 13, 91
+1, 246, Note_on_c, 12, 82, 86
+1, 549, Note_on_c, 1, 96, 0
+1, 550, Cue_point_t, "\022\216Q6)\236»\026+"
+1, 83620, Program_c, 7, 80
+1, 83649, Note_off_c, 0, 66, 86
+1, 214769, System_exclusive, 2, 31, 247
+1, 215256, Note_on_c, 15, 97, 49
+1, 215256, Note_on_c, 5, 96, 58
+1, 215256, Unknown_meta_event, 8, 0
+1, 215256, Program_c, 6, 90
+1, 215257, Poly_aftertouch_c, 14, 1, 57
+1, 215257, Sequence_number, 7531
+1, 215257, Program_c, 8, 55
+1, 215257, Pitch_bend_c, 13, 5500
+1, 215311, Note_on_c, 14, 66, 0
+1, 215419, System_exclusive_packet, 7, 109, 42, 120, 69, 53, 68, 40
+1, 215419, Control_c, 0, 34, 124
+1, 215419, Pitch_bend_c, 14, 600
+1, 215419, Note_on_c, 4, 96, 59
+1, 215472, Note_on_c, 3, 97, 52
+1, 215907, Pitch_bend_c, 4, 15446
+1, 215908, Pitch_bend_c, 12, 11309
+1, 414732, Note_on_c, 0, 97, 0
+1, 414732, Marker_t, "tab\011new\012line"
+1, 415195, System_exclusive, 7, 61, 79, 92, 103, 1, 78, 247
+1, 415195, Control_c, 12, 112, 102
+1, 415196, Note_on_c, 15, 70, 29
+1, 415197, Note_off_c, 1, 96, 96
+1, 593663, Pitch_bend_c, 12, 10957
+1, 765652, System_exclusive_packet, 8, 122, 40, 79, 72, 9, 22, 88, 126
+1, 765653, Title_t, ""
+1, 765654, Note_on_c, 9, 96, 47
+1, 947435, Program_c, 3, 25
+1, 947435, Note_on_c, 6, 92, 120
+1, 947435, Title_t, "a, b, c"
+1, 970491, Pitch_bend_c, 4, 7050
+1, 970491, Note_on_c, 2, 72, 66
+1, 970722, System_exclusive_packet, 6, 86, 29, 29, 64, 88, 32
+1, 970723, Note_on_c, 5, 96, 75
+1, 970723, Poly_aftertouch_c, 11, 97, 67
+1, 970914, Poly_aftertouch_c, 5, 97, 126
+1, 970915, Poly_aftertouch_c, 2, 96, 7
+1, 970976, Note_on_c, 10, 97, 34
+1, 970976, Instrument_name_t, "back\\slash"
+1, 971132, Program_c, 12, 29
+1, 971133, Note_on_c, 2, 126, 20
+1, 971133, Note_on_c, 12, 96, 0
+1, 971134, Note_off_c, 13, 18, 64
+1, 971134, Note_on_c, 11, 88, 0
+1, 971134, Note_on_c, 5, 96, 109
+1, 971134, Channel_aftertouch_c, 13, 25
+1, 971135, Tempo, 5618476
+1, 971135, End_track
+2, 0, Start_track
+2, 109292, MIDI_port, 11
+2, 109293, Program_c, 12, 108
+2, 109294, Control_c, 9, 84, 121
+2, 109295, Program_c, 1, 47
+2, 295389, Note_on_c, 3, 97, 50
+2, 295708, Note_on_c, 0, 82, 7
+2, 295919, Note_on_c, 7, 75, 118
+2, 295919, Note_on_c, 13, 67, 90
+2, 296168, Instrument_name_t, ""
+2, 296169, Channel_aftertouch_c, 6, 84
+2, 296639, Note_on_c, 2, 60, 35
+2, 297074, Unknown_meta_event, 75, 4, 128, 118, 205, 82
+2, 591880, Control_c, 8, 104, 97
+2, 591881, System_exclusive_packet, 4, 122, 104, 63, 15
+2, 592128, Poly_aftertouch_c, 11, 96, 56
+2, 592128, Sequence_number, 45346
+2, 592128, Channel_aftertouch_c, 1, 57
+2, 790164, Note_off_c, 15, 69, 17
+2, 790164, System_exclusive_packet, 3, 3, 82, 101
+2, 790164, Unknown_meta_event, 9, 8, 140, 253, 88, 117, 81, 11, 39, 75
+2, 790164, Note_off_c, 15, 62, 111
+2, 967846, Note_on_c, 6, 97, 22
+2, 967846, Marker_t, "back\\slash"
+2, 967847, System_exclusive_packet, 6, 39, 54, 115, 9, 9, 87
+2, 968283, Key_signature, 0, "minor"
+2, 1098582, Sequence_number, 61059
+2, 1098583, Control_c, 1, 102, 111
+2, 1156683, Pitch_bend_c, 8, 12246
+2, 1156684, Poly_aftertouch_c, 9, 97, 32
+2, 1156684, Note_on_c, 2, 96, 81
+2, 1156684, Channel_aftertouch_c, 4, 29
+2, 1156877, Channel_aftertouch_c, 9, 96
+2, 1362932, Instrument_name_t, "quote "" here"
+2, 1363190, Note_on_c, 7, 97, 95
+2, 1363191, Channel_aftertouch_c, 13, 37
+2, 1363191, Note_on_c, 0, 88, 0
+2, 1363191, Program_c, 0, 5
+2, 1363191, Channel_aftertouch_c, 10, 109
+2, 1570257, Poly_aftertouch_c, 11, 111, 32
+2, 1845891, Note_off_c, 9, 69, 0
+2, 1845891, Unknown_meta_event, 8, 5, 72, 101, 108, 108, 111
+2, 1845891, Poly_aftertouch_c, 0, 19, 83
+2, 1845891, System_exclusive, 6, 58, 53, 27, 75, 69, 247
+2, 1846250, Copyright_t, "tab\011new\012line"
+2, 1846251, System_exclusive, 2, 26, 247
+2, 2022656, Note_on_c, 0, 59, 53
+2, 2022656, End_track
+3, 0, Start_track
+3, 1, Note_on_c, 0, 99, 62
+3, 112, Note_on_c, 1, 61, 48
+3, 112, Program_c, 12, 38
+3, 112, Program_c, 15, 119
+3, 112, System_exclusive, 4, 31, 0, 24, 247
+3, 112, Note_on_c, 0, 91, 0
+3, 112, Tempo, 2790116
+3, 113, Note_on_c, 8, 96, 114
+3, 114, System_exclusive, 7, 63, 83, 50, 127, 127, 125, 247
+3, 272316, System_exclusive_packet, 2, 91, 8
+3, 272316, Note_on_c, 13, 58, 120
+3, 272358, Note_on_c, 5, 96, 60
+3, 272358, Note_on_c, 15, 89, 29
+3, 272358, Note_on_c, 12, 95, 0
+3, 482427, Note_on_c, 9, 96, 0
+3, 482428, Program_c, 0, 61
+3, 482428, Pitch_bend_c, 7, 7711
+3, 482428, Program_c, 14, 102
+3, 773163, Instrument_name_t, "Hello"
+3, 1065136, Note_on_c, 6, 22, 0
+3, 1065136, Pitch_bend_c, 0, 4432
+3, 1065136, Note_on_c, 1, 97, 0
+3, 1065136, Pitch_bend_c, 5, 747
+3, 1065136, Pitch_bend_c, 10, 7126
+3, 1065136, Lyric_t, "Hello"
+3, 1269918, Time_signature, 12, 0, 15, 8
+3, 1270154, Note_on_c, 10, 62, 122
+3, 1270258, Note_off_c, 5, 98, 57
+3, 1270258, Note_off_c, 2, 97, 116
+3, 1532805, Channel_aftertouch_c, 3, 62
+3, 1533091, Sequence_number, 16573
+3, 1533092, Pitch_bend_c, 0, 15199
+3, 1533092, Note_on_c, 9, 97, 106
+3, 1533092, Copyright_t, "\000\001\177\200éÿ"
+3, 1533195, Program_c, 5, 127
+3, 1533619, Note_on_c, 13, 46, 102
+3, 1533619, Note_on_c, 2, 97, 0
+3, 1534064, Pitch_bend_c, 14, 1047
+3, 1534064, Tempo, 10623329
+3, 1534064, Channel_aftertouch_c, 3, 59
+3, 1534065, Tempo, 5848774
+3, 1534065, End_track
+4, 0, Start_track
+4, 118, Note_off_c, 9, 72, 77
+4, 119, Pitch_bend_c, 10, 7552
+4, 120, Note_off_c, 10, 97, 89
+4, 120, Note_on_c, 8, 77, 68
+4, 121, Sequence_number, 44067
+4, 121, Program_c, 8, 45
+4, 121, Time_signature, 1, 2, 20, 8
+4, 122, Control_c, 8, 37, 112
+4, 274, Note_on_c, 14, 94, 0
+4, 274, End_track
+5, 0, Start_track
+5, 487, Note_on_c, 7, 96, 25
+5, 487, MIDI_port, 3
+5, 487, Note_on_c, 5, 87, 24
+5, 223841, Sequencer_specific, 1, 142
+5, 223841, Cue_point_t, ""
+5, 350990, Channel_aftertouch_c, 15, 100
+5, 647980, Note_on_c, 4, 80, 70
+5, 647980, Note_on_c, 6, 121, 48
+5, 648234, Key_signature, 0, "major"
+5, 648469, Program_c, 11, 116
+5, 648469, System_exclusive, 3, 11, 94, 247
+5, 648469, System_exclusive, 2, 90, 247
+5, 648470, Control_c, 8, 110, 91
+5, 648470, Channel_aftertouch_c, 3, 9
+5, 648471, Note_on_c, 1, 116, 66
+5, 648472, Note_on_c, 1, 5, 3
+5, 648472, End_track
+6, 0, Start_track
+6, 115, Note_on_c, 1, 18, 36
+6, 115, Program_c, 15, 31
+6, 115, Note_on_c, 5, 71, 0
+6, 419, System_exclusive, 2, 17, 247
+6, 820, Control_c, 15, 81, 24
+6, 821, Pitch_bend_c, 11, 2809
+6, 821, Program_c, 1, 62
+6, 822, Pitch_bend_c, 14, 4361
+6, 148032, Note_on_c, 0, 96, 3
+6, 148032, Note_on_c, 12, 96, 82
+6, 400283, Pitch_bend_c, 0, 11046
+6, 673233, Poly_aftertouch_c, 7, 69, 80
+6, 673369, Note_on_c, 2, 96, 0
+6, 673635, Note_on_c, 12, 96, 103
+6, 673669, Poly_aftertouch_c, 7, 66, 45
+6, 807718, Note_on_c, 15, 35, 28
+6, 807718, End_track
+0, 0, End_of_file

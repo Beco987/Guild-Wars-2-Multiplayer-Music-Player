@@ -1,0 +1,29 @@
+0, 0, Header, 2, 2, 480
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 0, Control_c, 10, 60, 107
+1, 1, Note_on_c, 10, 102, 22
+1, 1, Note_on_c, 0, 97, 65
+1, 176062, Program_c, 2, 122
+1, 176384, Note_on_c, 10, 97, 46
+1, 176489, Note_on_c, 13, 60, 99
+1, 176490, System_exclusive, 1, 247
+1, 176752, Note_off_c, 14, 84, 20
+1, 176753, SMPTE_offset, 11, 46, 44, 28, 32
+1, 176753, End_track
+2, 0, Start_track
+2, 0, Note_on_c, 15, 58, 0
+2, 0, Note_on_c, 9, 96, 16
+2, 0, Key_signature, -4, "major"
+2, 206, Note_on_c, 7, 65, 22
+2, 207, Note_off_c, 2, 97, 88
+2, 208, Control_c, 14, 69, 12
+2, 208, Note_on_c, 10, 30, 123
+2, 209, Control_c, 3, 92, 36
+2, 210, Pitch_bend_c, 1, 796
+2, 210, Note_on_c, 7, 113, 0
+2, 622, System_exclusive, 9, 22, 116, 37, 21, 115, 70, 4, 12, 247
+2, 31053, Note_on_c, 5, 96, 0
+2, 31053, Tempo, 4887903
+2, 31053, End_track
+0, 0, End_of_file

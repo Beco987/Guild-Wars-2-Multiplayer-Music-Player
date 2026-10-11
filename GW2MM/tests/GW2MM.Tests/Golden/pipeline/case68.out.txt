@@ -1,0 +1,25 @@
+﻿tick1=3095383
+notes1=0:
+delays1=0:
+times1=0:
+latency1=0
+notes2=0:
+delays2=0:
+times2=0:
+latency2=0
+notes3=0:
+delays3=0:
+times3=0:
+latency3=0
+notes4=0:
+delays4=0:
+times4=0:
+latency4=0
+notes5=0:
+delays5=0:
+times5=0:
+latency5=0
+SEND	101	Tick_Count
+SEND	102	Tick_Count
+SEND	103	Tick_Count
+SEND	104	Tick_Count

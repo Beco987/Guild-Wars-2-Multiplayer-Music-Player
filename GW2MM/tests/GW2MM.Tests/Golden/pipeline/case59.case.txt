@@ -1,0 +1,10 @@
+song=syn16
+octavedelay=50
+ip=11,16,17,34,35,43,46,52
+gw2=0,0,35,150,80
+pings=0,0,0,0,0
+ticks=0,1000000,2000000,3000000,4000000
+sockets=1,101,102,103,104
+tempomod=-10
+fromclient=1
+clienttempo=1.050000
