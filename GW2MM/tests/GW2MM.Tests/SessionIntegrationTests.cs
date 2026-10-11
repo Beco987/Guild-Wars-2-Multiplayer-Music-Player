@@ -204,6 +204,25 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task PortMappingSeesEachPlayersName()
+    {
+        var (host, h) = StartHost(new PortMapping());
+        Assert.Equal(new PlayerInfo(1, true, true, null, null), host.PlayerOf(1));
+        Assert.False(host.PlayerOf(2).Connected);
+        var (alice, _) = await StartClient(host, 0, "  Alice  ");
+        var (bob, _) = await StartClient(host, 0, "Bob");
+        await Wait.Until(() => host.PlayerOf(2).Name == "Alice" && host.PlayerOf(3).Name == "Bob", what: "names");
+        Assert.Equal("127.0.0.1", host.PlayerOf(3).Address);
+        Assert.True(h.View.PlayerChanges >= 4);
+        alice.Dispose();
+        await Wait.Until(() => !host.PlayerOf(2).Connected, what: "slot freed");
+        Assert.Null(host.PlayerOf(2).Name);
+        var (carol, _) = await StartClient(host, 0, "Carol");
+        await Wait.Until(() => host.PlayerOf(2).Name == "Carol", what: "slot reused with the new name");
+        Assert.Equal("Bob", host.PlayerOf(3).Name);
+    }
+
+    [Fact]
     public async Task LastDisconnectReturnsToWaitingAndDisablesChat()
     {
         var (host, h) = StartHost(new PortMapping());

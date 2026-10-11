@@ -79,8 +79,7 @@ internal sealed class MainForm : Form, IHostView
         Ui.Label(this, "Play", 10, 470, 80, 15, ContentAlignment.TopCenter);
         _description = Ui.Add(this, new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical }, 100, 390, 200, 80);
         Ui.Label(this, "Song Description", 100, 470, 200, 15, ContentAlignment.TopCenter);
-        Ui.Picture(this, "return.png", 310, 390, 80, 80, (_, _) =>
-            Ui.ShowText(this, "Controls", _role == AppRole.Host ? Texts.HostControls : Texts.ClientControls, 200));
+        Ui.Picture(this, "return.png", 310, 390, 80, 80, (_, _) => new ControlsForm(_role).Show(this));
         Ui.Label(this, "Controls", 310, 470, 80, 15, ContentAlignment.TopCenter);
 
         _dialog = Ui.Add(this, new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical }, 50, 490, 300, 80);
@@ -387,6 +386,8 @@ internal sealed class MainForm : Form, IHostView
         _portForm ??= new PortMappingForm(_host!);
         _portForm.CommitAndHide();
     });
+
+    public void OnPlayersChanged() => BeginInvokeSafe(() => _portForm?.RefreshPlayers());
 
     public void ShowMainWindow() => BeginInvokeSafe(() =>
     {

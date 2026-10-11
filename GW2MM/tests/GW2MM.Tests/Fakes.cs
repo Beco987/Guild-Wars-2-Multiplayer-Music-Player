@@ -70,6 +70,8 @@ internal class FakeView : IHostView
     public void SetClientPing(int slot, string value) => ClientPings[slot] = value;
     public void OnClientDisconnected() => Interlocked.Increment(ref Disconnects);
     public void ShowMainWindow() => Interlocked.Increment(ref ShownMainWindow);
+    public int PlayerChanges;
+    public void OnPlayersChanged() => Interlocked.Increment(ref PlayerChanges);
     public string LastStatus => Statuses.LastOrDefault() ?? "";
 }
 

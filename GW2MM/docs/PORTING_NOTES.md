@@ -90,6 +90,18 @@ reachable from any hotkey, button or message.
   newer one; see the README. It is on by default and can be switched off in Settings (`CheckForUpdates` in
   Config.txt). The only network request it makes is to `api.github.com` and the release download.
 
+* **Redesigned dialogs** (New Song, Data Editor, Controls, Port Mapping). Same fields and the same effects on
+  files and playback, with a cleaner layout:
+  * *Port Mapping* shows each slot's player: "You (host)", the name a client announced (live as players join and
+    leave) or "Open slot". Save applies; **Cancel or closing now reverts** unsaved ticks/delays (the original kept
+    them in the hidden window without applying them). A client disconnecting still applies the window's values.
+    Ping is shown read-only.
+  * *New Song* shows the help inline instead of "?" pop-ups, accepts a dragged .mid file and pre-fills the title
+    from the file name. Players and Tempo are number boxes, with a live "10% faster"-style hint.
+  * *Data Editor* is an editable grid with Save/Cancel and a "discard changes?" prompt. Only edited lines are
+    rewritten (as before, in "Name,Players,Tempo,Description" form), and renames still move the song's files.
+  * *Controls* lists the hotkeys as key caps.
+
 ## 4. Verification
 
 | Area | How | Result |

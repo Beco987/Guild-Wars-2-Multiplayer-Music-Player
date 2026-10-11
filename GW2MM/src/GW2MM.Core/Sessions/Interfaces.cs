@@ -25,6 +25,8 @@ public interface IHostView : ISessionView
     void OnClientDisconnected();
     /// <summary>Stop was triggered: show/activate the main window (the original's <c>Gui, Show</c>).</summary>
     void ShowMainWindow();
+    /// <summary>A client joined, left or announced its name (see <see cref="HostSession.PlayerOf"/>).</summary>
+    void OnPlayersChanged();
 }
 
 /// <summary>Measures how long the game takes to sound a note: presses "1" in the foreground window and watches the

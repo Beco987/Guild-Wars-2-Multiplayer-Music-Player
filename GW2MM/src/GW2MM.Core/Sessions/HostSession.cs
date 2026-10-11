@@ -25,6 +25,7 @@ public sealed class HostSession : IDisposable
     private readonly PeerConnection?[] _slots = new PeerConnection?[PortMapping.Slots + 1];
     private readonly List<PeerConnection> _connections = new();
     private readonly string[] _inputDelays = Enumerable.Repeat("0", PortMapping.Slots + 1).ToArray();
+    private readonly string?[] _names = new string?[PortMapping.Slots + 1];
     private PortMapping _mapping = new();
     private System.Net.Sockets.TcpListener? _listener;
     private SongRun? _current;
@@ -61,6 +62,17 @@ public sealed class HostSession : IDisposable
     public PortMapping Mapping { get { lock (_gate) return _mapping.Clone(); } }
     public string InputDelayOf(int slot) { lock (_gate) return _inputDelays[slot]; }
     public bool IsSlotConnected(int slot) { lock (_gate) return slot == 1 || _slots[slot] is not null; }
+
+    /// <summary>Who is in a player slot (for the Port Mapping window). Slot 1 is always this computer.</summary>
+    public PlayerInfo PlayerOf(int slot)
+    {
+        lock (_gate)
+        {
+            if (slot == 1) return new PlayerInfo(1, true, true, null, null);
+            var conn = _slots[slot];
+            return conn is null ? new PlayerInfo(slot, false, false, null, null) : new PlayerInfo(slot, true, false, _names[slot], conn.RemoteAddress);
+        }
+    }
 
     /// <summary>The port mapping window's Save (and the commit that happens when a client disconnects).</summary>
     public void CommitPortMapping(PortMapping mapping, IReadOnlyList<string> inputDelays)
@@ -115,6 +127,7 @@ public sealed class HostSession : IDisposable
             conn.Closed += OnClosed;
             conn.Start();
             conn.Send(new Welcome(slot));
+            if (slot is not null) _view.OnPlayersChanged();
             _view.SetChatEnabled(true);
             _view.SetStatus($"Connected to {conn.RemoteAddress}!");
         }
@@ -134,7 +147,7 @@ public sealed class HostSession : IDisposable
         lock (_gate)
         {
             for (var s = 2; s <= PortMapping.Slots; s++)
-                if (ReferenceEquals(_slots[s], conn)) _slots[s] = null;
+                if (ReferenceEquals(_slots[s], conn)) { _slots[s] = null; _names[s] = null; }
             _connections.Remove(conn);
             none = _connections.Count == 0;
         }
@@ -145,6 +158,7 @@ public sealed class HostSession : IDisposable
             _view.SetChatEnabled(false);
         }
         _view.OnClientDisconnected();
+        _view.OnPlayersChanged();
     }
 
     private void OnReceived(PeerConnection conn, Message message)
@@ -171,6 +185,12 @@ public sealed class HostSession : IDisposable
                 break;
             case Hello h:
                 _view.AppendDialog($"Peer > {socket},{h.Name}");
+                if (slot != 0)
+                {
+                    var name = h.Name.Trim();
+                    lock (_gate) _names[slot] = name.Length > 40 ? name[..40] : name;
+                    _view.OnPlayersChanged();
+                }
                 break;
             case InputDelayReport d:
                 var value = d.Ms?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -432,6 +452,10 @@ public sealed class HostSession : IDisposable
         }
     }
 }
+
+/// <summary>A player slot's occupant: this computer (slot 1), a connected client (with the name it announced, if
+/// any yet), or nobody.</summary>
+public sealed record PlayerInfo(int Slot, bool Connected, bool IsHost, string? Name, string? Address);
 
 /// <summary>The host's fixed waits, all taken from the original scripts (tests shorten them).</summary>
 public sealed record HostTimings
