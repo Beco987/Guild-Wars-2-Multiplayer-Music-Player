@@ -35,7 +35,8 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
    to rename it to *Player1…Player8*.
 2. Start `GW2MM-Host.exe`. It listens for clients straight away and reports in the chat box whether it opened the
    port and which address players connect to. Each client starts `GW2MM-Client.exe`, enters a user name and the
-   host's IP address (there is no preset address), and gets the next free player slot (Ip2–Ip5).
+   host's IP address (remembered in Config.txt as `HostAddress` and filled in next time), and gets the next free
+   player slot (Ip2–Ip5).
 3. On the host, open **Port**. For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
    the input delays (or use **Sync**), then press **Save**.
    The host plays track *n* in its window Player*n*. A client plays its 1st ticked track in its Player1, its 2nd in

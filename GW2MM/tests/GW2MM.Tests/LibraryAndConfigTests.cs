@@ -151,6 +151,22 @@ public sealed class LibraryAndConfigTests : IDisposable
     }
 
     [Fact]
+    public void ClientRemembersTheHostAddress()
+    {
+        File.WriteAllText(P("Config.txt"), "OctaveDelay,130\r\nName,Bob\r\n");
+        var s = AppSettings.Load(_dir);
+        Assert.Equal("", s.HostAddress);
+        s.HostAddress = "203.0.113.7";
+        s.SaveHostAddress(_dir);
+        Assert.Equal("OctaveDelay,130\nName,Bob\nHostAddress,203.0.113.7\n", File.ReadAllText(P("Config.txt")));
+        s.HostAddress = "mynameserver.example.net"; // contains "name": must survive the Name save
+        s.SaveHostAddress(_dir);
+        s.SaveWithName(_dir);
+        Assert.Equal("mynameserver.example.net", AppSettings.Load(_dir).HostAddress);
+        Assert.Equal("Bob", AppSettings.Load(_dir).Name);
+    }
+
+    [Fact]
     public void MissingConfigGivesBlankOctaveDelay()
     {
         var s = AppSettings.Load(_dir);

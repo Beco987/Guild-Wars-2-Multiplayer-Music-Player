@@ -98,7 +98,8 @@ reachable from any hotkey, button or message.
   (SSDP discovery and the IGD SOAP calls) and `Net/PortOpener.cs`. Tests use a fake router (`UpnpTests`).
 
 * **No preset host address.** The original client's IP prompt was pre-filled with the author's address
-  (`97.118.35.47`). The prompt now starts empty and asks again if left blank.
+  (`97.118.35.47`). The prompt now offers the address last entered (saved as `HostAddress` in Config.txt), starts
+  empty the first time, and asks again if left blank.
 
 * **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
   Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.

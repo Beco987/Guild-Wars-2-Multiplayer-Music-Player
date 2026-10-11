@@ -32,6 +32,8 @@ public sealed class AppSettings
 
     /// <summary>Client only: the user name announced to the host.</summary>
     public string Name { get; set; } = "";
+    /// <summary>Client only: the last host address entered, offered again on the next start (not in the original).</summary>
+    public string HostAddress { get; set; } = "";
 
     public const string FileName = "Config.txt";
 
@@ -44,6 +46,7 @@ public sealed class AppSettings
             AlwaysOnTop = LegacyConfig.IsTrue(c.Get("AlwaysOnTop")),
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
+            HostAddress = (c.Get("HostAddress") ?? "").Trim(),
             CheckForUpdates = c.Get("CheckForUpdates") is not { } u || LegacyConfig.IsTrue(u),
             OpenPortAutomatically = c.Get("OpenPort") is not { } o || LegacyConfig.IsTrue(o),
             Hotkeys = c.WithPrefix(HotkeyPrefix).ToDictionary(kv => kv.Key[HotkeyPrefix.Length..], kv => kv.Value, StringComparer.Ordinal),
@@ -64,6 +67,10 @@ public sealed class AppSettings
         {
             ("OctaveDelay", OctaveDelay), ("AlwaysOnTop", AlwaysOnTop ? "1" : "0"), ("IsTransparent", IsTransparent ? "1" : "0"), ("Name", Name),
         });
+
+    /// <summary>Client start-up: remembers the host address that was just entered.</summary>
+    public void SaveHostAddress(string dataDir) =>
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), new[] { ("HostAddress", HostAddress) });
 
     /// <summary>The client's sleep between octave-reset presses (the original's <c>Sleep, %Delay%</c>).</summary>
     public int OctaveDelayMs => Ahk.AhkValue.TryNumber(OctaveDelay, out var v) && v > 0 ? (int)Math.Min(v, 60000) : 0;
