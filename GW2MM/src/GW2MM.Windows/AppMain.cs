@@ -17,6 +17,7 @@ public static class AppMain
         var dataDir = AppContext.BaseDirectory;
         for (var i = 0; i < args.Length - 1; i++)
             if (args[i] == "--data") dataDir = Path.GetFullPath(args[i + 1]);
+        Directory.CreateDirectory(dataDir);
         Directory.SetCurrentDirectory(dataDir);
         AppLog.Init(dataDir);
 

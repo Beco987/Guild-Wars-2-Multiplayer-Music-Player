@@ -1,0 +1,32 @@
+name: GW2MM (.NET port)
+
+on:
+  push:
+    paths: ["GW2MM/**", ".github/workflows/gw2mm.yml"]
+  pull_request:
+    paths: ["GW2MM/**", ".github/workflows/gw2mm.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: GW2MM
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test
+        run: dotnet test GW2MM.sln -c Release --logger "console;verbosity=normal"
+      - name: Publish
+        run: |
+          dotnet publish src/GW2MM.Host -c Release -o publish
+          dotnet publish src/GW2MM.Client -c Release -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GW2MM
+          path: |
+            GW2MM/publish/GW2MM-Host.exe
+            GW2MM/publish/GW2MM-Client.exe
