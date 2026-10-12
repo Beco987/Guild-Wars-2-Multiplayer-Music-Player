@@ -4,7 +4,8 @@ using GW2MM.Core.Playback;
 namespace GW2MM.Core.Sessions;
 
 /// <summary>A song waiting in a playlist: its name (for notices), CSV text and tempo factor.</summary>
-public sealed record QueuedSong(string Name, string Csv, double? Tempo);
+/// <param name="SingleInstrument">A one-player song: all tracks merged into one instrument.</param>
+public sealed record QueuedSong(string Name, string Csv, double? Tempo, bool SingleInstrument = false);
 
 public static class QueuedSongs
 {
@@ -18,7 +19,7 @@ public static class QueuedSongs
         var missing = new List<string>();
         foreach (var name in playlist.Songs)
         {
-            if (library.ReadSongCsv(name) is { } csv) songs.Add(new QueuedSong(name, csv, library.TempoFactor(name)));
+            if (library.ReadSongCsv(name) is { } csv) songs.Add(new QueuedSong(name, csv, library.TempoFactor(name), library.IsSingleInstrument(name)));
             else missing.Add(name);
         }
         if (missing.Count > 0) report($"Skipping songs that are not in the library: {string.Join(", ", missing)}.");

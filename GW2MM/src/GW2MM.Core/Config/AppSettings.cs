@@ -44,6 +44,19 @@ public sealed class AppSettings
             ("PlaylistShuffle", PlaylistShuffle ? "1" : "0"), ("PlaylistRepeat", PlaylistRepeat ? "1" : "0"), ("LastPlaylist", LastPlaylist),
         });
 
+    /// <summary>
+    /// Client only: ask for the user name and host address every launch (the original always did). When off, the
+    /// saved Name and HostAddress are used, and only a missing host address is still asked for.
+    /// </summary>
+    public bool AskOnLaunch { get; set; } = true;
+
+    /// <summary>Client Settings: the launch prompts option and the name and host address it uses.</summary>
+    public void SaveClientLaunch(string dataDir) =>
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
+        {
+            ("AskOnLaunch", AskOnLaunch ? "1" : "0"), ("Name", Name), ("HostAddress", HostAddress),
+        });
+
     /// <summary>Client only: the last host address entered, offered again on the next start (not in the original).</summary>
     public string HostAddress { get; set; } = "";
 
@@ -59,6 +72,7 @@ public sealed class AppSettings
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
+            AskOnLaunch = c.Get("AskOnLaunch") is not { } ask || LegacyConfig.IsTrue(ask),
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
             LastPlaylist = c.Get("LastPlaylist") ?? "",
@@ -87,6 +101,17 @@ public sealed class AppSettings
     public void SaveHostAddress(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[] { ("HostAddress", HostAddress) });
 
-    /// <summary>The client's sleep between octave-reset presses (the original's <c>Sleep, %Delay%</c>).</summary>
-    public int OctaveDelayMs => Ahk.AhkValue.TryNumber(OctaveDelay, out var v) && v > 0 ? (int)Math.Min(v, 60000) : 0;
+    /// <summary>The pause between octave-reset rounds on this computer (see <see cref="OctaveResetDelay"/>).</summary>
+    public int OctaveDelayMs => OctaveResetDelay(OctaveDelay);
+
+    /// <summary>Pause between octave-reset presses when OctaveDelay is blank (the original host's fixed Sleep, 150).</summary>
+    public const int DefaultOctaveResetDelayMs = 150;
+
+    /// <summary>
+    /// The pause before each round of an octave reset (9, 9, 0): OctaveDelay ms, so the game has time to apply each
+    /// octave change. A blank or zero OctaveDelay uses 150 ms. The original client pressed all three at once in that
+    /// case, and the original host always used 150 ms whatever OctaveDelay said.
+    /// </summary>
+    public static int OctaveResetDelay(string octaveDelay) =>
+        Ahk.AhkValue.TryNumber(octaveDelay, out var v) && v > 0 ? (int)Math.Min(v, 60000) : DefaultOctaveResetDelayMs;
 }

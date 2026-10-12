@@ -36,7 +36,8 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 2. Start `GW2MM-Host.exe`. It listens for clients straight away and reports in the chat box whether it opened the
    port and which address players connect to. Each client starts `GW2MM-Client.exe`, enters a user name and the
    host's IP address (remembered in Config.txt as `HostAddress` and filled in next time), and gets the next free
-   player slot (Ip2–Ip5).
+   player slot (Ip2–Ip5). To skip both prompts, untick **⚙ → Ask name & IP on launch?** and fill in the Name and Host
+   IP there (`AskOnLaunch,0` in Config.txt). A missing host address is still asked for.
 3. On the host, open **Port**. For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
    the input delays (or use **Sync**), then press **Save**.
    The host plays track *n* in its window Player*n*. A client plays its 1st ticked track in its Player1, its 2nd in
@@ -54,6 +55,24 @@ Every message shows the sender's name (`bob > hi`; the host is `Host`). The host
 to all the other clients. Chat is only ever displayed. The one command is `stop` (the whole message, any case),
 which stops the song for everyone like **F3**. Text that only contains "stop" ("don't stop") is ordinary chat.
 Joins appear as "bob joined as player 2." Internal network messages are written to `GW2MM.log`, not to the chat box.
+
+### One-player songs
+
+A song whose **Players** value is 1 is played on one instrument: the notes of every track are merged into one part.
+The players with any track ticked in Port Mapping play it in their Player1 window; if nobody has a track ticked, the
+host does. Solo play uses the first open window. A Guild Wars 2 instrument plays one octave at a time, so a chord
+spanning more is folded into the octave of its highest note (normally the melody): bass notes move up by whole
+octaves, and notes outside the instrument's C3–C6 range are folded in too.
+
+### Octave changes and OctaveDelay
+
+The game applies an octave change only after a round trip to the server. A note played sooner sounds in the old
+octave. Every song (any number of players) presses each octave change at least *OctaveDelay* ms before its note when
+the gap since the previous note allows. It stays at the gap's midpoint when there is plenty of room, and goes right
+after the previous note when the gap is shorter. A jump straight between the low and high octave gets two changes,
+OctaveDelay apart. Notes are never moved, so the rhythm and the sync between players are unchanged. The octave resets
+after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients (150 ms
+when OctaveDelay is blank). Set it to about twice your in-game ping.
 
 ### Playing solo (client, not connected)
 

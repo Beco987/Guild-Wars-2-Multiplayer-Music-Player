@@ -10,6 +10,12 @@ public sealed class CsvSong
     /// <summary>Per track (index 1..25): the times (as text) and note letters of each recorded note.</summary>
     public List<string>[] TrackTimes { get; } = Enumerable.Range(0, MaxTrack + 1).Select(_ => new List<string>()).ToArray();
     public List<string>[] TrackNotes { get; } = Enumerable.Range(0, MaxTrack + 1).Select(_ => new List<string>()).ToArray();
+    /// <summary>
+    /// The MIDI note number of each recorded note, parallel to <see cref="TrackNotes"/> (null when not a number).
+    /// Not used by the original arrangement, whose letters repeat the previous note for pitches outside C3..C6.
+    /// The single-instrument merge needs the real pitches to fold them into range.
+    /// </summary>
+    public List<int?>[] TrackPitches { get; } = Enumerable.Range(0, MaxTrack + 1).Select(_ => new List<int?>()).ToArray();
     public List<string> TempoTimes { get; } = new();
     public List<string> TempoMarkers { get; } = new();
 
@@ -31,6 +37,7 @@ public sealed class CsvSong
     {
         var song = new CsvSong();
         string note = "", track = "", duration = "";
+        int? pitch = null;
         var postNotes = false;
         var pzero = false;
         foreach (var line in lines)
@@ -60,6 +67,7 @@ public sealed class CsvSong
                         }
                         break;
                     case 5:
+                        pitch = AhkValue.TryNumber(v, out var raw) && raw == Math.Floor(raw) && raw is >= 0 and <= 127 ? (int)raw : null;
                         if (AhkValue.TryNumber(v, out var n) && n == Math.Floor(n) && n is >= int.MinValue and <= int.MaxValue
                             && KeyMap.MidiNoteLetters.TryGetValue((int)n, out var letter))
                             note = letter;
@@ -72,6 +80,7 @@ public sealed class CsvSong
                             {
                                 song.TrackTimes[t].Add(duration);
                                 song.TrackNotes[t].Add(note);
+                                song.TrackPitches[t].Add(pitch);
                             }
                         }
                         break;

@@ -187,7 +187,7 @@ public sealed class LibraryAndConfigTests : IDisposable
     {
         var s = AppSettings.Load(_dir);
         Assert.Equal("", s.OctaveDelay);
-        Assert.Equal(0, s.OctaveDelayMs);
+        Assert.Equal(AppSettings.DefaultOctaveResetDelayMs, s.OctaveDelayMs); // blank: 150 ms, not 0 (all three presses at once)
     }
 
     [Fact]
@@ -202,5 +202,21 @@ public sealed class LibraryAndConfigTests : IDisposable
         File.WriteAllText(P("Data.csv"), "Zoë, 1, 0, x", new UTF8Encoding(true));
         Lib().Delete("Nothing");
         Assert.Equal(new UTF8Encoding(true).GetPreamble().Concat(Encoding.UTF8.GetBytes("Zoë, 1, 0, x")), File.ReadAllBytes(P("Data.csv")));
+    }
+
+    [Fact]
+    public void LaunchPromptsSettingDefaultsOnAndIsSaved()
+    {
+        File.WriteAllText(P("Config.txt"), "Name,Bob\nHostAddress,1.2.3.4\n");
+        var s = AppSettings.Load(_dir);
+        Assert.True(s.AskOnLaunch);
+        s.AskOnLaunch = false;
+        s.Name = "Alice";
+        s.HostAddress = "5.6.7.8";
+        s.SaveClientLaunch(_dir);
+        var again = AppSettings.Load(_dir);
+        Assert.False(again.AskOnLaunch);
+        Assert.Equal("Alice", again.Name);
+        Assert.Equal("5.6.7.8", again.HostAddress);
     }
 }

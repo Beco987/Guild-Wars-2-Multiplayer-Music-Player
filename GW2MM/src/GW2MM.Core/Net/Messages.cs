@@ -64,9 +64,10 @@ public sealed record Pong(int Id) : Message;
 public sealed record InputDelayReport(long? Ms) : Message;
 /// <summary>
 /// Play this song for everyone ("Play;..." chunks + "StartSong,tempo"). Tempo is the 6-decimal text the original
-/// sent. Name (not in the original) is the song's name, for "now playing" notices.
+/// sent. Name (not in the original) is the song's name, for "now playing" notices; SingleInstrument marks a
+/// one-player song in the client's library (all tracks merged into one instrument).
 /// </summary>
-public sealed record PlayRequest(string Csv, string Tempo, string? Name = null) : Message;
+public sealed record PlayRequest(string Csv, string Tempo, string? Name = null, bool SingleInstrument = false) : Message;
 /// <summary>Play these songs one after another, starting at StartIndex (not in the original).</summary>
 public sealed record PlaylistRequest(string Name, PlayRequest[] Songs, int StartIndex, bool Repeat) : Message;
 

@@ -79,6 +79,7 @@ they are covered by the golden tests against the original code.
 | 24 | The Data Editor wrote `col1,col2,col3,col4` and `name,players,tempo,description` into a missing Data.csv, and showed them as rows | A missing Data.csv is created empty. Those two lines are removed when found | They are not songs. |
 | 25 | Each client's clock was sampled once per song, so a lag spike at that moment put that player early or late for the whole song | 8 probes, 50 ms apart, within the same 2 s wait; the reply with the shortest round trip is used | A single unlucky sample could offset a player by tens of ms. |
 | 26 | Octave changes (`AddSwaps` / `OpportunisticSwaps`): a jump straight between the low and high octave got no change and its notes were dropped; OctaveDelay was compared with MIDI ticks, so it meant different times at different tempos; a change with room was put at the gap's midpoint (only half the gap ahead of its note), and one without room was pressed together with its note | Two changes for a low ↔ high jump; OctaveDelay is milliseconds at the song's tempo and tempo modifier; each change is at least OctaveDelay ahead of the next press when the gap allows (still the midpoint when there is plenty of room), otherwise as early as possible after the previous chord | Notes sounded in the wrong octave or went missing. The original behaviour is kept as `OctaveSwapMode.Original` and still matches the oracle byte for byte. |
+| 27 | The host's octave reset always waited 150 ms between 9, 9, 0, whatever OctaveDelay said; a client with a blank OctaveDelay pressed all three at once | Every octave reset (stop, exit, between playlist songs, solo) waits OctaveDelay between presses, 150 ms when it is blank | A reset faster than the game applies octave changes leaves instruments in the wrong octave. |
 
 Changes 5–8 were found by reading the original code (the oracle runs each case in a fresh process, so it cannot
 show cross-song or concurrency effects). The corrected behaviour is covered by the integration tests.
@@ -111,6 +112,14 @@ reachable from any hotkey, button or message.
 
 * **Solo play on a client** (not in the original). While the client is not connected, Play / F11 plays songs and
   playlists on its own Player windows, each track with notes on the next open window. Ctrl+F3 stops, Ctrl+F5 skips.
+
+* **One-player songs on one instrument.** A song with Players = 1 has all its tracks merged into one part, chords
+  folded into the octave of their highest note (`Arrangement/SingleInstrument`). The original client had an
+  unfinished engine for this (`OnePlayer`, never called); in the original every song went through the
+  multiplayer arrangement and Players only labelled the song list.
+
+* **Optional launch prompts (client).** Settings → *Ask name & IP on launch?* (`AskOnLaunch`) skips the name and
+  host address prompts and uses the saved values.
 
 * **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
   Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.

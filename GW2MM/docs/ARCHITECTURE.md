@@ -48,7 +48,9 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
    (`OctaveSwaps.AddSwaps`, which also gives a low ↔ high jump its two changes); the changes that lead a chord move
    into the preceding gap (`OctaveSwaps.Place`): evenly through it when there is room, but never closer than
    *OctaveDelay* ms (at the song's tempo) to the next press, and as early as possible when the gap is shorter.
-   Letters are encoded as one character per *(window, instrument key)* (`KeyMap`). The original scripts' versions
+   Letters are encoded as one character per *(window, instrument key)* (`KeyMap`). A one-player song is first
+   merged by `SingleInstrument.Merge` (all tracks into track 1, chords folded into one octave, from the raw MIDI
+   pitches) and mapped to track 1 of every slot with a track ticked (`SingleInstrument.Mapping`). The original scripts' versions
    (`SongFunctions.AddSwaps` / `OpportunisticSwaps`) are kept as `OctaveSwapMode.Original` for the oracle tests.
    The slot's tracks are then merged.
 3. `AddFiller` gives every active slot an element (blank if silent) at every time any slot plays. All parts

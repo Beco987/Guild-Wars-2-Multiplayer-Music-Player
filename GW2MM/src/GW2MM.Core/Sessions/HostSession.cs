@@ -266,24 +266,24 @@ public sealed class HostSession : IDisposable
     {
         var name = songName ?? "";
         var csv = Library.ReadSongCsv(name) ?? "";
-        return PlayAsync(csv, Library.TempoFactor(name), name.Length > 0 ? name : null);
+        return PlayAsync(csv, Library.TempoFactor(name), name.Length > 0 ? name : null, Library.IsSingleInstrument(name));
     }
 
     private async Task PlayFromClientAsync(PlayRequest request)
     {
         await Task.Delay(Timings.ClientPlayRequestDelayMs).ConfigureAwait(false);
-        await PlayAsync(request.Csv, AhkValue.Number(request.Tempo), request.Name).ConfigureAwait(false);
+        await PlayAsync(request.Csv, AhkValue.Number(request.Tempo), request.Name, request.SingleInstrument).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Starts a song for everyone. A song that is already preparing or playing is abandoned first (without the octave
     /// reset a Stop does), so two songs can never play at once. A running playlist stops.
     /// </summary>
-    public async Task PlayAsync(string csvText, double? tempoFactor, string? songName = null)
+    public async Task PlayAsync(string csvText, double? tempoFactor, string? songName = null, bool singleInstrument = false)
     {
         CancelPlaylist();
         if (songName is not null) Announce(new NowPlayingInfo(songName, null, 0, 0));
-        await StartSongAsync(csvText, tempoFactor).ConfigureAwait(false);
+        await StartSongAsync(csvText, tempoFactor, singleInstrument).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -291,7 +291,7 @@ public sealed class HostSession : IDisposable
     /// is when the last note of any part is due on this computer's clock; null when the song could not be prepared or
     /// was replaced or stopped before it started.
     /// </summary>
-    private async Task<SongRun?> StartSongAsync(string csvText, double? tempoFactor)
+    private async Task<SongRun?> StartSongAsync(string csvText, double? tempoFactor, bool singleInstrument = false)
     {
         var run = new SongRun();
         lock (_gate)
@@ -306,7 +306,7 @@ public sealed class HostSession : IDisposable
         lock (_gate) mapping = _mapping.Clone();
         try
         {
-            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor);
+            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor, singleInstrument: singleInstrument);
         }
         catch (Exception ex)
         {
@@ -388,7 +388,7 @@ public sealed class HostSession : IDisposable
     private PlaylistRunner Runner => _runner ??= new PlaylistRunner(_clock,
         start: async song =>
         {
-            var run = await StartSongAsync(song.Csv, song.Tempo).ConfigureAwait(false);
+            var run = await StartSongAsync(song.Csv, song.Tempo, song.SingleInstrument).ConfigureAwait(false);
             lock (_gate) _playlistRun = run;
             return run?.EndMs;
         },
@@ -424,7 +424,7 @@ public sealed class HostSession : IDisposable
     private async Task PlayPlaylistFromClientAsync(PeerConnection from, PlaylistRequest request)
     {
         await Task.Delay(Timings.ClientPlayRequestDelayMs).ConfigureAwait(false);
-        var songs = request.Songs.Select((s, i) => new QueuedSong(string.IsNullOrWhiteSpace(s.Name) ? $"Song {i + 1}" : s.Name!, s.Csv, AhkValue.Number(s.Tempo))).ToList();
+        var songs = request.Songs.Select((s, i) => new QueuedSong(string.IsNullOrWhiteSpace(s.Name) ? $"Song {i + 1}" : s.Name!, s.Csv, AhkValue.Number(s.Tempo), s.SingleInstrument)).ToList();
         _view.AppendDialog($"{NameOf(from)} started the playlist {request.Name}.");
         await PlayPlaylistAsync(request.Name, songs, request.StartIndex, request.Repeat).ConfigureAwait(false);
     }
@@ -514,8 +514,10 @@ public sealed class HostSession : IDisposable
         }
     }
 
-    /// <summary>The original RefreshPlayers on the host: 150 ms before each of 9, 9, 0 to Player1..5.</summary>
-    public Task ResetOctavesAsync() => _keys.ResetOctavesAsync(Timings.OctaveResetDelayMs);
+    /// <summary>The original RefreshPlayers (9, 9, 0 to Player1..5), with OctaveDelay ms before each round
+    /// (the original always waited 150 ms).</summary>
+    /// <remarks>Octave reset on the host's windows, OctaveDelay ms between rounds.</remarks>
+    public Task ResetOctavesAsync() => _keys.ResetOctavesAsync(Timings.OctaveResetDelayMs ?? Config.AppSettings.OctaveResetDelay(OctaveDelay()));
 
     // ------------------------------------------------------------------ ping / sync
 
@@ -646,8 +648,8 @@ public sealed record HostTimings
     public int ClockProbeIntervalMs { get; init; } = 50;
     /// <summary>Pause before acting on a client's play request (Sleep, 250).</summary>
     public int ClientPlayRequestDelayMs { get; init; } = 250;
-    /// <summary>Pause before each octave-reset round on the host (Sleep, 150).</summary>
-    public int OctaveResetDelayMs { get; init; } = 150;
+    /// <summary>Overrides the pause before each octave-reset round (tests); null = the host's OctaveDelay (150 ms if blank).</summary>
+    public int? OctaveResetDelayMs { get; init; }
     public int PingCount { get; init; } = 50;
     public int PingIntervalMs { get; init; } = 1000;
     /// <summary>Pause before each Sync measurement (Sleep, 150).</summary>

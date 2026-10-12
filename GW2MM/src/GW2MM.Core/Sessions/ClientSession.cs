@@ -205,7 +205,7 @@ public sealed class ClientSession : IDisposable
         var name = songName ?? "";
         var csv = Library.ReadSongCsv(name) ?? "";
         var tempo = Library.TempoFactor(name).ToString("0.000000", CultureInfo.InvariantCulture);
-        Send(new PlayRequest(csv, tempo, name.Length > 0 ? name : null));
+        Send(new PlayRequest(csv, tempo, name.Length > 0 ? name : null, Library.IsSingleInstrument(name)));
     }
 
     /// <summary>
@@ -220,7 +220,7 @@ public sealed class ClientSession : IDisposable
         foreach (var name in playlist.Songs)
         {
             if (Library.ReadSongCsv(name) is not { } csv) { missing.Add(name); continue; }
-            songs.Add(new PlayRequest(csv, Library.TempoFactor(name).ToString("0.000000", CultureInfo.InvariantCulture), name));
+            songs.Add(new PlayRequest(csv, Library.TempoFactor(name).ToString("0.000000", CultureInfo.InvariantCulture), name, Library.IsSingleInstrument(name)));
         }
         if (missing.Count > 0) _view.ReportProblem($"Skipping songs that are not in the library: {string.Join(", ", missing)}.");
         if (songs.Count == 0)

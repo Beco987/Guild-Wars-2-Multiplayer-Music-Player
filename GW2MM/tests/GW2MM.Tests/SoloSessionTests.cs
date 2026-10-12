@@ -108,4 +108,18 @@ public sealed class SoloSessionTests : IDisposable
         Assert.Equal(new[] { "9", "9", "0" }, _keys.All.Where(p => p.Window == 1).Skip(1).Select(p => p.Key));
         Assert.DoesNotContain(_view.Dialog, l => l.Contains("(2/2 in Set)"));
     }
+
+    [Fact]
+    public void AOnePlayerSongMergesEveryTrackIntoTheFirstWindow()
+    {
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Solo.csv"), Song);
+        File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Solo, 1, 0, merged\n");
+        _windows = new() { 2 };
+        _solo.PlaySong("Solo");
+        SpinWait.SpinUntil(() => _keys.Presses.Count(p => p.Key is not "9" and not "0") >= 9, 5000);
+        Thread.Sleep(200);
+        Assert.All(_keys.All, p => Assert.Equal(2, p.Window));                      // one instrument, on the open window
+        Assert.Equal(9, _keys.All.Count(p => p.Key is not "9" and not "0"));      // 5 + 4 notes from both tracks
+        Assert.DoesNotContain(_view.Dialog, l => l.StartsWith("This song has"));
+    }
 }

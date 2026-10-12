@@ -25,8 +25,14 @@ public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
 public static class SongArranger
 {
     public static SongPlan Arrange(CsvSong song, PortMapping mapping, string octaveDelay, double? tempoFactor,
-        OctaveSwapMode octaveSwaps = OctaveSwapMode.Improved)
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Improved, bool singleInstrument = false)
     {
+        if (singleInstrument)
+        {
+            // One-player song: all tracks merged into track 1, played by each slot that has a track ticked.
+            song = SingleInstrument.Merge(song);
+            mapping = SingleInstrument.Mapping(mapping);
+        }
         var times = new List<string>[PortMapping.Slots + 1];
         var keys = new List<string>[PortMapping.Slots + 1];
         var msPerTick = OctaveSwaps.MsPerTick(song, tempoFactor);

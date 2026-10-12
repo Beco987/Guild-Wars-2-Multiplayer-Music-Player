@@ -103,6 +103,19 @@ public sealed class SongLibrary
         return result;
     }
 
+    /// <summary>
+    /// A one-player song (Players = 1, the field after the last matching name): it is played with all tracks merged
+    /// into one instrument (see <see cref="Arrangement.SingleInstrument"/>).
+    /// </summary>
+    public bool IsSingleInstrument(string name)
+    {
+        var fields = DataFields();
+        string? players = null;
+        for (var i = 0; i < fields.Count; i++)
+            if (fields[i] == name) players = i + 1 < fields.Count ? fields[i + 1] : "";
+        return players is not null && AhkValue.Number(players.Trim()) == 1;
+    }
+
     /// <summary>The song's tempo factor ("DefaultTempo"): 1 - 0.05 * modifier, summed over every matching entry.</summary>
     public double TempoFactor(string name) => TempoFactorFromFields(DataFields(), name);
 

@@ -42,7 +42,7 @@ public sealed class SoloSession : IDisposable
         _clock = clock;
         _keys = keys;
         _runner = new PlaylistRunner(clock,
-            start: song => Task.FromResult(Start(song.Csv, song.Tempo)),
+            start: song => Task.FromResult(Start(song.Csv, song.Tempo, song.SingleInstrument)),
             end: EndSongAsync,
             announce: info => { _view.AppendDialog(info.Notice); _view.OnNowPlaying(info); },
             ended: (name, _, finished) =>
@@ -70,7 +70,7 @@ public sealed class SoloSession : IDisposable
             _view.ReportProblem(name.Length == 0 ? "Select a song first." : $"The song {name} is not in the library.");
             return;
         }
-        if (Start(csv, Library.TempoFactor(name)) is null) return;
+        if (Start(csv, Library.TempoFactor(name), Library.IsSingleInstrument(name)) is null) return;
         var info = new NowPlayingInfo(name, null, 0, 0);
         _view.AppendDialog(info.Notice);
         _view.OnNowPlaying(info);
@@ -114,7 +114,7 @@ public sealed class SoloSession : IDisposable
     }
 
     /// <summary>Arranges and starts a song on the open windows; returns when its last note is due, or null.</summary>
-    private double? Start(string csvText, double? tempoFactor)
+    private double? Start(string csvText, double? tempoFactor, bool singleInstrument = false)
     {
         lock (_gate)
         {
@@ -132,6 +132,8 @@ public sealed class SoloSession : IDisposable
         try
         {
             var song = CsvSong.Parse(LegacyText.Lines(csvText));
+            // A one-player song is merged into one part for the first open window.
+            if (singleInstrument) song = SingleInstrument.Merge(song);
             var tracks = Enumerable.Range(1, PortMapping.Tracks).Where(t => song.TrackNotes[t].Count > 0).ToList();
             if (tracks.Count == 0)
             {
