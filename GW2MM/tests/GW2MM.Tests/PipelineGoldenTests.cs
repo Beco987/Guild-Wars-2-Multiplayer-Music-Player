@@ -31,7 +31,7 @@ public class PipelineGoldenTests
             ? GW2MM.Core.Ahk.AhkValue.Number(spec["clienttempo"])
             : SongLibrary.TempoFactorFromFields(new[] { "Some Other Song", " 2", " 3", " desc", spec["song"], " 3", " " + spec["tempomod"], " generated" }, spec["song"]);
 
-        var plan = SongArranger.Arrange(CsvSong.Parse(lines), PortMapping.Parse(spec["ip"]), spec["octavedelay"], tempo, OctaveSwapMode.Original);
+        var plan = SongArranger.Arrange(CsvSong.Parse(lines, allTempoChanges: false), PortMapping.Parse(spec["ip"]), spec["octavedelay"], tempo, OctaveSwapMode.Original);
 
         var gw2 = spec["gw2"].Split(',').Select(double.Parse).ToArray();
         var ticks = spec["ticks"].Split(',').Select(double.Parse).ToArray();

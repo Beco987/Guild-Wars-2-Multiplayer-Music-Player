@@ -169,7 +169,7 @@ public static class SingleInstrument
             if (AhkValue.Number(song.TempoTimes[k]) is { } tick && marker.Length > 1 && AhkValue.Number(marker[1..]) is { } tempo && tempo > 0)
                 changes.Add((tick, tempo));
         }
-        changes.Sort((a, b) => a.Tick.CompareTo(b.Tick));
+        changes = changes.Select((c, k) => (c, k)).OrderBy(x => x.c.Tick).ThenBy(x => x.k).Select(x => x.c).ToList(); // stable
         var factor = tempoFactor is { } f && f > 0 ? f : 1;
         return tick =>
         {

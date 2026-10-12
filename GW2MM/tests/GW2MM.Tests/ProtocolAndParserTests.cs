@@ -1,3 +1,4 @@
+using GW2MM.Core.Playback;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -76,10 +77,10 @@ public class ProtocolAndParserTests
     [Fact]
     public void ParserQuirksAreKept()
     {
-        var song = CsvSong.Parse(new[]
+        var lines = new[]
         {
             "1, 0, Tempo, 500000",
-            "1, 0, Tempo, 400000",                 // before the first note: ignored
+            "1, 0, Tempo, 400000",                 // before the first note: ignored by the original rule
             "2, 0, Note_on_c, 0, 30, 90",          // out of range before any mapped field: blank letter
             "2, 10, Control_c, 0, 64, 127",        // controller number 64 in field 5 sets the letter to "d"
             "2, 20, Note_on_c, 0, 100, 90",        // out of range: repeats "d"
@@ -90,10 +91,47 @@ public class ProtocolAndParserTests
             "26, 70, Note_on_c, 0, 60, 90",        // track > 25: dropped
             "2, 80, Text_t, \"a, 72, b\"",         // a comma inside quotes still splits: field 5 = 72 -> "q"
             "2, 90, Note_on_c, 0, 5, 90",
-        });
+        };
+        var song = CsvSong.Parse(lines, allTempoChanges: false);
         Assert.Equal(new[] { "", "d", "A", "q" }, song.TrackNotes[2]);
         Assert.Equal(new[] { "0", "20", "40", "90" }, song.TrackTimes[2]);
         Assert.Equal(new[] { "B500000", "B600000" }, song.TempoMarkers);
         Assert.Equal(new[] { "0", "60" }, song.TempoTimes);
+
+        // By default every tempo change is kept, in time order.
+        var all = CsvSong.Parse(lines);
+        Assert.Equal(new[] { "B500000", "B400000", "B600000" }, all.TempoMarkers);
+        Assert.Equal(new[] { "0", "0", "60" }, all.TempoTimes);
+        Assert.Equal(song.TrackNotes[2], all.TrackNotes[2]);
+    }
+
+    /// <summary>
+    /// A typical multi-track MIDI keeps its tempo map in a first track without notes; every change comes before the
+    /// first note in the file. The original rule kept only the first of them.
+    /// </summary>
+    [Fact]
+    public void TempoChangesFromAConductorTrackAreKept()
+    {
+        var lines = new[]
+        {
+            "0, 0, Header, 1, 2, 480", "1, 0, Start_track", "1, 0, Tempo, 1000000", "1, 480, Tempo, 500000", "1, 960, Tempo, 250000",
+            "1, 960, End_track", "2, 0, Start_track", "2, 0, Note_on_c, 0, 60, 90", "2, 480, Note_on_c, 0, 62, 90",
+            "2, 960, Note_on_c, 0, 64, 90", "2, 1440, Note_on_c, 0, 65, 90", "2, 1440, End_track", "0, 0, End_of_file",
+        };
+        Assert.Equal(new[] { "B1000000" }, CsvSong.Parse(lines, allTempoChanges: false).TempoMarkers);
+        var song = CsvSong.Parse(lines);
+        Assert.Equal(new[] { "B1000000", "B500000", "B250000" }, song.TempoMarkers);
+
+        // Both arrangements now speed up: 480 ticks at 2 ms, then 1 ms, then 0.5 ms per tick (OctaveDelay 0, no swaps).
+        var multi = SongArranger.Arrange(song, PortMapping.Parse("22"), "", 1.0)[2];
+        var times = Schedule.AbsoluteTimes(multi, 0, 0).Select(t => t - Schedule.StartDelayMs).ToList();
+        var noteTimes = multi.Notes.Select((n, k) => (n, k)).Where(x => x.n.Length > 0 && x.k > 0).Select(x => times[x.k - 1]).ToList();
+        Assert.Equal(new double[] { 960, 1440, 1680 }, noteTimes.Skip(1));
+
+        var single = SingleInstrument.Arrange(song, 1, "", 1.0);
+        long t = 0;
+        var singleTimes = new List<long>();
+        for (var k = 1; k < single.Notes.Count; k++) { t += single.DelaysMs[k - 1]; singleTimes.Add(t); }
+        Assert.Equal(new long[] { 0, 960, 1440, 1680 }, singleTimes);
     }
 }

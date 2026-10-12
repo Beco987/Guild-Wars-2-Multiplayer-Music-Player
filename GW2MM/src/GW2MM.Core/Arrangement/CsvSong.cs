@@ -29,11 +29,15 @@ public sealed class CsvSong
     /// MIDI number (48-84, 96, 97). A note outside that range therefore repeats the previous mapped letter
     /// (blank at the start of a song), and e.g. a controller number in a <c>Control_c</c> line also counts.</item>
     /// <item>Fields are split on every comma (quoted text is not special) and trimmed of spaces/tabs.</item>
-    /// <item>Before the first recorded note only the first <c>Tempo</c> event is kept; after it, all are kept.</item>
+    /// <item>Every <c>Tempo</c> event is kept, sorted by time (<paramref name="allTempoChanges"/>). The original kept
+    /// only the first one before the first recorded note in the file, and all after it. Most MIDI files keep their
+    /// tempo changes in a first track without notes, which comes before every note in the file, so all of a song's
+    /// tempo changes but the first were lost. With <paramref name="allTempoChanges"/> false the original rule
+    /// applies (used by the oracle tests).</item>
     /// <item>Only tracks 1..25 are kept (only 1..8 can be mapped to players).</item>
     /// </list>
     /// </summary>
-    public static CsvSong Parse(IEnumerable<string> lines)
+    public static CsvSong Parse(IEnumerable<string> lines, bool allTempoChanges = true)
     {
         var song = new CsvSong();
         string note = "", track = "", duration = "";
@@ -59,7 +63,7 @@ public sealed class CsvSong
                         if (AhkValue.Equal(v, "Tempo")) tempoer = true;
                         break;
                     case 4:
-                        if (tempoer && (!postNotes && !pzero || postNotes))
+                        if (tempoer && (allTempoChanges || !postNotes && !pzero || postNotes))
                         {
                             song.TempoMarkers.Add("B" + v);
                             song.TempoTimes.Add(duration);
@@ -86,6 +90,16 @@ public sealed class CsvSong
                         break;
                 }
             }
+        }
+        if (allTempoChanges && song.TempoTimes.Count > 1)
+        {
+            // Tempo changes from several tracks, in time order (stable: at equal times the later one in the file wins).
+            var ordered = song.TempoTimes.Zip(song.TempoMarkers)
+                .Select((p, k) => (Time: p.First, Marker: p.Second, Key: AhkValue.Number(p.First) ?? double.MaxValue, Index: k))
+                .OrderBy(x => x.Key).ThenBy(x => x.Index).ToList();
+            song.TempoTimes.Clear();
+            song.TempoMarkers.Clear();
+            foreach (var x in ordered) { song.TempoTimes.Add(x.Time); song.TempoMarkers.Add(x.Marker); }
         }
         return song;
     }
