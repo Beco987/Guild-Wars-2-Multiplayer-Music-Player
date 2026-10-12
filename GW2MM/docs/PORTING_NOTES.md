@@ -113,8 +113,9 @@ reachable from any hotkey, button or message.
 * **Solo play on a client** (not in the original). While the client is not connected, Play / F11 plays songs and
   playlists on its own Player windows, each track with notes on the next open window. Ctrl+F3 stops, Ctrl+F5 skips.
 
-* **One-player songs on one instrument.** A song with Players = 1 has all its tracks merged into one part, chords
-  folded into the octave of their highest note (`Arrangement/SingleInstrument`). The original client had an
+* **One-player songs on one instrument.** A song with Players = 1 plays all its tracks on one instrument
+  (`Arrangement/SingleInstrument`). A chord spanning octaves is played octave by octave, with OctaveDelay after each
+  octave change; notes are delayed only when the song leaves no room for that. The original client had an
   unfinished engine for this (`OnePlayer`, never called); in the original every song went through the
   multiplayer arrangement and Players only labelled the song list.
 

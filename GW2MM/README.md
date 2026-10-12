@@ -58,11 +58,17 @@ Joins appear as "bob joined as player 2." Internal network messages are written 
 
 ### One-player songs
 
-A song whose **Players** value is 1 is played on one instrument: the notes of every track are merged into one part.
-The players with any track ticked in Port Mapping play it in their Player1 window; if nobody has a track ticked, the
-host does. Solo play uses the first open window. A Guild Wars 2 instrument plays one octave at a time, so a chord
-spanning more is folded into the octave of its highest note (normally the melody): bass notes move up by whole
-octaves, and notes outside the instrument's C3–C6 range are folded in too.
+A song whose **Players** value is 1 is played on one instrument with the notes of every track. The players with any
+track ticked in Port Mapping play it in their Player1 window; if nobody has a track ticked, the host does. Solo play
+uses the first open window. Keys are the same as in multiplayer: 1–8 for naturals, F1–F5 for sharps, 9 / 0 for
+octave changes.
+
+A chord whose notes lie in more than one octave is played octave by octave. Its notes in one octave are pressed
+together, then the octave changes, then the next group follows OctaveDelay later. The order needs the fewest changes
+(from the lowest octave on a tie). After every octave change the next note waits at least OctaveDelay (150 ms if
+blank). The changes before a chord go into the gap before it when there is room. When there is not, the following
+notes are delayed just enough and the song catches up at the next rest. Notes outside C3–C6 are moved by whole
+octaves into range.
 
 ### Octave changes and OctaveDelay
 

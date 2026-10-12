@@ -132,9 +132,8 @@ public sealed class SoloSession : IDisposable
         try
         {
             var song = CsvSong.Parse(LegacyText.Lines(csvText));
-            // A one-player song is merged into one part for the first open window.
-            if (singleInstrument) song = SingleInstrument.Merge(song);
-            var tracks = Enumerable.Range(1, PortMapping.Tracks).Where(t => song.TrackNotes[t].Count > 0).ToList();
+            // A one-player song: every track on one instrument, in the first open window.
+            var tracks = singleInstrument ? new List<int> { 1 } : Enumerable.Range(1, PortMapping.Tracks).Where(t => song.TrackNotes[t].Count > 0).ToList();
             if (tracks.Count == 0)
             {
                 _view.ReportProblem("The song has no notes to play.");
@@ -146,7 +145,7 @@ public sealed class SoloSession : IDisposable
                     : $"This song has {tracks.Count} parts but only {windows.Count} game windows are open, so only the first {windows.Count} parts are played.");
             var mapping = new PortMapping();
             foreach (var t in tracks.Take(windows.Count)) mapping[SoloSlot, t] = true;
-            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor)[SoloSlot];
+            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor, singleInstrument: singleInstrument)[SoloSlot];
         }
         catch (Exception ex)
         {
