@@ -97,97 +97,100 @@ public static class SongFunctions
     {
         var octave = 1;
         var a3 = new List<string>(a1.Count);
-        foreach (var notes in a1)
+        foreach (var notes in a1) a3.Add(AddSwapsStep(notes, ref octave));
+        return a3;
+    }
+
+    /// <summary>One chord of <see cref="AddSwaps"/>: its keys with octave changes, updating the current octave (0..2).</summary>
+    internal static string AddSwapsStep(string notes, ref int octave)
+    {
+        var s = new System.Text.StringBuilder();
+        if (octave == 1)
         {
-            var s = new System.Text.StringBuilder();
-            if (octave == 1)
+            foreach (var i in Set1)
             {
-                foreach (var i in Set1)
+                if (notes.IndexOf(i) < 0) continue;
+                if (i == 'a')
                 {
-                    if (notes.IndexOf(i) < 0) continue;
-                    if (i == 'a')
+                    if (ContainsAny(notes, LowRow) && !ContainsAny(notes, MidRowNoC))
                     {
-                        if (ContainsAny(notes, LowRow) && !ContainsAny(notes, MidRowNoC))
-                        {
-                            if (octave == 1) { octave--; s.Append('9'); }
-                            s.Append('8');
-                        }
-                        else s.Append(i);
+                        if (octave == 1) { octave--; s.Append('9'); }
+                        s.Append('8');
                     }
-                    else if (HighRowNoC.IndexOf(i) >= 0)
+                    else s.Append(i);
+                }
+                else if (HighRowNoC.IndexOf(i) >= 0)
+                {
+                    if (octave == 1) { octave++; s.Append('0'); }
+                    s.Append(i);
+                }
+                else if (LowRow.IndexOf(i) >= 0)
+                {
+                    if (octave == 1) { octave--; s.Append('9'); }
+                    s.Append(i);
+                }
+                else if (i == 'q')
+                {
+                    if (ContainsAny(notes, HighRowNoC))
                     {
                         if (octave == 1) { octave++; s.Append('0'); }
                         s.Append(i);
                     }
-                    else if (LowRow.IndexOf(i) >= 0)
-                    {
-                        if (octave == 1) { octave--; s.Append('9'); }
-                        s.Append(i);
-                    }
-                    else if (i == 'q')
-                    {
-                        if (ContainsAny(notes, HighRowNoC))
-                        {
-                            if (octave == 1) { octave++; s.Append('0'); }
-                            s.Append(i);
-                        }
-                        else s.Append('8');
-                    }
-                    else s.Append(i);
+                    else s.Append('8');
                 }
+                else s.Append(i);
             }
-            else if (octave == 0)
+        }
+        else if (octave == 0)
+        {
+            foreach (var i in Set2)
             {
-                foreach (var i in Set2)
+                if (notes.IndexOf(i) < 0) continue;
+                if (i == 'a')
                 {
-                    if (notes.IndexOf(i) < 0) continue;
-                    if (i == 'a')
-                    {
-                        if (ContainsAny(notes, MidRowNoC))
-                        {
-                            if (octave == 0) { octave++; s.Append('0'); }
-                            s.Append(i);
-                        }
-                        else s.Append('8');
-                    }
-                    else if (i == 'q')
-                    {
-                        if (octave == 0) { octave++; s.Append('0'); }
-                        s.Append('8');
-                    }
-                    else if ((MidRowNoC + "k").IndexOf(i) >= 0)
+                    if (ContainsAny(notes, MidRowNoC))
                     {
                         if (octave == 0) { octave++; s.Append('0'); }
                         s.Append(i);
                     }
-                    else s.Append(i);
+                    else s.Append('8');
                 }
-            }
-            else if (octave == 2)
-            {
-                foreach (var i in Set3)
+                else if (i == 'q')
                 {
-                    if (notes.IndexOf(i) < 0) continue;
-                    if (i == 'q')
-                    {
-                        if (ContainsAny(notes, MidRow) && !ContainsAny(notes, HighRowNoC))
-                        {
-                            if (octave == 2) { octave--; s.Append('9'); }
-                            s.Append('8');
-                        }
-                        else s.Append(i);
-                    }
-                    else if (MidRow.IndexOf(i) >= 0)
+                    if (octave == 0) { octave++; s.Append('0'); }
+                    s.Append('8');
+                }
+                else if ((MidRowNoC + "k").IndexOf(i) >= 0)
+                {
+                    if (octave == 0) { octave++; s.Append('0'); }
+                    s.Append(i);
+                }
+                else s.Append(i);
+            }
+        }
+        else if (octave == 2)
+        {
+            foreach (var i in Set3)
+            {
+                if (notes.IndexOf(i) < 0) continue;
+                if (i == 'q')
+                {
+                    if (ContainsAny(notes, MidRow) && !ContainsAny(notes, HighRowNoC))
                     {
                         if (octave == 2) { octave--; s.Append('9'); }
-                        s.Append(i);
+                        s.Append('8');
                     }
                     else s.Append(i);
                 }
+                else if (MidRow.IndexOf(i) >= 0)
+                {
+                    if (octave == 2) { octave--; s.Append('9'); }
+                    s.Append(i);
+                }
+                else s.Append(i);
             }
-            a3.Add(s.ToString());
         }
-        return a3;
+        return s.ToString();
     }
 
     /// <summary>

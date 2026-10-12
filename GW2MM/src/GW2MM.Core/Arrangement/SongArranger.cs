@@ -24,12 +24,14 @@ public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
 /// </summary>
 public static class SongArranger
 {
-    public static SongPlan Arrange(CsvSong song, PortMapping mapping, string octaveDelay, double? tempoFactor)
+    public static SongPlan Arrange(CsvSong song, PortMapping mapping, string octaveDelay, double? tempoFactor,
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Improved)
     {
         var times = new List<string>[PortMapping.Slots + 1];
         var keys = new List<string>[PortMapping.Slots + 1];
+        var msPerTick = OctaveSwaps.MsPerTick(song, tempoFactor);
         for (var slot = 1; slot <= PortMapping.Slots; slot++)
-            (times[slot], keys[slot]) = TrackWriter(song, mapping, slot, octaveDelay);
+            (times[slot], keys[slot]) = TrackWriter(song, mapping, slot, octaveDelay, octaveSwaps, msPerTick);
 
         AddFiller(times, keys);
 
@@ -81,7 +83,8 @@ public static class SongArranger
     /// The host (slot 1) sends track <i>n</i> to window Player<i>n</i>; a client sends its k-th mapped track
     /// to Player<i>k</i>.
     /// </summary>
-    internal static (List<string> Times, List<string> Keys) TrackWriter(CsvSong song, PortMapping mapping, int slot, string octaveDelay)
+    internal static (List<string> Times, List<string> Keys) TrackWriter(CsvSong song, PortMapping mapping, int slot, string octaveDelay,
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Original, Func<double, double>? msPerTick = null)
     {
         var outTimes = Enumerable.Range(0, PortMapping.Tracks + 1).Select(_ => new List<string>()).ToArray();
         var outKeys = Enumerable.Range(0, PortMapping.Tracks + 1).Select(_ => new List<string>()).ToArray();
@@ -93,10 +96,20 @@ public static class SongArranger
             {
                 var c = SongFunctions.Combine(song.TrackTimes[track], song.TrackNotes[track], empty, empty);
                 var tdur = c.Num;
-                var tindex = SongFunctions.AddSwaps(c.Alpha);
-                var o = SongFunctions.OpportunisticSwaps(tindex, tdur, octaveDelay);
-                outTimes[window] = o.Alpha;
-                outKeys[window] = SongFunctions.ReplaceChars(o.Num, KeyMap.Replacements(window));
+                if (octaveSwaps == OctaveSwapMode.Original)
+                {
+                    var tindex = SongFunctions.AddSwaps(c.Alpha);
+                    var o = SongFunctions.OpportunisticSwaps(tindex, tdur, octaveDelay);
+                    outTimes[window] = o.Alpha;
+                    outKeys[window] = SongFunctions.ReplaceChars(o.Num, KeyMap.Replacements(window));
+                }
+                else
+                {
+                    var chords = OctaveSwaps.AddSwaps(c.Alpha);
+                    var (placed, placedTimes) = OctaveSwaps.Place(chords, tdur, AhkValue.Number(octaveDelay) ?? 0, msPerTick ?? (_ => 1));
+                    outTimes[window] = placedTimes;
+                    outKeys[window] = SongFunctions.ReplaceChars(placed, KeyMap.Replacements(window));
+                }
                 if (slot != 1) window++;
             }
             if (slot == 1) window++;

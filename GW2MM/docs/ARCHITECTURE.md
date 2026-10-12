@@ -44,9 +44,12 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
 1. `CsvSong.Parse` extracts, per MIDI track (1–25), every `Note_on_c` with velocity > 0 as *(tick, note letter)*,
    plus the tempo events (only the first one before the first note).
 2. For each slot 1–5 (`TrackWriter`) and each track ticked in the port mapping:
-   simultaneous notes are merged (`Combine`); octave changes are added as key `9`/`0`, and Cs as `8` (`AddSwaps`);
-   a swap that leads a chord moves to the middle of the preceding gap when that gap is at least *OctaveDelay*
-   ticks (`OpportunisticSwaps`); letters are encoded as one character per *(window, instrument key)* (`KeyMap`).
+   simultaneous notes are merged (`Combine`); octave changes are added as key `9`/`0`, and Cs as `8`
+   (`OctaveSwaps.AddSwaps`, which also gives a low ↔ high jump its two changes); the changes that lead a chord move
+   into the preceding gap (`OctaveSwaps.Place`): evenly through it when there is room, but never closer than
+   *OctaveDelay* ms (at the song's tempo) to the next press, and as early as possible when the gap is shorter.
+   Letters are encoded as one character per *(window, instrument key)* (`KeyMap`). The original scripts' versions
+   (`SongFunctions.AddSwaps` / `OpportunisticSwaps`) are kept as `OctaveSwapMode.Original` for the oracle tests.
    The slot's tracks are then merged.
 3. `AddFiller` gives every active slot an element (blank if silent) at every time any slot plays. All parts
    therefore walk the same timeline.
