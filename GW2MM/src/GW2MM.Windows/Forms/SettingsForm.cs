@@ -4,15 +4,16 @@ using GW2MM.Core.Config;
 namespace GW2MM.Windows.Forms;
 
 /// <summary>
-/// Octave Delay / Always On Top / Transparency (plus update checks, UPnP or the client's launch prompts, and keybinds). Saving writes Config.txt and applies the values immediately
+/// Octave Delay / Always On Top / Transparency (plus update checks, UPnP or the client's launch prompts, humanizing and keybinds). Saving writes Config.txt and applies the values immediately
 /// (the original restarted the whole script, which also dropped every network connection).
 /// </summary>
 internal sealed class SettingsForm : Form
 {
     public SettingsForm(AppSettings settings, string dataDir, bool isHost, Action applied, Action<IWin32Window> showKeybinds)
     {
-        // The client has three more rows: the launch prompts option and the name and host address it uses.
-        var extra = isHost ? 0 : 50;
+        // One more row for Humanize; the client has three more: the launch prompts option and the name and host
+        // address it uses.
+        var extra = isHost ? 25 : 75;
         Ui.InitForm(this, "Settings", 200, 200 + extra);
         ShowInTaskbar = false;
         Ui.Label(this, "Octave Delay :", 0, 3, 95, 20);
@@ -39,6 +40,12 @@ internal sealed class SettingsForm : Form
             Ui.Label(this, "Host IP :", 0, 143, 70, 20);
             hostAddress = Ui.Add(this, new TextBox { Text = settings.HostAddress }, 70, 140, 130, 20);
         }
+        var row = isHost ? 115 : 165;
+        Ui.Label(this, "Humanize :", 0, row + 3, 70, 20);
+        var humanize = Ui.Add(this, new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 70, row, 95, 21);
+        humanize.Items.AddRange(new object[] { "Off", "Subtle", "Natural", "Loose" });
+        humanize.SelectedIndex = Math.Clamp((int)settings.Humanize, 0, 3);
+        Ui.Button(this, "?", 170, row, 20, 20, (_, _) => Ui.ShowText(this, "Humanize Explanation", Texts.Humanize));
         Ui.Button(this, "Keybinds…", 0, 120 + extra, 200, 28, (_, _) => showKeybinds(this));
         Ui.Button(this, "Save", 0, 160 + extra, 200, 40, (_, _) =>
         {
@@ -58,6 +65,7 @@ internal sealed class SettingsForm : Form
                 settings.Name = name!.Text.Replace(",", "").Trim();          // Config.txt is comma-separated
                 settings.HostAddress = hostAddress!.Text.Replace(",", "").Trim();
             }
+            settings.Humanize = (Core.Playback.HumanizeLevel)Math.Max(0, humanize.SelectedIndex);
             try
             {
                 settings.SaveDisplaySettings(dataDir);

@@ -35,9 +35,16 @@ public sealed class HostSession : IDisposable
     private int _nextId;
     private int _pingBusy, _syncBusy;
 
-    public HostSession(IHostView view, SongLibrary library, Func<string> octaveDelay, IClock clock, IKeyOutput keys, IInputDelayMeter meter, HostTimings? timings = null)
+    private readonly Func<HumanizeLevel> _humanize;
+    private readonly Random _random;
+
+    /// <param name="humanize">How much to humanize the host's part when it plays alone (no player gets a part).</param>
+    public HostSession(IHostView view, SongLibrary library, Func<string> octaveDelay, IClock clock, IKeyOutput keys, IInputDelayMeter meter,
+        HostTimings? timings = null, Func<HumanizeLevel>? humanize = null, Random? random = null)
     {
         Timings = timings ?? new HostTimings();
+        _humanize = humanize ?? (() => HumanizeLevel.Off);
+        _random = random ?? new Random();
         _view = view;
         Library = library;
         OctaveDelay = octaveDelay;
@@ -302,11 +309,13 @@ public sealed class HostSession : IDisposable
         }
 
         SongPlan plan;
+        CsvSong song;
         PortMapping mapping;
         lock (_gate) mapping = _mapping.Clone();
         try
         {
-            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor, singleInstrument: singleInstrument);
+            song = CsvSong.Parse(LegacyText.Lines(csvText));
+            plan = SongArranger.Arrange(song, mapping, OctaveDelay(), tempoFactor, singleInstrument: singleInstrument);
         }
         catch (Exception ex)
         {
@@ -343,6 +352,10 @@ public sealed class HostSession : IDisposable
         }
         catch (OperationCanceledException) { return null; }
 
+        // When no player gets a part, the host plays alone and its part can be humanized like solo play on a client
+        // (with players, every part must keep the host's timing exactly).
+        var humanized = HumanizeIfAlone(song, plan, mapping, tempoFactor, singleInstrument, clients, run.Ticks[1]!.Value);
+
         lock (_gate)
         {
             if (run.Token.IsCancellationRequested || _current != run) return null;
@@ -367,9 +380,11 @@ public sealed class HostSession : IDisposable
 
             var host = plan[1];
             var hostTimes = host.IsActive ? Schedule.AbsoluteTimes(host, hostTick, 0) : new List<double>();
+            var hostEvents = humanized ?? Schedule.HostEvents(host.Notes, hostTimes);
+            if (humanized is not null) hostTimes = humanized.Select(e => e.DueMs ?? hostTick).ToList();
             end = Math.Max(end, LastTime(hostTimes));
             run.EndMs = end;
-            var loop = new PlaybackLoop(Schedule.HostEvents(host.Notes, hostTimes), _clock, _keys, _paused);
+            var loop = new PlaybackLoop(hostEvents, _clock, _keys, _paused);
             loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
             run.Loop = loop;
             loop.Start();
@@ -378,6 +393,35 @@ public sealed class HostSession : IDisposable
         }
 
         static double LastTime(List<double> times) => times.Count == 0 ? double.NegativeInfinity : times[^1];
+    }
+
+    /// <summary>
+    /// The host's humanized events when Humanize is on and none of <paramref name="clients"/> has a part; else null.
+    /// A one-player song is arranged again without forced delays, so the humanizer makes the room for its octave
+    /// changes as a gradual slow-down.
+    /// </summary>
+    private List<PlaybackEvent>? HumanizeIfAlone(CsvSong song, SongPlan plan, PortMapping mapping, double? tempoFactor, bool singleInstrument,
+        IEnumerable<(int Slot, PeerConnection Conn)> clients, double hostTick)
+    {
+        var level = _humanize();
+        if (level == HumanizeLevel.Off || !plan[1].IsActive || clients.Any(c => plan[c.Slot].IsActive)) return null;
+        try
+        {
+            var host = singleInstrument
+                ? SongArranger.Arrange(song, mapping, OctaveDelay(), tempoFactor, singleInstrument: true, forceOctaveDelays: false)[1]
+                : plan[1];
+            var times = Schedule.AbsoluteTimes(host, hostTick, 0);
+            if (times.Count == 0) return null;
+            // As the host loop plays it: element k+1 at times[k] (element 0 is never pressed).
+            var start = times[0];
+            var events = times.Select((t, k) => (t - start, k + 1 < host.Notes.Count ? host.Notes[k + 1] : "")).ToList();
+            return Humanizer.Apply(events, SingleInstrument.DelayMs(OctaveDelay()), level, _random, start);
+        }
+        catch (Exception ex)
+        {
+            _view.ReportProblem("Could not humanize the song, so it plays as arranged: " + ex.Message);
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------ playlists

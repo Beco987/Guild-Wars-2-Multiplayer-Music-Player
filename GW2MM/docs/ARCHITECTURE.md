@@ -115,6 +115,28 @@ The client arranges the song itself. It maps the song's tracks that contain note
 k-th open window, so Player1 + Player3 works. The end time feeds the same `PlaylistRunner`. Stop and the end of each
 playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback.
 
+### 7. Humanizing (`Playback/Humanizer`, playing alone only)
+
+`SoloSession`, and `HostSession` when none of the clients it sampled has a part, can pass their part through
+`Humanizer.Apply` (Settings → Humanize). A one-player song is first arranged with `forceDelays: false`: every chord
+keeps its own time, and mid-chord octave changes keep only their order. The humanizer then:
+
+1. splits each element into one press per window, and each window's keys at its octave changes (a "9z" element
+   becomes the press "9" and then the press "z");
+2. adds micro-timing per window and song time: Voss–McCartney pink noise plus a little white noise, scaled by the
+   note spacing (full size at 250 ms) and clamped to 15% of the spacing, so a window's presses keep their order;
+3. computes the least non-decreasing ensemble delay (one value per distinct planned time, shared by every window)
+   that keeps OctaveDelay after each octave change and 1 ms after each note. Presses at one time in one window follow
+   each other at fixed offsets: an octave change in the middle of a chord moves only the rest of that chord. Each
+   step of that delay is spread into a ramp starting `LeadInMs` before the press that needed it, and the minimum is
+   enforced again on top. The song therefore slows into each tight octave change and continues in tempo after it,
+   instead of one late note followed by a rush;
+4. rolls each chord press (one window, one octave) low to high within half the time to that window's next press;
+5. groups presses due at the same 0.1 ms into one `PlaybackEvent`.
+
+A final per-window pass keeps every press at least its gap after the previous one; after step 3 it never has to move
+anything. The host's parts for clients are never humanized, so playing together stays in sync.
+
 ### Concurrency rules
 
 * Every session mutation (slots, port mapping, input delays, current run, pause) happens under one lock, and no

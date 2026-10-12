@@ -118,7 +118,8 @@ internal sealed class MainForm : Form, IHostView
 
         if (role == AppRole.Host)
         {
-            _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
+            _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter(),
+                humanize: () => _settings.Humanize);
             Ui.Button(this, "Port", 355, 490, 45, 20, (_, _) => ShowPortMapping());
             _syncButton = Ui.Button(this, "Sync", 355, 510, 45, 20, async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token)));
             _pingButton = Ui.Button(this, "Ping", 355, 530, 45, 20, async (_, _) => await RunGuarded(_pingButton!, () => _host.PingAsync(_closing.Token)));
@@ -127,7 +128,8 @@ internal sealed class MainForm : Form, IHostView
         {
             _client = new ClientSession(this, _library, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
             _input.TextChanged += (_, _) => _client.TypingChanged(_input.Text);
-            _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys);
+            _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys,
+                humanize: () => _settings.Humanize);
         }
 
         ApplyDisplaySettings();

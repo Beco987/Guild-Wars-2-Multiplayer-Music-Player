@@ -67,8 +67,8 @@ A chord whose notes lie in more than one octave is played octave by octave. Its 
 together, then the octave changes, then the next group follows OctaveDelay later. The order needs the fewest changes
 (from the lowest octave on a tie). After every octave change the next note waits at least OctaveDelay (150 ms if
 blank). The changes before a chord go into the gap before it when there is room. When there is not, the following
-notes are delayed just enough and the song catches up at the next rest. Notes outside C3–C6 are moved by whole
-octaves into range.
+notes are delayed just enough and the song catches up at the next rest (with **Humanize** on and nobody else playing,
+the song slows down gently there instead; see below). Notes outside C3–C6 are moved by whole octaves into range.
 
 ### Octave changes and OctaveDelay
 
@@ -89,6 +89,34 @@ is the same arrangement a host gives a client assigned those tracks. If the song
 open, the extra parts are not played (the chat says so). **Ctrl+F3** stops and resets octaves, **Ctrl+F5** (or Next ►)
 skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
 Once the client is connected, the host takes over again.
+
+### Humanize (playing alone)
+
+**⚙ → Humanize** (Off, Subtle, Natural, Loose; `Humanize,0`–`3` in Config.txt) makes playback on your own game
+windows sound less robotic. It applies only when you play alone: a client that is not connected (solo play above),
+or a host whose players get no part (nobody connected). With other players everyone must keep the host's timing
+exactly, so then nothing changes. Off plays exactly as before.
+
+* **Octave changes become a gentle slow-down instead of a stutter.** Where a window's next note comes sooner than
+  OctaveDelay after an octave change, the whole song (every window together) slows down over that stretch, starting
+  a little ahead of it, and then carries on in tempo. Without humanizing the late note is pushed back alone and the
+  notes after it rush to catch up. Notes the arrangement pressed together with their octave change get the same
+  room, so they now sound in the right octave. Busy songs can therefore run a few percent longer.
+* **Natural timing.** Each window drifts a few milliseconds around the beat with correlated ("1/f") variation, the
+  kind listeners hear as human rather than sloppy, plus a little random jitter. The variation shrinks for closely
+  spaced notes, so fast runs stay even.
+* **Rolled chords.** The notes of a chord in one window are spread over a few milliseconds, low to high. A chord is
+  only rolled within one octave, so humanizing never adds an octave change and never moves a note into another
+  octave. Every octave change still has at least OctaveDelay before the next note in its window.
+
+| Level | Drift (σ) | Jitter (σ) | Chord roll | Slow-down lead-in |
+|---|---|---|---|---|
+| Subtle | 3 ms | 1 ms | up to 8 ms | 120 ms |
+| Natural | 6 ms | 2 ms | up to 15 ms | 250 ms |
+| Loose | 10 ms | 3 ms | up to 25 ms | 400 ms |
+
+Drift and jitter are for notes a quarter second or more apart, and smaller for closer notes. A note never moves by
+more than 15% of the time to its neighbours.
 
 ### Playlists
 

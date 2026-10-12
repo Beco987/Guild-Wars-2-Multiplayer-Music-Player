@@ -32,7 +32,12 @@ public static class SingleInstrument
     /// in solo play), in the same form as the multiplayer arrangement: element 0 is empty and element k+1 follows
     /// element k after <c>DelaysMs[k]</c>.
     /// </summary>
-    public static SlotPlan Arrange(CsvSong song, int slot, string octaveDelay, double? tempoFactor)
+    /// <param name="forceDelays">
+    /// True: notes are delayed here when an octave change needs the time. False: every chord keeps its own time and the
+    /// octave changes keep their order only. Solo humanizing then makes the room, as a gradual slow-down
+    /// (see <see cref="Playback.Humanizer"/>).
+    /// </param>
+    public static SlotPlan Arrange(CsvSong song, int slot, string octaveDelay, double? tempoFactor, bool forceDelays = true)
     {
         var delay = DelayMs(octaveDelay);
         var toMs = TickToMs(song, tempoFactor);
@@ -60,7 +65,9 @@ public static class SingleInstrument
                 double at;
                 if (step.Swap != 0)
                 {
-                    var earliest = Math.Max(lastPress is { } p ? p + 1 : double.NegativeInfinity, lastSwap is { } s ? s + delay : double.NegativeInfinity);
+                    var earliest = forceDelays
+                        ? Math.Max(lastPress is { } p ? p + 1 : double.NegativeInfinity, lastSwap is { } s ? s + delay : double.NegativeInfinity)
+                        : lastPress is { } q && q < time ? q + 1 : double.NegativeInfinity;
                     if (i < leading)
                     {
                         // Into the gap before the chord: evenly spread (the midpoint for one change) but never closer
@@ -68,14 +75,17 @@ public static class SingleInstrument
                         var latest = time - (leading - i) * delay;
                         var even = lastPress is { } prev && prev < time ? prev + (i + 1) * (time - prev) / (leading + 1) : latest;
                         at = Math.Max(earliest, Math.Min(even, latest));
+                        if (!forceDelays) at = Math.Min(at, time);
                     }
-                    else at = double.IsNegativeInfinity(earliest) ? time : earliest; // mid-chord: straight after the notes
+                    else at = !forceDelays || double.IsNegativeInfinity(earliest) ? time : earliest; // mid-chord: straight after the notes
                     lastSwap = at;
                     events.Add((at, SwapKey(step.Swap)));
                 }
                 else
                 {
-                    at = Math.Max(time, Math.Max(lastPress is { } p ? p + 1 : double.NegativeInfinity, lastSwap is { } s ? s + delay : double.NegativeInfinity));
+                    at = forceDelays
+                        ? Math.Max(time, Math.Max(lastPress is { } p ? p + 1 : double.NegativeInfinity, lastSwap is { } s ? s + delay : double.NegativeInfinity))
+                        : time;
                     events.Add((at, NotesKey(step.Notes)));
                 }
                 lastPress = at;
