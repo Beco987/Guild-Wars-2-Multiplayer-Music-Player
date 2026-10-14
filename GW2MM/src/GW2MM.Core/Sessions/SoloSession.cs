@@ -156,7 +156,7 @@ public sealed class SoloSession : IDisposable
             part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor, singleInstrument: singleInstrument)[SoloSlot];
             // Humanizing plays the same presses (notes and octave changes) with its own timing.
             if (humanize != HumanizeLevel.Off && part.IsActive)
-                score = singleInstrument ? SoloScore.OnePlayer(song, tempoFactor) : SoloScore.FromPart(song, part, tempoFactor);
+                score = singleInstrument ? SoloScore.OnePlayer(song, tempoFactor) : SoloScore.FromPart(song, part, tempoFactor, tracks.Take(windows.Count).ToList());
         }
         catch (Exception ex)
         {

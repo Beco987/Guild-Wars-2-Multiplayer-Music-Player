@@ -42,9 +42,9 @@ internal sealed class SettingsForm : Form
             hostAddress = Ui.Add(this, new TextBox { Text = settings.HostAddress }, 70, 140, 130, 20);
             Ui.Label(this, "Humanize :", 0, 168, 70, 20);
             humanize = Ui.Add(this, new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }, 70, 165, 95, 21);
-            humanize.Items.AddRange(new object[] { "Off", "Subtle", "Natural", "Loose" });
-            humanize.SelectedIndex = Math.Clamp((int)settings.Humanize, 0, 3);
-            Ui.Button(this, "?", 170, 165, 20, 20, (_, _) => Ui.ShowText(this, "Humanize Explanation", Texts.Humanize));
+            humanize.Items.AddRange(new object[] { "Off", "Subtle", "Natural", "Loose", "Phrased", "Expressive", "Rubato" });
+            humanize.SelectedIndex = Math.Clamp((int)settings.Humanize, 0, humanize.Items.Count - 1);
+            Ui.Button(this, "?", 170, 165, 20, 20, (_, _) => Ui.ShowText(this, "Humanize Explanation", Texts.Humanize, 420));
         }
         Ui.Button(this, "Keybinds…", 0, 120 + extra, 200, 28, (_, _) => showKeybinds(this));
         Ui.Button(this, "Save", 0, 160 + extra, 200, 40, (_, _) =>

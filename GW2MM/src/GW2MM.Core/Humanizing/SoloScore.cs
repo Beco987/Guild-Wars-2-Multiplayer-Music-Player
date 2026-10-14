@@ -41,8 +41,18 @@ internal sealed class ScoreChord
 internal sealed class SoloScore
 {
     public required IReadOnlyList<ScoreChord> Chords { get; init; }
+    /// <summary>Bars and beats, for the expressive options.</summary>
+    public required Meter Meter { get; init; }
+    /// <summary>Score ms of each played note's start and end (end null when unknown), for phrasing.</summary>
+    public required IReadOnlyList<(double Start, double? End)> NoteSpans { get; init; }
+    /// <summary>Score time in ms at a tick (tempo map and tempo modifier, as the app plays the song).</summary>
+    public required Func<double, double> TickToMs { get; init; }
 
     public int WindowCount => Chords.Select(c => c.Window).Distinct().Count();
+
+    /// <summary>Where the music ends (score ms): the last note's release, or the last onset when that is unknown.</summary>
+    public double EndMs => Math.Max(Chords.Count > 0 ? Chords.Max(c => c.Ms) : 0,
+        NoteSpans.Select(n => n.End ?? n.Start).DefaultIfEmpty(0).Max());
 
     private const int Down = 13, Up = 14; // KeyMap offsets of keys 9 and 0
 
@@ -70,7 +80,7 @@ internal sealed class SoloScore
             if (steps.Count == 0) continue;
             chords.Add(new ScoreChord { Window = 1, Tick = chord.Tick, Ms = toMs(chord.Tick), LeadingSwaps = leading, Steps = steps });
         }
-        return new SoloScore { Chords = chords };
+        return new SoloScore { Chords = chords, Meter = Meter.Of(song), NoteSpans = Spans(song, toMs, null), TickToMs = toMs };
     }
 
     /// <summary>
@@ -78,7 +88,8 @@ internal sealed class SoloScore
     /// changes that the arrangement pressed on their own, or together with or after its notes, become the leading
     /// changes of that window's next chord; changes between two note groups of one element stay inside the chord.
     /// </summary>
-    public static SoloScore FromPart(CsvSong song, SlotPlan part, double? tempoFactor)
+    /// <param name="tracks">The tracks the part plays (their notes' lengths are used for phrasing).</param>
+    public static SoloScore FromPart(CsvSong song, SlotPlan part, double? tempoFactor, IReadOnlyCollection<int>? tracks = null)
     {
         var toMs = SingleInstrument.TickToMs(song, tempoFactor);
         var chords = new List<ScoreChord>();
@@ -129,6 +140,11 @@ internal sealed class SoloScore
                 swaps.AddRange(after);
             }
         }
-        return new SoloScore { Chords = chords };
+        return new SoloScore { Chords = chords, Meter = Meter.Of(song), NoteSpans = Spans(song, toMs, tracks), TickToMs = toMs };
     }
+
+    private static List<(double, double?)> Spans(CsvSong song, Func<double, double> toMs, IReadOnlyCollection<int>? tracks) =>
+        song.Notes.Where(n => tracks is null || tracks.Contains(n.Track))
+            .Select(n => (toMs(n.Tick), n.EndTick is { } e && e > n.Tick ? toMs(e) : (double?)null))
+            .ToList();
 }

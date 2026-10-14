@@ -81,7 +81,7 @@ public sealed class HumanizerTests
                 notes.Add((2 + random.Next(3), tick, 36 + random.Next(60)));
             }
             var song = Song(notes.ToArray());
-            foreach (var level in new[] { HumanizeLevel.Off, HumanizeLevel.Subtle, HumanizeLevel.Natural, HumanizeLevel.Loose })
+            foreach (var level in Enum.GetValues<HumanizeLevel>())
             {
                 var presses = Humanizer.Render(SoloScore.OnePlayer(song, 1.0), Delay, level, new Random(round));
                 var inTime = presses.OrderBy(p => p.Time).ToList();
@@ -145,6 +145,138 @@ public sealed class HumanizerTests
         var b = Humanizer.Perform(SoloScore.OnePlayer(song, 1.0), Delay, HumanizeLevel.Natural, new Random(9), 1000);
         Assert.Equal(a, b);
         Assert.True(a.Min(e => e.DueMs!.Value) >= 1000);
+    }
+}
+
+/// <summary>The phrased levels: meter, phrases and the expressive time map.</summary>
+public sealed class ExpressionTests
+{
+    /// <summary>Notes as (track, tick, pitch, length in ticks); tempo 500000 and PPQ 480, so a tick is a ms and a beat 480 ms.</summary>
+    private static CsvSong Song(IEnumerable<(int Track, int Tick, int Pitch, int Length)> notes, string extra = "") => CsvSong.Parse((
+        "0, 0, Header, 1, 3, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n" + extra + "1, 0, End_track\n" +
+        string.Concat(notes.SelectMany(n => new[] { (n.Track, n.Tick, $"Note_on_c, 0, {n.Pitch}, 90"), (n.Track, n.Tick + n.Length, $"Note_off_c, 0, {n.Pitch}, 0") })
+            .OrderBy(e => e.Item2).Select(e => $"{e.Item1}, {e.Item2}, {e.Item3}\n")) + "0, 0, End_of_file\n").Split('\n'));
+
+    [Fact]
+    public void TheParserReadsTheMeterAndWhenNotesEnd()
+    {
+        var song = Song(new[] { (2, 0, 60, 240), (2, 480, 62, 480) }, "1, 0, Time_signature, 6, 3, 24, 8\n1, 2880, Time_signature, 3, 2, 24, 8\n");
+        Assert.Equal(480, song.Division);
+        Assert.Equal(new[] { (0.0, 6, 8), (2880.0, 3, 4) }, song.TimeSignatures);
+        Assert.Equal(new double?[] { 240, 960 }, song.Notes.Select(n => n.EndTick));
+        // Velocity 0 also ends a note; the original fields are unchanged.
+        var v0 = CsvSong.Parse("0, 0, Header, 1, 2, 96\n2, 0, Note_on_c, 0, 60, 90\n2, 48, Note_on_c, 0, 60, 0\n".Split('\n'));
+        Assert.Equal(96, v0.Division);
+        Assert.Equal(48, v0.Notes.Single().EndTick);
+        Assert.Equal(new[] { "0" }, v0.TrackTimes[2]);
+    }
+
+    [Fact]
+    public void MetricWeightFollowsTheBarAndBeat()
+    {
+        var common = new Meter(480, Array.Empty<(double, int, int)>());       // 4/4
+        Assert.Equal(new[] { 1, 0.15, 0.25, 0.4, 0.6, 0.75, 0.6, 1 }, new double[] { 0, 30, 120, 240, 480, 960, 1440, 1920 }.Select(common.Weight));
+        var compound = new Meter(480, new[] { (0.0, 6, 8), (2880.0, 3, 4) }); // 6/8 (two dotted-quarter beats), then 3/4
+        Assert.Equal(new[] { 1, 0.4, 0.6, 1, 1, 0.6, 1 }, new double[] { 0, 240, 720, 1440, 2880, 3360, 4320 }.Select(compound.Weight));
+        Assert.Equal(720, compound.BeatTicks(100));
+        Assert.Equal(480, compound.BeatTicks(3000));
+    }
+
+    private static (SoloScore Score, List<Onset> Onsets, List<Phrase> Phrases) Analyse(CsvSong song)
+    {
+        var score = SoloScore.OnePlayer(song, 1.0);
+        var onsets = Phrasing.Onsets(score);
+        return (score, onsets, Phrasing.Phrases(score, onsets));
+    }
+
+    [Fact]
+    public void PhrasesEndAtLongNotesAndRests()
+    {
+        // Four phrases: seven eighths (240 ms apart) leading to a long note, then a rest.
+        var notes = new List<(int, int, int, int)>();
+        var tick = 0;
+        for (var phrase = 0; phrase < 4; phrase++)
+        {
+            for (var i = 0; i < 7; i++) { notes.Add((2, tick, 60 + i, 200)); tick += 240; }
+            notes.Add((2, tick, 67, 900)); tick += 1920;
+        }
+        var (_, onsets, phrases) = Analyse(Song(notes));
+        Assert.Equal(new[] { 0, 8, 16, 24 }, phrases.Select(p => p.First));
+        Assert.All(phrases.SkipLast(1), p => Assert.True(p.Strength > 0.8));
+        Assert.Equal(1, phrases[^1].Strength);
+        Assert.Equal(32, onsets.Count);
+        Assert.Equal(1920 - 900, onsets[7].RestAfterMs);
+    }
+
+    [Fact]
+    public void ASteadyFigureIsSplitAtBarLines()
+    {
+        // 50 s of even sixteenths (120 ms): no boundary from the music itself.
+        var (score, onsets, phrases) = Analyse(Song(Enumerable.Range(0, 420).Select(i => (2, i * 120, 60 + i % 4 * 4, 120))));
+        Assert.True(phrases.Count >= 5);
+        foreach (var p in phrases)
+        {
+            var end = p.Last + 1 < onsets.Count ? onsets[p.Last + 1].Ms : score.EndMs;
+            Assert.InRange(end - onsets[p.First].Ms, Phrasing.MinPhraseMs, Phrasing.MaxPhraseMs);
+            Assert.True(score.Meter.IsDownbeat(onsets[p.First].Tick));
+        }
+    }
+
+    private static readonly HumanizeProfile Plain = HumanizeProfile.For(HumanizeLevel.Off);
+
+    [Fact]
+    public void ThePhraseArchShapesTempoWithoutChangingThePhrasesLength()
+    {
+        var (score, onsets, phrases) = Analyse(Song(Enumerable.Range(0, 240).Select(i => (2, i * 120, 60 + i % 4 * 4, 120))));
+        var k = Expression.Factors(score, onsets, phrases, Plain with { PhraseArch = 0.06 }, new Random(1));
+        foreach (var p in phrases.SkipLast(1))
+        {
+            var span = Enumerable.Range(p.First, p.Last - p.First + 1).ToList();
+            var stretch = span.Sum(i => 120 * k[i]) / (span.Count * 120);
+            Assert.InRange(stretch, -0.003, 0.003);               // same length
+            Assert.True(k[p.First] > 0 && k[p.Last] > 0);       // slower at the edges
+            Assert.True(k[p.Last] > k[p.First]);                  // and most at the end
+            Assert.True(span.Min(i => k[i]) < 0);                 // moving forward in between
+        }
+    }
+
+    [Fact]
+    public void PhraseEndsBreatheAndTheSongSlowsAtTheEnd()
+    {
+        var notes = new List<(int, int, int, int)>();
+        var tick = 0;
+        for (var phrase = 0; phrase < 4; phrase++)
+        {
+            for (var i = 0; i < 11; i++) { notes.Add((2, tick, 60 + i, 200)); tick += 240; }
+            notes.Add((2, tick, 72, 900)); tick += 1440;
+        }
+        var (score, onsets, phrases) = Analyse(Song(notes));
+        var end = Expression.Factors(score, onsets, phrases, Plain with { PhraseEnd = 0.1 }, new Random(1));
+        foreach (var p in phrases.SkipLast(1))
+        {
+            Assert.InRange(end[p.Last], 0.08, 0.1);
+            Assert.Equal(0.35 * end[p.Last], end[p.Last - 1], 9);
+        }
+        var ritard = Expression.Factors(score, onsets, phrases, Plain with { FinalTempo = 0.8 }, new Random(1));
+        var slowing = ritard.Select((x, i) => (x, i)).Where(x => x.x > 0).Select(x => x.x).ToList();
+        Assert.True(slowing.Count >= 3);
+        Assert.Equal(slowing.OrderBy(x => x), slowing);           // ever slower
+        Assert.InRange(slowing[^1], 0.15, 1 / 0.8 - 1);           // towards 80% of the tempo
+        Assert.All(ritard.Take(onsets.Count - 1 - slowing.Count), x => Assert.Equal(0, x));
+    }
+
+    [Fact]
+    public void TheExpressiveLevelsStayGentle()
+    {
+        var (score, onsets, phrases) = Analyse(Song(Enumerable.Range(0, 400).Select(i => (2, i * 240, 55 + (i * 7) % 24, 200))));
+        foreach (var (level, typical) in new[] { (HumanizeLevel.Phrased, 0.03), (HumanizeLevel.Expressive, 0.06), (HumanizeLevel.Rubato, 0.1) })
+        {
+            var k = Expression.Factors(score, onsets, phrases, HumanizeProfile.For(level), new Random(4));
+            var body = k.Take(k.Length - 12).OrderBy(Math.Abs).ToList();   // all but the closing ritardando
+            Assert.True(Math.Abs(body[(int)(0.9 * body.Count)]) <= typical, $"{level}: 90% within {body[(int)(0.9 * body.Count)]:P1}");
+            var map = Expression.TimeMap(score, onsets, phrases, HumanizeProfile.For(level), new Random(4));
+            Assert.InRange((map[^1] - map[0]) / (onsets[^1].Ms - onsets[0].Ms), 1, 1.03);
+        }
     }
 }
 

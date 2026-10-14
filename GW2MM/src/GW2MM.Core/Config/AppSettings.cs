@@ -52,7 +52,7 @@ public sealed class AppSettings
 
     /// <summary>
     /// Client only: how solo play (not connected to a host) is humanized (not in the original; Config.txt "Humanize",
-    /// 0 = off, 1 = subtle, 2 = natural, 3 = loose). Host playback is never humanized.
+    /// 0 = off, 1 = subtle, 2 = natural, 3 = loose, 4 = phrased, 5 = expressive, 6 = rubato). Host playback is never humanized.
     /// </summary>
     public Humanizing.HumanizeLevel Humanize { get; set; } = Humanizing.HumanizeLevel.Off;
 
@@ -80,7 +80,8 @@ public sealed class AppSettings
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
             AskOnLaunch = c.Get("AskOnLaunch") is not { } ask || LegacyConfig.IsTrue(ask),
-            Humanize = Ahk.AhkValue.Number(c.Get("Humanize") ?? "") is { } h && h is >= 0 and <= 3 ? (Humanizing.HumanizeLevel)(int)h : Humanizing.HumanizeLevel.Off,
+            Humanize = Ahk.AhkValue.Number(c.Get("Humanize") ?? "") is { } h && h == Math.Floor(h) && Enum.IsDefined((Humanizing.HumanizeLevel)(int)h)
+                ? (Humanizing.HumanizeLevel)(int)h : Humanizing.HumanizeLevel.Off,
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
             LastPlaylist = c.Get("LastPlaylist") ?? "",

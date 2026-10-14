@@ -21,6 +21,9 @@ namespace GW2MM.Core.Humanizing;
 /// <item><b>Tiny, correlated timing.</b> Each window drifts by a millisecond or so around the beat: correlated from chord
 /// to chord, smaller for closely spaced notes, and the same for every note of a chord. Chords are never rolled.
 /// The game already varies note timing by up to a frame, and rolls would split chords across frames.</item>
+/// <item><b>Phrasing</b> (Phrased, Expressive, Rubato only). The plan the chords follow is the song's expressive
+/// time map (<see cref="Expression"/>) over its phrases (<see cref="Phrasing"/>) instead of its strict time. Notes on
+/// strong beats also drift less than notes between them.</item>
 /// </list>
 /// </summary>
 public static class Humanizer
@@ -65,21 +68,33 @@ public static class Humanizer
         var lastChordMs = new Dictionary<int, double>();
         var lastPress = new Dictionary<int, double>();
         var lag = windows.ToDictionary(w => w, _ => 0.0);
-        double late = 0;            // how far the whole performance is behind the score (time octave changes took)
-        double? previousMs = null;
+        double late = 0;            // how far the whole performance is behind its plan (time octave changes took)
+        double? previousPlan = null;
         var presses = new List<Press>();
+
+        // The planned time of each moment: the score's own time, or its expressive time map (the phrased levels).
+        var plan = new Dictionary<double, double>();
+        if (profile.ShapesPhrases)
+        {
+            var onsets = Phrasing.Onsets(score);
+            var map = Expression.TimeMap(score, onsets, Phrasing.Phrases(score, onsets), profile, random);
+            for (var i = 0; i < onsets.Count; i++) plan[onsets[i].Tick] = map[i];
+        }
 
         foreach (var moment in score.Chords.GroupBy(c => c.Tick).OrderBy(g => g.Key))
         {
             var ms = moment.First().Ms;
-            if (previousMs is { } p)
+            var planned = plan.TryGetValue(moment.Key, out var mapped) ? mapped : ms;
+            if (previousPlan is { } p)
             {
-                // Ease back towards the score's time: slightly faster than written while behind.
-                var dt = ms - p;
+                // Ease back towards the plan: slightly faster than planned while behind.
+                var dt = planned - p;
                 late = Math.Max(0, late - profile.CatchUp * dt);
                 foreach (var w in windows) lag[w] = Math.Max(0, lag[w] - 2 * profile.CatchUp * dt);
             }
-            previousMs = ms;
+            previousPlan = planned;
+            // Notes on strong beats keep closer to the beat (the phrased levels).
+            var steadiness = profile.BeatSteadiness > 0 ? 1 - profile.BeatSteadiness * (score.Meter.Weight(moment.Key) - 0.15) / 0.85 : 1;
 
             var plans = new List<(ScoreChord Chord, double Target, double Earliest, double Pre)>();
             foreach (var chord in moment.OrderBy(c => c.Window))
@@ -89,8 +104,8 @@ public static class Humanizer
                 var rho = lastChordMs.TryGetValue(w, out var before) ? Math.Exp(-(ms - before) / DriftMs) : 0;
                 drift[w] = rho * drift[w] + Math.Sqrt(1 - rho * rho) * Gaussian(random);
                 lastChordMs[w] = ms;
-                var sigma = Math.Min(profile.TimingCapMs, profile.Timing * spacing[chord]);
-                var target = ms + late + lag[w] + offset[w] + Clamp(sigma * drift[w], 2.5 * sigma);
+                var sigma = steadiness * Math.Min(profile.TimingCapMs, profile.Timing * spacing[chord]);
+                var target = planned + late + lag[w] + offset[w] + Clamp(sigma * drift[w], 2.5 * sigma);
 
                 // The melody group's offset after the chord's first group, and the earliest the melody can then sound:
                 // after the window's previous press, its octave changes before the chord, and the groups before it.
@@ -148,10 +163,5 @@ public static class Humanizer
 
     private static double Clamp(double value, double limit) => Math.Clamp(value, -limit, limit);
 
-    private static double Gaussian(Random random)
-    {
-        var u1 = 1.0 - random.NextDouble();
-        var u2 = random.NextDouble();
-        return Math.Sqrt(-2 * Math.Log(u1)) * Math.Cos(2 * Math.PI * u2);
-    }
+    private static double Gaussian(Random random) => Expression.Gaussian(random);
 }

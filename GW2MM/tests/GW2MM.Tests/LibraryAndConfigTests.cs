@@ -230,5 +230,9 @@ public sealed class LibraryAndConfigTests : IDisposable
         Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
         File.WriteAllText(P("Config.txt"), "OctaveDelay,130\n");
         Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
+        File.WriteAllText(P("Config.txt"), "Humanize,6\n");
+        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Rubato, AppSettings.Load(_dir).Humanize);
+        File.WriteAllText(P("Config.txt"), "Humanize,2.5\n");
+        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
     }
 }
