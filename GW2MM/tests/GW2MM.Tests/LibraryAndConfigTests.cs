@@ -158,10 +158,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nHumanize,0\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nHumanize,0\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
     }
@@ -213,22 +213,22 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.AskOnLaunch = false;
         s.Name = "Alice";
         s.HostAddress = "5.6.7.8";
-        s.SaveClientLaunch(_dir);
+        s.Humanize = GW2MM.Core.Humanizing.HumanizeLevel.Natural;
+        s.SaveClientSettings(_dir);
         var again = AppSettings.Load(_dir);
         Assert.False(again.AskOnLaunch);
         Assert.Equal("Alice", again.Name);
         Assert.Equal("5.6.7.8", again.HostAddress);
+        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Natural, again.Humanize);
+        Assert.Contains("Humanize,2", File.ReadAllLines(P("Config.txt")));
     }
 
     [Fact]
-    public void HumanizeDefaultsOffAndIsSavedWithTheOtherSettings()
+    public void HumanizeDefaultsOffAndIgnoresUnknownValues()
     {
         File.WriteAllText(P("Config.txt"), "OctaveDelay,130\nHumanize,7\n");
-        var s = AppSettings.Load(_dir);
-        Assert.Equal(GW2MM.Core.Playback.HumanizeLevel.Off, s.Humanize);   // out of range
-        s.Humanize = GW2MM.Core.Playback.HumanizeLevel.Natural;
-        s.SaveDisplaySettings(_dir);
-        Assert.Contains("Humanize,2", File.ReadAllLines(P("Config.txt")));
-        Assert.Equal(GW2MM.Core.Playback.HumanizeLevel.Natural, AppSettings.Load(_dir).Humanize);
+        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
+        File.WriteAllText(P("Config.txt"), "OctaveDelay,130\n");
+        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
     }
 }

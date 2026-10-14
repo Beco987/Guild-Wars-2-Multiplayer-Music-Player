@@ -1,4 +1,5 @@
 using GW2MM.Core.Arrangement;
+using GW2MM.Core.Humanizing;
 using GW2MM.Core.Library;
 using GW2MM.Core.Playback;
 using GW2MM.Core.Text;
@@ -134,6 +135,7 @@ public sealed class SoloSession : IDisposable
         }
 
         SlotPlan part;
+        SoloScore? score = null;
         var humanize = _humanize();
         try
         {
@@ -151,9 +153,10 @@ public sealed class SoloSession : IDisposable
                     : $"This song has {tracks.Count} parts but only {windows.Count} game windows are open, so only the first {windows.Count} parts are played.");
             var mapping = new PortMapping();
             foreach (var t in tracks.Take(windows.Count)) mapping[SoloSlot, t] = true;
-            // Humanized one-player songs leave the room for octave changes to the humanizer (a gradual slow-down).
-            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor, singleInstrument: singleInstrument,
-                forceOctaveDelays: humanize == HumanizeLevel.Off)[SoloSlot];
+            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor, singleInstrument: singleInstrument)[SoloSlot];
+            // Humanizing plays the same presses (notes and octave changes) with its own timing.
+            if (humanize != HumanizeLevel.Off && part.IsActive)
+                score = singleInstrument ? SoloScore.OnePlayer(song, tempoFactor) : SoloScore.FromPart(song, part, tempoFactor);
         }
         catch (Exception ex)
         {
@@ -173,12 +176,9 @@ public sealed class SoloSession : IDisposable
         var start = _clock.NowMs + LeadMs;
         var times = Schedule.AbsoluteTimes(part, start - Schedule.StartDelayMs, 0);
         var events = Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList());
-        if (humanize != HumanizeLevel.Off)
+        if (score is not null)
         {
-            // Element 0 at the start, then element k+1 at times[k], as the solo loop would play them.
-            var song = new List<(double, string)> { (0, part.Notes[0]) };
-            song.AddRange(times.Select((t, k) => (t - start, k + 1 < part.Notes.Count ? part.Notes[k + 1] : "")));
-            events = Humanizer.Apply(song, SingleInstrument.DelayMs(_octaveDelay()), humanize, _random, start);
+            events = Humanizer.Perform(score, SingleInstrument.DelayMs(_octaveDelay()), humanize, _random, start);
             times = events.Select(e => e.DueMs ?? start).ToList();
         }
         var loop = new PlaybackLoop(events, _clock, new WindowRemap(_keys, windows));

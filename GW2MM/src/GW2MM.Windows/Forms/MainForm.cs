@@ -118,8 +118,7 @@ internal sealed class MainForm : Form, IHostView
 
         if (role == AppRole.Host)
         {
-            _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter(),
-                humanize: () => _settings.Humanize);
+            _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
             Ui.Button(this, "Port", 355, 490, 45, 20, (_, _) => ShowPortMapping());
             _syncButton = Ui.Button(this, "Sync", 355, 510, 45, 20, async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token)));
             _pingButton = Ui.Button(this, "Ping", 355, 530, 45, 20, async (_, _) => await RunGuarded(_pingButton!, () => _host.PingAsync(_closing.Token)));

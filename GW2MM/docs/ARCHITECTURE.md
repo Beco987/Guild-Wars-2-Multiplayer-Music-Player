@@ -115,27 +115,32 @@ The client arranges the song itself. It maps the song's tracks that contain note
 k-th open window, so Player1 + Player3 works. The end time feeds the same `PlaylistRunner`. Stop and the end of each
 playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback.
 
-### 7. Humanizing (`Playback/Humanizer`, playing alone only)
+### 7. Humanizing (`Humanizing/`, solo play only)
 
-`SoloSession`, and `HostSession` when none of the clients it sampled has a part, can pass their part through
-`Humanizer.Apply` (Settings → Humanize). A one-player song is first arranged with `forceDelays: false`: every chord
-keeps its own time, and mid-chord octave changes keep only their order. The humanizer then:
+With Settings → Humanize on, `SoloSession` still arranges the song as usual and then hands `Humanizer.Perform` a
+`SoloScore`: every window's chords, each with its octave changes before it and its presses (note groups and octave
+changes) in playing order. For a one-player song it comes from `SingleInstrument.Plan` (the same routing as the plain
+arrangement); for several windows it comes from the arranged part, read element by element with `SlotPlan.Ticks`.
+A window's octave changes pressed on their own, with its notes or after them, lead into its next chord. So the presses
+and their order are exactly the plain arrangement's.
 
-1. splits each element into one press per window, and each window's keys at its octave changes (a "9z" element
-   becomes the press "9" and then the press "z");
-2. adds micro-timing per window and song time: Voss–McCartney pink noise plus a little white noise, scaled by the
-   note spacing (full size at 250 ms) and clamped to 15% of the spacing, so a window's presses keep their order;
-3. computes the least non-decreasing ensemble delay (one value per distinct planned time, shared by every window)
-   that keeps OctaveDelay after each octave change and 1 ms after each note. Presses at one time in one window follow
-   each other at fixed offsets: an octave change in the middle of a chord moves only the rest of that chord. Each
-   step of that delay is spread into a ramp starting `LeadInMs` before the press that needed it, and the minimum is
-   enforced again on top. The song therefore slows into each tight octave change and continues in tempo after it,
-   instead of one late note followed by a rush;
-4. rolls each chord press (one window, one octave) low to high within half the time to that window's next press;
-5. groups presses due at the same 0.1 ms into one `PlaybackEvent`.
+For each moment of the score (all windows' chords at one tick):
 
-A final per-window pass keeps every press at least its gap after the previous one; after step 3 it never has to move
-anything. The host's parts for clients are never humanized, so playing together stays in sync.
+1. Target time = score time + how far the performance is behind + the window's own lag + a constant per-window offset
+   + an AR(1) drift (correlation time 300 ms). The drift's σ is a fraction of the gap to the window's neighbouring
+   chords, capped at 1 / 2 / 4 ms (`HumanizeProfile`).
+2. The *melody group* (highest note) is placed at that target. Groups before it are spaced back from it, groups after
+   it forward: 1 ms after notes, OctaveDelay after an octave change. If the window's previous press, the octave changes
+   leading in, and those groups do not fit before the target, the melody moves later just enough. With one window
+   that delay becomes "behind" for everyone. With several windows a window may lag alone by up to 10–20 ms; beyond
+   that every window waits.
+3. Octave changes before a chord sit midway between the previous press and the latest point that still leaves
+   OctaveDelay before the next press.
+4. Between moments, "behind" shrinks by 2% of the score time passed (a lagging window by 4%), so the song eases back
+   to its time instead of rushing.
+
+Times are grouped to 0.1 ms into `PlaybackEvent`s and shifted so the first press is at the start time. Host and
+client sessions never call it.
 
 ### Concurrency rules
 

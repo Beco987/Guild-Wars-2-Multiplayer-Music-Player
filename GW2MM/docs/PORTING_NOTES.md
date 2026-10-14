@@ -120,13 +120,11 @@ reachable from any hotkey, button or message.
   unfinished engine for this (`OnePlayer`, never called); in the original every song went through the
   multiplayer arrangement and Players only labelled the song list.
 
-* **Humanize when playing alone** (not in the original). Settings → *Humanize* (Off / Subtle / Natural / Loose,
-  `Humanize` in Config.txt) humanizes solo play on a client and a host playing with nobody connected
-  (`Playback/Humanizer`). Where an octave change needs time, every window slows down together rather than one note
-  arriving late and the following ones rushing. Each window gets correlated (1/f) micro-timing, and chords roll
-  within one octave. It never adds octave changes, never moves a note into another octave, and always keeps
-  OctaveDelay after each octave change. Off (the default) plays exactly as before. Parts sent to clients are never
-  humanized.
+* **Humanize for solo play** (not in the original). Client Settings → *Humanize* (Off / Subtle / Natural / Loose,
+  `Humanize` in Config.txt) changes only solo play's timing (`Humanizing/`). Chords across two octaves keep their
+  melody on the beat, with lower parts just before it. An octave change that needs more time makes the chord wait,
+  and the song eases back at most 2% faster instead of rushing. Each window drifts by 1–4 ms at most. The notes and
+  octave changes are exactly Off's. Host and client playback are never humanized.
 
 * **Optional launch prompts (client).** Settings → *Ask name & IP on launch?* (`AskOnLaunch`) skips the name and
   host address prompts and uses the saved values.

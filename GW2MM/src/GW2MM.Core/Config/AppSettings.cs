@@ -15,11 +15,6 @@ public sealed class AppSettings
     public bool CheckForUpdates { get; set; } = true;
     /// <summary>Host: open the port on the router with UPnP (not in the original; on unless Config.txt says 0).</summary>
     public bool OpenPortAutomatically { get; set; } = true;
-    /// <summary>
-    /// How much playing alone is humanized: a client not connected to a host, or a host no player gets a part from
-    /// (not in the original; Config.txt "Humanize", 0 = off, 1 = subtle, 2 = natural, 3 = loose).
-    /// </summary>
-    public Playback.HumanizeLevel Humanize { get; set; } = Playback.HumanizeLevel.Off;
     /// <summary>Hotkey overrides from Config.txt ("Key_&lt;action&gt;,Shift+1"), by action id.</summary>
     public Dictionary<string, string> Hotkeys { get; private set; } = new(StringComparer.Ordinal);
     private const string HotkeyPrefix = "Key_";
@@ -55,11 +50,18 @@ public sealed class AppSettings
     /// </summary>
     public bool AskOnLaunch { get; set; } = true;
 
-    /// <summary>Client Settings: the launch prompts option and the name and host address it uses.</summary>
-    public void SaveClientLaunch(string dataDir) =>
+    /// <summary>
+    /// Client only: how solo play (not connected to a host) is humanized (not in the original; Config.txt "Humanize",
+    /// 0 = off, 1 = subtle, 2 = natural, 3 = loose). Host playback is never humanized.
+    /// </summary>
+    public Humanizing.HumanizeLevel Humanize { get; set; } = Humanizing.HumanizeLevel.Off;
+
+    /// <summary>Client Settings: the launch prompts option, the name and host address it uses, and solo humanizing.</summary>
+    public void SaveClientSettings(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
         {
             ("AskOnLaunch", AskOnLaunch ? "1" : "0"), ("Name", Name), ("HostAddress", HostAddress),
+            ("Humanize", ((int)Humanize).ToString(System.Globalization.CultureInfo.InvariantCulture)),
         });
 
     /// <summary>Client only: the last host address entered, offered again on the next start (not in the original).</summary>
@@ -78,7 +80,7 @@ public sealed class AppSettings
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
             AskOnLaunch = c.Get("AskOnLaunch") is not { } ask || LegacyConfig.IsTrue(ask),
-            Humanize = Ahk.AhkValue.Number(c.Get("Humanize") ?? "") is { } h && h is >= 0 and <= 3 ? (Playback.HumanizeLevel)(int)h : Playback.HumanizeLevel.Off,
+            Humanize = Ahk.AhkValue.Number(c.Get("Humanize") ?? "") is { } h && h is >= 0 and <= 3 ? (Humanizing.HumanizeLevel)(int)h : Humanizing.HumanizeLevel.Off,
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
             LastPlaylist = c.Get("LastPlaylist") ?? "",
@@ -88,13 +90,12 @@ public sealed class AppSettings
         };
     }
 
-    /// <summary>Settings window "Save": OctaveDelay, AlwaysOnTop, IsTransparent (and the added CheckForUpdates, OpenPort, Humanize).</summary>
+    /// <summary>Settings window "Save": OctaveDelay, AlwaysOnTop, IsTransparent (and the added CheckForUpdates, OpenPort).</summary>
     public void SaveDisplaySettings(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
         {
             ("OctaveDelay", OctaveDelay), ("AlwaysOnTop", AlwaysOnTop ? "1" : "0"), ("IsTransparent", IsTransparent ? "1" : "0"),
             ("CheckForUpdates", CheckForUpdates ? "1" : "0"), ("OpenPort", OpenPortAutomatically ? "1" : "0"),
-            ("Humanize", ((int)Humanize).ToString(System.Globalization.CultureInfo.InvariantCulture)),
         });
 
     /// <summary>Client start-up: the original rewrote all four values after asking for the user name.</summary>

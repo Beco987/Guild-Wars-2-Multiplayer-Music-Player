@@ -11,6 +11,12 @@ public sealed record SlotPlan(int Slot, IReadOnlyList<string> Notes, IReadOnlyLi
 {
     /// <summary>The original only schedules/sends a part with more than 3 elements.</summary>
     public bool IsActive => Notes.Count > 3;
+
+    /// <summary>
+    /// The MIDI tick of each element (parallel to <see cref="Notes"/>; null where not a number), when known. Not used
+    /// for playback; solo humanizing reads each element's score position from it.
+    /// </summary>
+    public IReadOnlyList<double?>? Ticks { get; init; }
 }
 
 public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
@@ -25,13 +31,13 @@ public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
 public static class SongArranger
 {
     public static SongPlan Arrange(CsvSong song, PortMapping mapping, string octaveDelay, double? tempoFactor,
-        OctaveSwapMode octaveSwaps = OctaveSwapMode.Improved, bool singleInstrument = false, bool forceOctaveDelays = true)
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Improved, bool singleInstrument = false)
     {
         if (singleInstrument)
         {
             // One-player song: every track on one instrument, played by each slot that has a track ticked.
             var players = SingleInstrument.Players(mapping);
-            var part = SingleInstrument.Arrange(song, 1, octaveDelay, tempoFactor, forceOctaveDelays);
+            var part = SingleInstrument.Arrange(song, 1, octaveDelay, tempoFactor);
             return new SongPlan(Enumerable.Range(1, PortMapping.Slots)
                 .Select(s => players.Contains(s) ? part with { Slot = s } : new SlotPlan(s, Array.Empty<string>(), Array.Empty<long>(), false))
                 .ToList());
@@ -81,7 +87,10 @@ public static class SongArranger
                     notes.Add(isTempo ? "" : item);
                 }
             }
-            plans.Add(new SlotPlan(slot, notes, ms, hasKeys));
+            plans.Add(new SlotPlan(slot, notes, ms, hasKeys)
+            {
+                Ticks = hasKeys ? times[slot].Take(notes.Count).Select(t => AhkValue.Number(t)).ToList() : null,
+            });
         }
         return new SongPlan(plans);
     }

@@ -1,222 +1,150 @@
 using GW2MM.Core.Arrangement;
+using GW2MM.Core.Humanizing;
 using GW2MM.Core.Library;
 using GW2MM.Core.Playback;
 using GW2MM.Core.Sessions;
 
 namespace GW2MM.Tests;
 
-/// <summary>Humanized solo playback: natural timing without extra octave changes or notes in the wrong octave.</summary>
+/// <summary>Humanized solo play: the melody on the beat, the same octave changes, and only a few ms of timing.</summary>
 public sealed class HumanizerTests
 {
     private const double Delay = 130;
-    private const int Down = 13, Up = 14;
 
-    /// <summary>Window <paramref name="w"/>'s key characters for the given KeyMap offsets.</summary>
-    private static string K(int w, params int[] offsets) => string.Concat(offsets.Select(o => (char)(192 + 16 * (w - 1) + o)));
+    /// <summary>A song with tempo 500000, so one tick is one ms.</summary>
+    private static CsvSong Song(params (int Track, int Tick, int Pitch)[] notes) => CsvSong.Parse((
+        "0, 0, Header, 1, 3, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
+        string.Concat(notes.OrderBy(n => n.Tick).Select(n => $"{n.Track}, {n.Tick}, Note_on_c, 0, {n.Pitch}, 90\n")) + "0, 0, End_of_file\n").Split('\n'));
 
-    /// <summary>Each window's presses in time order (keys pressed together keep their order): (time, key name).</summary>
-    private static Dictionary<int, List<(double Time, string Key)>> ByWindow(IEnumerable<(double Time, string Keys)> events)
+    private static string Name(string keys) => string.Join("+", keys.Select(c => KeyMap.Decode(c)!.Value.Key));
+
+    /// <summary>The presses of a one-player song as (time relative to the first note's score time, key names).</summary>
+    private static List<(double Time, string Keys)> Play(CsvSong song, HumanizeLevel level = HumanizeLevel.Off, int seed = 1) =>
+        Humanizer.Render(SoloScore.OnePlayer(song, 1.0), Delay, level, new Random(seed)).Select(p => (p.Time, Name(p.Keys))).ToList();
+
+    /// <summary>The plain one-player arrangement's presses as key strings, in order.</summary>
+    private static List<string> Plain(CsvSong song) =>
+        SingleInstrument.Arrange(song, 1, "130", 1.0).Notes.Where(n => n.Length > 0).ToList();
+
+    [Fact]
+    public void AChordThatStartsLowRollsIntoItsMelodyOnTheBeat()
     {
-        var result = new Dictionary<int, List<(double, string)>>();
-        foreach (var (time, keys) in events)
-            foreach (var c in keys)
-                if (KeyMap.Decode(c) is { } k)
-                {
-                    if (!result.TryGetValue(k.Window, out var list)) result[k.Window] = list = new List<(double, string)>();
-                    list.Add((time, k.Key));
-                }
-        return result.ToDictionary(r => r.Key, r => r.Value.OrderBy(p => p.Item1).ToList());
+        // C3 alone (the instrument goes down to the low octave), then E3 + E4 at 1000: the route plays E3, goes up,
+        // then E4. The plain arrangement starts E3 on the beat, so the melody E4 comes 131 ms late.
+        var song = Song((2, 0, 48), (2, 1000, 52), (3, 1000, 64));
+        Assert.Equal(new[] { "9", "1", "3", "0", "3" }, Plain(song).Select(Name));
+        var p = Play(song);
+        Assert.Equal(new[] { "9", "1", "3", "0", "3" }, p.Select(x => x.Keys));
+        Assert.Equal(0, p[1].Time, 3);                       // C3 on its beat
+        Assert.Equal(1000, p[4].Time, 3);                    // the melody on its beat
+        Assert.Equal(1000 - Delay - 1, p[2].Time, 3);        // E3 just before it, as early as the game requires
+        Assert.Equal(1000 - Delay, p[3].Time, 3);            // the octave change right after E3
+        Assert.True(p[1].Time - p[0].Time >= Delay);         // the first change well ahead of C3
     }
 
-    private static IEnumerable<(double, string)> Out(IEnumerable<PlaybackEvent> events) => events.Select(e => (e.DueMs!.Value, e.Keys));
-
-    /// <summary>A window's keys as its octave changes and, between them, the notes played in each octave (sorted).</summary>
-    private static List<string> Segments(IEnumerable<string> keys)
+    [Fact]
+    public void AChordThatStartsWithItsMelodyKeepsItOnTheBeat()
     {
-        var result = new List<string>();
-        var notes = new List<string>();
-        void Flush()
-        {
-            if (notes.Count > 0) result.Add(string.Join("+", notes.OrderBy(n => n, StringComparer.Ordinal)));
-            notes.Clear();
-        }
-        foreach (var key in keys)
-        {
-            if (key is "9" or "0") { Flush(); result.Add(key); }
-            else notes.Add(key);
-        }
-        Flush();
-        return result;
+        // From the middle octave, E4 + E3: the route plays E4, goes down, then E3 (as early as the game allows).
+        var p = Play(Song((2, 0, 64), (3, 0, 52), (2, 1000, 52)));
+        Assert.Equal(new[] { "3", "9", "3", "3" }, p.Select(x => x.Keys));
+        Assert.Equal(new[] { 0, 1, 1 + Delay, 1000 }, p.Select(x => x.Time));
     }
 
-    /// <summary>
-    /// A two-window song with octave changes in the gaps, a change pressed together with its note (as the arrangement
-    /// leaves it when there is no room), a fast run, chords and a two-octave jump.
-    /// </summary>
-    private static List<(double Time, string Keys)> Song()
+    [Fact]
+    public void WithoutRoomTheChordWaitsAndTheSongEasesBackInsteadOfRushing()
     {
-        var song = new List<(double, string)> { (0, K(1, 0, 4, 7) + K(2, 0)) };
-        for (var i = 1; i <= 40; i++)
-        {
-            var t = i * 120.0;
-            var keys = K(1, i % 12);
-            if (i % 7 == 0) keys = K(1, Up) + K(1, 2, 5);                    // octave change glued to a chord
-            if (i % 11 == 0) song.Add((t - 60, K(1, Down)));                   // change in the gap, 60 ms ahead
-            if (i % 2 == 0) keys += K(2, i % 5 == 0 ? Down : 4) + K(2, 7);    // window 2: notes and changes
-            if (i == 30) keys += K(2, Up, Up, 0);                              // a two-octave jump with a note
-            song.Add((t, keys));
-        }
-        return song;
+        // E4 every 100 ms, then E5 (an octave up) and on up in 100 ms steps. The change needs 130 ms.
+        var pitches = new[] { 64, 64, 64, 76, 77, 79, 77, 76, 77, 79, 77, 76 };
+        var song = Song(pitches.Select((x, i) => (2, i * 100, x)).ToArray());
+        var notes = Play(song).Where(x => x.Keys is not "9" and not "0").Select(x => x.Time).ToList();
+        var gaps = notes.Zip(notes.Skip(1), (a, b) => b - a).ToList();
+        Assert.Equal(new[] { 100.0, 100 }, gaps.Take(2));
+        Assert.Equal(1 + Delay, gaps[2], 3);                                 // waits just long enough
+        Assert.All(gaps.Skip(3), g => Assert.InRange(g, 98 - 0.001, 100)); // then 2% faster until back in time
+        // The plain arrangement instead squeezes the next note to 69 ms to catch up at once.
+        var plain = SingleInstrument.Arrange(song, 1, "130", 1.0);
+        Assert.Equal(new long[] { 130, 69 }, plain.DelaysMs.Skip(4).Take(2)); // E4, change, E5 after 130 ms, F5 69 ms later
     }
 
-    public static IEnumerable<object[]> LevelsAndSeeds() =>
-        from level in new[] { HumanizeLevel.Off, HumanizeLevel.Subtle, HumanizeLevel.Natural, HumanizeLevel.Loose }
-        from seed in new[] { 1, 2, 3, 42, 1234 }
-        select new object[] { level, seed };
-
-    [Theory]
-    [MemberData(nameof(LevelsAndSeeds))]
-    public void EveryOctaveChangeHasOctaveDelayBeforeTheNextPressInItsWindow(HumanizeLevel level, int seed)
+    [Fact]
+    public void TheSameNotesAndOctaveChangesAsThePlainArrangementInTheSameOrder()
     {
-        var result = ByWindow(Out(Humanizer.Apply(Song(), Delay, level, new Random(seed))));
-        foreach (var presses in result.Values)
-            for (var k = 0; k + 1 < presses.Count; k++)
+        var random = new Random(7);
+        for (var round = 0; round < 30; round++)
+        {
+            var notes = new List<(int, int, int)>();
+            var tick = 0;
+            for (var i = 0; i < 80; i++)
             {
-                var gap = presses[k + 1].Time - presses[k].Time;
-                if (presses[k + 1].Key is "9" or "0")
-                    Assert.True(gap >= 0.5, $"an octave change only {gap} ms after the press before it");
-                if (presses[k].Key is "9" or "0")
-                    Assert.True(gap >= Delay - 0.2, $"press {k + 1} only {gap} ms after an octave change");
+                tick += new[] { 0, 60, 120, 120, 250, 400 }[random.Next(6)];
+                notes.Add((2 + random.Next(3), tick, 36 + random.Next(60)));
             }
+            var song = Song(notes.ToArray());
+            foreach (var level in new[] { HumanizeLevel.Off, HumanizeLevel.Subtle, HumanizeLevel.Natural, HumanizeLevel.Loose })
+            {
+                var presses = Humanizer.Render(SoloScore.OnePlayer(song, 1.0), Delay, level, new Random(round));
+                var inTime = presses.OrderBy(p => p.Time).ToList();
+                Assert.Equal(Plain(song), inTime.Select(p => p.Keys));
+                for (var k = 0; k + 1 < inTime.Count; k++)
+                    Assert.True(inTime[k + 1].Time - inTime[k].Time >= (inTime[k].IsSwap ? Delay : 1) - 1e-9,
+                        $"{level}: press {k + 1} only {inTime[k + 1].Time - inTime[k].Time} ms after {Name(inTime[k].Keys)}");
+            }
+        }
     }
 
     [Theory]
-    [MemberData(nameof(LevelsAndSeeds))]
-    public void HumanizingNeverAddsOctaveChangesOrMovesANoteIntoAnotherOctave(HumanizeLevel level, int seed)
+    [InlineData(HumanizeLevel.Subtle, 1.0)]
+    [InlineData(HumanizeLevel.Natural, 2.0)]
+    [InlineData(HumanizeLevel.Loose, 4.0)]
+    public void TimingVariesByOnlyAFewCorrelatedMilliseconds(HumanizeLevel level, double capMs)
     {
-        var song = Song();
-        var before = ByWindow(song);
-        var after = ByWindow(Out(Humanizer.Apply(song, Delay, level, new Random(seed))));
-        Assert.Equal(before.Keys.OrderBy(w => w), after.Keys.OrderBy(w => w));
-        foreach (var w in before.Keys)
-            Assert.Equal(Segments(before[w].Select(p => p.Key)), Segments(after[w].Select(p => p.Key)));
-    }
-
-    [Fact]
-    public void AnOctaveChangePressedWithItsNoteGetsOctaveDelayBeforeTheNote()
-    {
-        var song = new List<(double, string)> { (0, K(1, 4)), (500, K(1, Up) + K(1, 4, 7)), (1000, K(1, 7)) };
-        var p = ByWindow(Out(Humanizer.Apply(song, Delay, HumanizeLevel.Off, new Random(1))))[1];
-        Assert.Equal(new[] { "3", "0", "3", "5", "5" }, p.Select(x => x.Key));
-        Assert.Equal(500, p[1].Time, 1);
-        Assert.Equal(500 + Delay, p[2].Time, 1);
-        Assert.Equal(p[2].Time, p[3].Time, 1);                 // no roll at Off
-        Assert.Equal(1000, p[4].Time, 1);                      // the next note was far enough away to stay in time
-    }
-
-    [Fact]
-    public void WithoutRoomTheEnsembleSlowsDownInsteadOfRushingAfterwards()
-    {
-        // E4 E4 E4 then E5 (an octave up) every 100 ms; OctaveDelay 130. The arrangement without forced delays puts
-        // the change straight after the third note, which leaves 99 ms.
-        var csv = "0, 0, Header, 1, 2, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
-            string.Concat(new[] { 64, 64, 64, 76, 77, 79, 77, 76 }.Select((p, i) => $"2, {i * 100}, Note_on_c, 0, {p}, 90\n")) + "0, 0, End_of_file\n";
-        var song = CsvSong.Parse(csv.Split('\n'));
-        var forced = Times(SingleInstrument.Arrange(song, 1, "130", 1.0));
-        var free = Times(SingleInstrument.Arrange(song, 1, "130", 1.0, forceDelays: false));
-        Assert.Equal(new[] { 0.0, 100, 200, 331, 400, 500, 600, 700 }, Notes(ByWindow(forced)[1]));  // 131 then 69: a stutter
-        var even = Notes(ByWindow(Out(Humanizer.Apply(free, Delay, HumanizeLevel.Off, new Random(1))))[1]);
-        Assert.Equal(new[] { 0.0, 100, 200, 331, 431, 531, 631, 731 }, even.Select(t => Math.Round(t)));
-
-        // With humanizing the slow-down starts ahead of the change, and the notes after it keep the song's spacing.
-        foreach (var seed in Enumerable.Range(1, 20))
+        // Two windows, a note each every 250 ms, no octave changes.
+        var song = Song(Enumerable.Range(0, 400).SelectMany(i => new[] { (2, i * 250, 60 + i % 7), (3, i * 250, 64 + i % 5) }).ToArray());
+        var mapping = new PortMapping();
+        mapping[2, 2] = mapping[2, 3] = true;
+        var part = SongArranger.Arrange(song, mapping, "130", 1.0)[2];
+        var presses = Humanizer.Render(SoloScore.FromPart(song, part, 1.0), Delay, level, new Random(3));
+        var profile = HumanizeProfile.For(level);
+        foreach (var window in presses.GroupBy(p => p.Window))
         {
-            var human = Notes(ByWindow(Out(Humanizer.Apply(free, Delay, HumanizeLevel.Subtle, new Random(seed))))[1]);
-            var gaps = human.Zip(human.Skip(1), (a, b) => b - a).ToList();
-            Assert.True(gaps[2] >= 131 - 0.2, $"seed {seed}: {gaps[2]}");
-            Assert.All(gaps.Skip(3), g => Assert.InRange(g, 100 - 20.5, 100 + 20.5));   // ±2.5·(3+1) ms each side
-        }
-
-        static List<(double Time, string Keys)> Times(SlotPlan plan)
-        {
-            var result = new List<(double, string)>();
-            double t = 0;
-            for (var k = 1; k < plan.Notes.Count; k++) { t += plan.DelaysMs[k - 1]; result.Add((t, plan.Notes[k])); }
-            return result;
-        }
-        static List<double> Notes(IEnumerable<(double Time, string Key)> presses) => presses.Where(p => p.Key is not "9" and not "0").Select(p => p.Time).ToList();
-    }
-
-    [Theory]
-    [InlineData(HumanizeLevel.Subtle)]
-    [InlineData(HumanizeLevel.Natural)]
-    [InlineData(HumanizeLevel.Loose)]
-    public void TimingVariesAroundTheBeatWithinTheLevelsBounds(HumanizeLevel level)
-    {
-        var profile = Humanizer.For(level);
-        var song = Enumerable.Range(0, 400).Select(i => (i * 250.0, K(1, i % 12) + K(2, (i + 4) % 12))).ToList();
-        var result = ByWindow(Out(Humanizer.Apply(song, Delay, level, new Random(7))));
-        var limit = 2.5 * (profile.DriftMs + profile.JitterMs);
-        foreach (var presses in result.Values)
-        {
-            var deviation = presses.Select((p, i) => p.Time - i * 250.0).ToList();
-            Assert.True(deviation.Max() - deviation.Min() <= 2 * limit + 0.2);
+            var deviation = window.OrderBy(p => p.ScoreMs).Select(p => p.Time - p.ScoreMs).ToList();
+            Assert.True(deviation.Max() - deviation.Min() <= 2 * 2.5 * capMs + 1e-9);
+            Assert.True(deviation.Select(Math.Abs).Max() <= 2.5 * capMs + 2.5 * profile.PlayerOffsetMs + 1e-9);
             var mean = deviation.Average();
-            var sd = Math.Sqrt(deviation.Average(d => (d - mean) * (d - mean)));
-            Assert.InRange(sd, 0.5 * profile.DriftMs, 2 * (profile.DriftMs + profile.JitterMs));
-            // Correlated (1/f) drift, not independent jitter: neighbouring notes lean the same way.
-            var lag1 = deviation.Zip(deviation.Skip(1), (a, b) => (a - mean) * (b - mean)).Average() / (sd * sd);
-            Assert.True(lag1 > 0.4, $"lag-1 correlation {lag1}");
+            var lag1 = deviation.Zip(deviation.Skip(1), (a, b) => (a - mean) * (b - mean)).Average() / deviation.Average(d => (d - mean) * (d - mean));
+            Assert.True(lag1 > 0.2, $"lag-1 correlation {lag1}");       // a drift, not independent jitter
         }
-        // The two windows do not drift in lockstep.
-        Assert.NotEqual(result[1].Select(p => Math.Round(p.Time)), result[2].Select(p => Math.Round(p.Time)));
-    }
-
-    [Theory]
-    [InlineData(HumanizeLevel.Subtle)]
-    [InlineData(HumanizeLevel.Natural)]
-    [InlineData(HumanizeLevel.Loose)]
-    public void FastRunsStayEven(HumanizeLevel level)
-    {
-        // Sixteenths 60 ms apart with an octave change every 8 notes (in the gap, as the arrangement places it).
-        var song = new List<(double, string)>();
-        for (var i = 0; i < 400; i++)
-        {
-            if (i % 8 == 7) song.Add((i * 60.0 + 30, K(1, i % 16 == 7 ? Up : Down)));
-            song.Add((i * 60.0, K(1, i % 12)));
-        }
-        song.Sort((a, b) => a.Item1.CompareTo(b.Item1));
-        foreach (var seed in Enumerable.Range(1, 10))
-        {
-            var notes = ByWindow(Out(Humanizer.Apply(song, Delay, level, new Random(seed))))[1].Where(p => p.Key is not "9" and not "0").ToList();
-            Assert.All(notes.Zip(notes.Skip(1), (a, b) => b.Time - a.Time), gap => Assert.True(gap >= 0.7 * 60 - 0.2, $"{gap} ms"));
-        }
+        Assert.NotEqual(presses.Where(p => p.Window == 1).Select(p => p.Time - p.ScoreMs),
+            presses.Where(p => p.Window == 2).Select(p => p.Time - p.ScoreMs));
     }
 
     [Fact]
-    public void ChordsRollLowToHighWithinTheirOctaveOnly()
+    public void ANotePressedTogetherWithItsOctaveChangeGetsOctaveDelay()
     {
-        // C E G in the middle octave, then the high octave's C E G after an octave change.
-        var song = new List<(double, string)> { (0, K(1, 7, 0, 4)), (300, K(1, Up)), (600, K(1, 0, 4, 7)), (1200, K(1, 0)) };
-        foreach (var seed in Enumerable.Range(1, 20))
+        // A two-window part as the arrangement can leave it: window 1 presses "0" and "1" in the same element.
+        var song = Song((2, 0, 64), (2, 500, 76), (2, 1000, 77), (3, 0, 60), (3, 500, 62), (3, 1000, 64));
+        string K(int window, params int[] offsets) => string.Concat(offsets.Select(o => (char)(192 + 16 * (window - 1) + o)));
+        var part = new SlotPlan(2, new[] { "", K(1, 4) + K(2, 0), K(1, 14, 4) + K(2, 2), K(1, 5) + K(2, 4) }, new long[] { 0, 500, 500, 0 }, true)
         {
-            var p = ByWindow(Out(Humanizer.Apply(song, Delay, HumanizeLevel.Loose, new Random(seed))))[1];
-            Assert.Equal(new[] { "1", "3", "5", "0", "1", "3", "5", "1" }, p.Select(x => x.Key));
-            Assert.InRange(p[2].Time - p[0].Time, 1, 25);
-            Assert.True(p[3].Time > p[2].Time);                           // the roll is over before the change
-            Assert.InRange(p[6].Time - p[4].Time, 1, 25);
-        }
+            Ticks = new double?[] { 0, 0, 500, 1000 },
+        };
+        var presses = Humanizer.Render(SoloScore.FromPart(song, part, 1.0), Delay, HumanizeLevel.Off, new Random(1));
+        var w1 = presses.Where(p => p.Window == 1).OrderBy(p => p.Time).ToList();
+        Assert.Equal(new[] { "3", "0", "3", "4" }, w1.Select(p => Name(p.Keys)));
+        Assert.Equal(500, w1[2].Time, 3);                     // the note keeps its time: the change moved into the gap
+        Assert.True(w1[2].Time - w1[1].Time >= Delay);
+        Assert.Equal(new[] { 0.0, 500, 1000 }, presses.Where(p => p.Window == 2).Select(p => p.Time));
     }
 
     [Fact]
-    public void TheResultStartsAtTheGivenTimeOrLater()
+    public void TheSameSeedPlaysTheSameWay()
     {
-        // An octave change ahead of the first note (as a one-player song's first chord has it).
-        var song = new List<(double, string)> { (-130, K(1, Down)), (0, K(1, 4)), (200, K(1, 5)) };
-        var events = Humanizer.Apply(song, Delay, HumanizeLevel.Natural, new Random(3), startMs: 1000);
-        Assert.True(events.Min(e => e.DueMs!.Value) >= 1000);
-        Assert.Equal(new[] { "9", "3", "4" }, events.SelectMany(e => e.Keys).Select(c => KeyMap.Decode(c)!.Value.Key));
-        Assert.Empty(Humanizer.Apply(new List<(double, string)> { (0, "") }, Delay, HumanizeLevel.Natural, new Random(3)));
+        var song = Song(Enumerable.Range(0, 50).Select(i => (2, i * 150, 50 + i % 30)).ToArray());
+        var a = Humanizer.Perform(SoloScore.OnePlayer(song, 1.0), Delay, HumanizeLevel.Natural, new Random(9), 1000);
+        var b = Humanizer.Perform(SoloScore.OnePlayer(song, 1.0), Delay, HumanizeLevel.Natural, new Random(9), 1000);
+        Assert.Equal(a, b);
+        Assert.True(a.Min(e => e.DueMs!.Value) >= 1000);
     }
 }
 
@@ -231,7 +159,7 @@ public sealed class HumanizedSoloTests : IDisposable
         try { Directory.Delete(_dir, true); } catch (IOException) { }
     }
 
-    private List<string> Play(HumanizeLevel level)
+    private List<string> PlaySolo(HumanizeLevel level)
     {
         // Chords across two octaves and quick octave changes, on one instrument.
         var notes = new[] { (0, 64), (0, 52), (150, 67), (300, 76), (400, 55), (400, 79), (550, 60), (700, 72) };
@@ -255,115 +183,8 @@ public sealed class HumanizedSoloTests : IDisposable
     [Fact]
     public void HumanizedOnePlayerSongsPlayTheSameNotesAndOctaveChanges()
     {
-        var plain = Play(HumanizeLevel.Off);
-        var human = Play(HumanizeLevel.Natural);
+        var plain = PlaySolo(HumanizeLevel.Off);
         Assert.Equal(8, plain.Count(k => k is not "9" and not "0"));
-        Assert.Equal(Segments(plain), Segments(human));
-    }
-
-    private static List<string> Segments(IEnumerable<string> keys)
-    {
-        var result = new List<string>();
-        var notes = new List<string>();
-        foreach (var key in keys.Append("|"))
-        {
-            if (key is "9" or "0" or "|")
-            {
-                if (notes.Count > 0) result.Add(string.Join("+", notes.OrderBy(n => n, StringComparer.Ordinal)));
-                notes.Clear();
-                if (key != "|") result.Add(key);
-            }
-            else notes.Add(key);
-        }
-        return result;
-    }
-}
-
-/// <summary>The host humanizes its part only when it plays alone (no player gets a part).</summary>
-[Collection(TimingCollection.Name)]
-public sealed class HumanizedHostTests : IDisposable
-{
-    private static readonly HostTimings Timings = new() { ClockWaitMs = 100, ClockProbeIntervalMs = 10, OctaveResetDelayMs = 5, SongTailMs = 50, PlaylistGapMs = 50 };
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "gw2mm-hhost-" + Guid.NewGuid().ToString("N"));
-    private readonly List<IDisposable> _disposables = new();
-
-    public HumanizedHostTests() => Directory.CreateDirectory(_dir);
-
-    public void Dispose()
-    {
-        foreach (var d in _disposables) d.Dispose();
-        try { Directory.Delete(_dir, true); } catch (IOException) { }
-    }
-
-    // Track 2 and track 3 with chords across octaves and quick octave changes; tempo 500000 => 1 tick == 1 ms.
-    private static readonly string Song = "0, 0, Header, 1, 3, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
-        string.Concat(new[] { (0, 64), (0, 52), (150, 67), (300, 76), (400, 55), (400, 79), (550, 60), (700, 72), (900, 64), (1100, 52) }
-            .Select((n, i) => $"{2 + i % 2}, {n.Item1}, Note_on_c, 0, {n.Item2}, 90\n")) + "0, 0, End_of_file\n";
-
-    /// <summary>Plays the song on a host whose clock jumps to each press (exact times) and returns its key presses.</summary>
-    private async Task<List<Press>> PlayOnHost(HumanizeLevel level, PortMapping mapping, bool singleInstrument, bool withClient = false)
-    {
-        var clock = new VirtualClock(1000);
-        var keys = new RecordingKeys(clock);
-        var view = new FakeView();
-        var host = new HostSession(view, new SongLibrary(Path.Combine(_dir, "host")), () => "130", clock, keys, new FakeMeter(), Timings,
-            humanize: () => level, random: new Random(5));
-        _disposables.Add(host);
-        host.CommitPortMapping(mapping, new[] { "0", "0", "0", "0", "0" });
-        host.Start(0);
-        if (withClient)
-        {
-            var c = new OffsetClock(0);
-            var client = new ClientSession(new FakeView(), new SongLibrary(Path.Combine(_dir, "client")), () => 5, c, new RecordingKeys(c), new FakeMeter());
-            _disposables.Add(client);
-            Assert.True(await client.ConnectAsync("127.0.0.1", "bob", host.Port));
-            await Wait.Until(() => client.Slot is not null, what: "welcome");
-        }
-        await host.PlayAsync(Song, 1.0, singleInstrument: singleInstrument);
-        await Wait.Until(() => keys.Presses.Count > 0 && !host.IsPlaying, what: "the song to end");
-        Assert.Empty(view.Problems);
-        return keys.All;
-    }
-
-    private static List<string> Segments(IEnumerable<string> keys)
-    {
-        var result = new List<string>();
-        var notes = new List<string>();
-        foreach (var key in keys.Append("|"))
-        {
-            if (key is "9" or "0" or "|")
-            {
-                if (notes.Count > 0) result.Add(string.Join("+", notes.OrderBy(n => n, StringComparer.Ordinal)));
-                notes.Clear();
-                if (key != "|") result.Add(key);
-            }
-            else notes.Add(key);
-        }
-        return result;
-    }
-
-    private static List<double> Relative(List<Press> presses) => presses.Select(p => Math.Round(p.Time - presses[0].Time, 1)).ToList();
-
-    [Fact]
-    public async Task AHostPlayingAloneHumanizesWithTheSameNotesAndOctaveChanges()
-    {
-        var plain = await PlayOnHost(HumanizeLevel.Off, new PortMapping(), singleInstrument: true);
-        var human = await PlayOnHost(HumanizeLevel.Natural, new PortMapping(), singleInstrument: true);
-        Assert.Equal(10, plain.Count(p => p.Key is not "9" and not "0"));
-        Assert.Equal(Segments(plain.Select(p => p.Key)), Segments(human.Select(p => p.Key)));
-        Assert.NotEqual(Relative(plain), Relative(human));
-        for (var k = 0; k + 1 < human.Count; k++)
-            if (human[k].Key is "9" or "0") Assert.True(human[k + 1].Time - human[k].Time >= 130 - 0.2);
-    }
-
-    [Fact]
-    public async Task WithAPlayerTheHostKeepsTheExactTiming()
-    {
-        var mapping = PortMapping.Parse("12,23");
-        var expected = SongArranger.Arrange(CsvSong.Parse(Song.Split('\n')), mapping, "130", 1.0)[1];
-        var times = Schedule.AbsoluteTimes(expected, 0, 0);
-        var due = Schedule.HostEvents(expected.Notes, times).Where(e => e.Keys.Length > 0).SelectMany(e => e.Keys.Select(_ => e.DueMs!.Value)).ToList();
-        var played = await PlayOnHost(HumanizeLevel.Loose, mapping, singleInstrument: false, withClient: true);
-        Assert.Equal(due.Select(t => Math.Round(t - due[0], 1)), Relative(played));
+        Assert.Equal(plain, PlaySolo(HumanizeLevel.Natural));
     }
 }
