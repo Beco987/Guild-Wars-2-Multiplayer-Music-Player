@@ -1,0 +1,61 @@
+0, 0, Header, 0, 1, 96
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 1, System_exclusive, 5, 85, 43, 121, 118, 247
+1, 73, Note_off_c, 10, 97, 56
+1, 73, Note_on_c, 1, 94, 47
+1, 74, Note_on_c, 2, 78, 55
+1, 74, Note_on_c, 12, 53, 0
+1, 75, Note_on_c, 13, 50, 115
+1, 235543, Control_c, 13, 38, 35
+1, 438203, Channel_aftertouch_c, 11, 16
+1, 438203, Title_t, "йднЅ\203о"
+1, 631597, Note_on_c, 14, 97, 46
+1, 631597, Unknown_meta_event, 8, 0
+1, 631597, Instrument_name_t, "\000\001\177\200й€"
+1, 631598, System_exclusive_packet, 2, 33, 25
+1, 828137, Channel_aftertouch_c, 1, 3
+1, 1084129, Note_on_c, 15, 96, 69
+1, 1084129, Pitch_bend_c, 14, 15016
+1, 1084129, Note_off_c, 12, 126, 17
+1, 1084129, Control_c, 15, 112, 83
+1, 1084629, Channel_aftertouch_c, 0, 110
+1, 1084629, Program_c, 8, 68
+1, 1084630, Program_c, 8, 105
+1, 1347558, Tempo, 2503765
+1, 1348014, Marker_t, "quote "" here"
+1, 1348014, System_exclusive_packet, 7, 98, 31, 123, 24, 11, 70, 61
+1, 1490614, Poly_aftertouch_c, 11, 12, 54
+1, 1491047, Pitch_bend_c, 4, 11739
+1, 1491048, Note_on_c, 3, 20, 72
+1, 1491048, Pitch_bend_c, 1, 15733
+1, 1491048, Note_off_c, 7, 96, 77
+1, 1773043, Note_on_c, 7, 72, 78
+1, 1773043, Note_off_c, 13, 67, 77
+1, 1773043, Title_t, "Hello"
+1, 1773043, Unknown_meta_event, 8, 12, 116, 97, 98, 9, 110, 101, 119, 10, 108, 105, 110, 101
+1, 1773503, Note_on_c, 8, 96, 64
+1, 1773503, Program_c, 5, 64
+1, 1773959, Channel_aftertouch_c, 14, 15
+1, 1875113, Pitch_bend_c, 1, 11453
+1, 1875199, System_exclusive_packet, 0
+1, 1875199, Control_c, 0, 3, 10
+1, 1875199, Marker_t, "\000\001\177\200й€"
+1, 1875692, Channel_aftertouch_c, 15, 9
+1, 1875693, Note_on_c, 10, 65, 12
+1, 1875694, Note_on_c, 3, 97, 125
+1, 1875694, Control_c, 2, 77, 119
+1, 1875694, Pitch_bend_c, 4, 8347
+1, 2035434, Poly_aftertouch_c, 5, 97, 80
+1, 2035435, Title_t, "a, b, c"
+1, 2035436, System_exclusive, 3, 64, 11, 247
+1, 2035436, Control_c, 6, 81, 19
+1, 2035436, Note_on_c, 12, 97, 35
+1, 2035436, Channel_aftertouch_c, 0, 111
+1, 2035436, Note_off_c, 2, 82, 50
+1, 2035436, Key_signature, -2, "major"
+1, 2035724, Note_on_c, 14, 126, 0
+1, 2268574, Pitch_bend_c, 9, 7612
+1, 2268574, Channel_aftertouch_c, 7, 27
+1, 2268574, End_track
+0, 0, End_of_file

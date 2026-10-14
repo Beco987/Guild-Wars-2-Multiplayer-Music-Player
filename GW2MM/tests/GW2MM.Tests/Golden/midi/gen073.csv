@@ -1,0 +1,54 @@
+0, 0, Header, 1, 2, -7600
+1, 0, Start_track
+1, 0, Tempo, 400000
+1, 1, Note_off_c, 5, 96, 44
+1, 1, Control_c, 2, 16, 121
+1, 1, Marker_t, "Hello"
+1, 461, Channel_aftertouch_c, 9, 122
+1, 462, Poly_aftertouch_c, 6, 97, 35
+1, 786, Note_on_c, 0, 2, 0
+1, 787, Program_c, 0, 22
+1, 787, SMPTE_offset, 11, 20, 34, 9, 5
+1, 788, Poly_aftertouch_c, 8, 96, 39
+1, 788, Note_on_c, 9, 97, 106
+1, 95882, Note_on_c, 0, 61, 119
+1, 95883, Note_on_c, 9, 97, 0
+1, 95984, Note_on_c, 1, 97, 0
+1, 95984, Note_on_c, 2, 16, 127
+1, 95984, Channel_aftertouch_c, 11, 97
+1, 96435, Note_off_c, 8, 97, 100
+1, 96436, Control_c, 4, 4, 16
+1, 96436, Tempo, 5534032
+1, 96436, End_track
+2, 0, Start_track
+2, 228677, Note_on_c, 9, 97, 5
+2, 393175, System_exclusive_packet, 6, 76, 126, 64, 55, 32, 111
+2, 393175, Channel_aftertouch_c, 3, 97
+2, 427500, Control_c, 12, 89, 78
+2, 427500, Title_t, "¢\007±·"
+2, 427501, Sequencer_specific, 3, 0, 79, 122
+2, 427502, Poly_aftertouch_c, 2, 79, 59
+2, 488040, Unknown_meta_event, 96, 2, 129, 28
+2, 488103, Note_on_c, 6, 60, 0
+2, 488104, Note_on_c, 13, 81, 78
+2, 488105, Program_c, 15, 5
+2, 488106, Note_on_c, 1, 4, 0
+2, 488248, Program_c, 3, 89
+2, 657606, Poly_aftertouch_c, 9, 96, 89
+2, 657606, Note_on_c, 10, 85, 0
+2, 657606, Note_on_c, 15, 96, 0
+2, 657607, Pitch_bend_c, 14, 4845
+2, 657608, System_exclusive_packet, 4, 7, 105, 6, 71
+2, 791959, Poly_aftertouch_c, 6, 97, 64
+2, 791959, MIDI_port, 8
+2, 791959, Control_c, 8, 61, 77
+2, 791960, Control_c, 10, 63, 44
+2, 791960, Note_off_c, 10, 75, 33
+2, 791961, Lyric_t, "quote "" here"
+2, 791961, SMPTE_offset, 1, 10, 13, 19, 91
+2, 791961, Control_c, 5, 114, 51
+2, 791983, Program_c, 10, 109
+2, 791983, System_exclusive, 7, 10, 17, 38, 97, 0, 85, 247
+2, 791983, Control_c, 5, 27, 27
+2, 791983, End_track
+0, 0, End_of_file

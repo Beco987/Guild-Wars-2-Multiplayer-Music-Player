@@ -1,0 +1,62 @@
+0, 0, Header, 0, 1, 192
+1, 0, Start_track
+1, 0, Tempo, 500000
+1, 0, Instrument_name_t, ""
+1, 233, Note_off_c, 4, 96, 49
+1, 233, System_exclusive_packet, 6, 83, 100, 94, 83, 72, 17
+1, 233, Note_on_c, 12, 88, 0
+1, 172739, Pitch_bend_c, 1, 10382
+1, 172739, Time_signature, 7, 2, 25, 8
+1, 173123, Title_t, "quote "" here"
+1, 173124, System_exclusive, 4, 29, 23, 66, 247
+1, 173263, Channel_aftertouch_c, 4, 17
+1, 433566, Poly_aftertouch_c, 0, 97, 7
+1, 433567, Poly_aftertouch_c, 12, 97, 10
+1, 433567, Control_c, 0, 25, 8
+1, 433567, Note_off_c, 3, 96, 0
+1, 433567, System_exclusive, 1, 247
+1, 433681, Pitch_bend_c, 4, 11323
+1, 433681, Note_on_c, 9, 94, 0
+1, 674772, Note_on_c, 10, 56, 14
+1, 674773, Note_on_c, 1, 96, 14
+1, 945466, Note_on_c, 15, 96, 23
+1, 1088459, Note_off_c, 15, 70, 121
+1, 1088460, Channel_aftertouch_c, 14, 26
+1, 1088654, Copyright_t, ""
+1, 1088833, Note_on_c, 3, 124, 21
+1, 1088833, Note_on_c, 0, 80, 44
+1, 1088833, Poly_aftertouch_c, 7, 102, 65
+1, 1088833, Note_off_c, 2, 88, 84
+1, 1088833, Unknown_meta_event, 126, 5, 226, 100, 250, 91, 146
+1, 1088833, Note_off_c, 9, 97, 8
+1, 1088834, Note_off_c, 0, 73, 124
+1, 1088835, Note_off_c, 14, 8, 33
+1, 1088836, Pitch_bend_c, 13, 1312
+1, 1348849, Program_c, 6, 45
+1, 1348850, System_exclusive_packet, 4, 43, 78, 114, 22
+1, 1348850, Pitch_bend_c, 5, 13237
+1, 1348851, Program_c, 4, 16
+1, 1348851, Note_on_c, 6, 96, 11
+1, 1348851, Unknown_meta_event, 8, 7, 97, 44, 32, 98, 44, 32, 99
+1, 1348852, Cue_point_t, "back\\slash"
+1, 1348917, Program_c, 3, 51
+1, 1348917, Note_on_c, 8, 35, 49
+1, 1348918, Note_off_c, 9, 96, 57
+1, 1349089, Pitch_bend_c, 3, 7609
+1, 1349503, System_exclusive_packet, 4, 77, 23, 66, 55
+1, 1349951, Copyright_t, "\000\001\177\200éÿ"
+1, 1349952, Pitch_bend_c, 14, 973
+1, 1349953, Note_on_c, 8, 97, 62
+1, 1349954, Note_on_c, 6, 96, 0
+1, 1349955, Key_signature, 5, "minor"
+1, 1350358, Program_c, 11, 45
+1, 1430346, Note_on_c, 0, 98, 22
+1, 1652554, Program_c, 4, 18
+1, 1652555, Poly_aftertouch_c, 6, 97, 12
+1, 1652644, Pitch_bend_c, 4, 10430
+1, 1652644, Note_on_c, 13, 96, 0
+1, 1652793, Pitch_bend_c, 15, 10368
+1, 1652793, Poly_aftertouch_c, 13, 96, 22
+1, 1652793, Note_on_c, 2, 96, 12
+1, 1652793, End_track
+0, 0, End_of_file

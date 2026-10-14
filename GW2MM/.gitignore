@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+publish/
+tools/oracle/pipeline_case*.ahk
+tools/oracle/__pycache__/

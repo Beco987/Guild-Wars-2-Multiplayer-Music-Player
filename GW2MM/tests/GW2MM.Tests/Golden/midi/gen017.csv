@@ -1,0 +1,61 @@
+0, 0, Header, 1, 2, -6360
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 0, Channel_prefix, 15
+1, 388, Note_off_c, 10, 97, 70
+1, 388, Pitch_bend_c, 7, 3897
+1, 388, End_track
+2, 0, Start_track
+2, 0, Note_on_c, 9, 97, 40
+2, 207471, Note_on_c, 2, 97, 14
+2, 372402, Note_on_c, 7, 96, 98
+2, 372812, Channel_aftertouch_c, 6, 102
+2, 372812, Control_c, 9, 92, 93
+2, 372812, Channel_aftertouch_c, 7, 77
+2, 372813, Channel_prefix, 5
+2, 372813, Title_t, "a, b, c"
+2, 622139, Unknown_meta_event, 9, 20, 80, 105, 97, 110, 111, 44, 32, 80, 105, 97, 110, 111, 44, 32, 80, 105, 97, 110, 111, 0
+2, 721599, Poly_aftertouch_c, 3, 97, 105
+2, 721599, Channel_aftertouch_c, 8, 103
+2, 916547, Pitch_bend_c, 15, 7594
+2, 916547, Note_off_c, 11, 96, 107
+2, 916547, Note_on_c, 8, 97, 0
+2, 916548, Program_c, 3, 36
+2, 916640, Marker_t, "quote "" here"
+2, 916962, Text_t, "quote "" here"
+2, 916962, Note_on_c, 3, 96, 22
+2, 996572, Control_c, 11, 113, 104
+2, 996572, System_exclusive_packet, 8, 55, 84, 18, 66, 90, 75, 107, 69
+2, 996573, Channel_aftertouch_c, 5, 83
+2, 996573, Note_on_c, 14, 63, 31
+2, 996574, Note_on_c, 6, 53, 73
+2, 996575, Pitch_bend_c, 9, 14556
+2, 996575, Pitch_bend_c, 11, 8318
+2, 996575, Copyright_t, "`þเม\233\037\225\230`"
+2, 996576, Pitch_bend_c, 4, 9864
+2, 996576, Note_on_c, 8, 75, 0
+2, 996577, Channel_aftertouch_c, 15, 50
+2, 996577, Note_on_c, 9, 105, 1
+2, 997056, Note_on_c, 9, 42, 35
+2, 997056, Pitch_bend_c, 5, 13678
+2, 997056, Instrument_name_t, "\000\001\177\200้ÿ"
+2, 1205150, Note_on_c, 14, 96, 121
+2, 1205150, Channel_aftertouch_c, 3, 85
+2, 1205150, Channel_prefix, 7
+2, 1205150, Note_off_c, 1, 90, 40
+2, 1205150, Program_c, 1, 87
+2, 1382969, Note_on_c, 15, 86, 16
+2, 1382969, Channel_aftertouch_c, 10, 81
+2, 1382969, Note_on_c, 14, 35, 117
+2, 1543776, Time_signature, 3, 4, 46, 8
+2, 1543776, Poly_aftertouch_c, 9, 96, 26
+2, 1543777, Sequencer_specific, 5, 190, 228, 141, 145, 4
+2, 1543777, Note_on_c, 11, 5, 47
+2, 1543864, Time_signature, 8, 0, 70, 8
+2, 1543864, Pitch_bend_c, 9, 12097
+2, 1543941, Note_on_c, 9, 96, 13
+2, 1673882, Note_on_c, 2, 97, 92
+2, 1673882, Instrument_name_t, "0Lล"
+2, 1673988, Title_t, "back\\slash"
+2, 1673988, End_track
+0, 0, End_of_file

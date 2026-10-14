@@ -1,0 +1,49 @@
+0, 0, Header, 1, 2, 1
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 0, Note_on_c, 15, 92, 0
+1, 0, Note_on_c, 6, 85, 44
+1, 0, Pitch_bend_c, 6, 3424
+1, 1, Note_on_c, 14, 96, 17
+1, 1, Note_on_c, 0, 48, 24
+1, 32, Poly_aftertouch_c, 8, 96, 111
+1, 4994, Note_on_c, 14, 120, 30
+1, 4994, Note_on_c, 12, 90, 13
+1, 5284, Poly_aftertouch_c, 3, 65, 38
+1, 5284, Note_on_c, 1, 65, 39
+1, 5285, Poly_aftertouch_c, 8, 111, 106
+1, 5286, Title_t, "tab\011new\012line"
+1, 5286, Sequencer_specific, 5, 242, 52, 130, 89, 104
+1, 5328, Title_t, "\000\001\177\200éÿ"
+1, 5328, Note_off_c, 7, 96, 103
+1, 5328, Copyright_t, "\000\001\177\200éÿ"
+1, 5428, Unknown_meta_event, 8, 10, 98, 97, 99, 107, 92, 115, 108, 97, 115, 104
+1, 5428, Note_on_c, 8, 67, 113
+1, 5428, Control_c, 1, 78, 43
+1, 5429, System_exclusive, 3, 5, 13, 247
+1, 33645, Note_on_c, 2, 97, 89
+1, 33645, Poly_aftertouch_c, 14, 97, 94
+1, 33646, Program_c, 9, 108
+1, 33646, Control_c, 7, 92, 120
+1, 33646, Note_on_c, 14, 92, 108
+1, 33758, Note_off_c, 6, 97, 72
+1, 33758, End_track
+2, 0, Start_track
+2, 1, Channel_aftertouch_c, 6, 117
+2, 67, Control_c, 11, 84, 94
+2, 68, Note_on_c, 7, 96, 66
+2, 133, Channel_aftertouch_c, 9, 30
+2, 133, Poly_aftertouch_c, 0, 96, 68
+2, 134, Pitch_bend_c, 5, 12159
+2, 248693, Lyric_t, "tab\011new\012line"
+2, 248693, Poly_aftertouch_c, 15, 97, 98
+2, 248693, Text_t, ""
+2, 249161, Control_c, 1, 77, 91
+2, 249161, Note_on_c, 4, 96, 106
+2, 503385, Poly_aftertouch_c, 1, 96, 43
+2, 503385, Pitch_bend_c, 8, 5708
+2, 503386, Cue_point_t, "tab\011new\012line"
+2, 503386, System_exclusive, 5, 123, 73, 17, 126, 247
+2, 503387, Note_off_c, 15, 96, 30
+2, 503387, End_track
+0, 0, End_of_file
