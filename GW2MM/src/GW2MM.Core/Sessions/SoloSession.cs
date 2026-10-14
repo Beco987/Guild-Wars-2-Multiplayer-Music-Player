@@ -25,15 +25,18 @@ public sealed class SoloSession : IDisposable
     private readonly Func<string> _octaveDelay;
     private readonly Func<int> _octaveDelayMs;
     private readonly PlaylistRunner _runner;
+    private readonly Func<int> _offsetMs;
     private PlaybackLoop? _loop;
     private string? _lastWhere;
 
     /// <param name="openWindows">The numbers n of the open game windows titled "Player&lt;n&gt;", ascending.</param>
     /// <param name="octaveDelay">OctaveDelay text for the arrangement (as the host uses it).</param>
     /// <param name="octaveDelayMs">Pause between octave-reset presses (as the client uses it after a Stop).</param>
+    /// <param name="offsetMs">Settings → Offset: spread the windows' starts over this many ms (see <see cref="Schedule.Stagger"/>).</param>
     public SoloSession(ISessionView view, SongLibrary library, Func<IReadOnlyList<int>> openWindows, Func<string> octaveDelay,
-        Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, int tailMs = 1500, int gapMs = 1500)
+        Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, int tailMs = 1500, int gapMs = 1500, Func<int>? offsetMs = null)
     {
+        _offsetMs = offsetMs ?? (() => 0);
         _view = view;
         Library = library;
         _openWindows = openWindows;
@@ -161,16 +164,20 @@ public sealed class SoloSession : IDisposable
         var where = "Not connected: playing on " + string.Join(", ", windows.Select(KeyMap.WindowTitle)) + ".";
         if (where != _lastWhere) _view.AppendDialog(where); // once, and again when the open windows change
         _lastWhere = where;
-        // Anchored like a client's part: the first element plays at once, then each at its time.
-        var times = Schedule.AbsoluteTimes(part, _clock.NowMs + LeadMs - Schedule.StartDelayMs, 0);
-        var loop = new PlaybackLoop(Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList()), _clock, new WindowRemap(_keys, windows));
+        // Anchored like a client's part: the first element plays at once, then each at its time. Offset staggers the
+        // windows (solo play only: players on other computers always follow the host's timing).
+        var now = _clock.NowMs;
+        var times = Schedule.AbsoluteTimes(part, now + LeadMs - Schedule.StartDelayMs, 0);
+        var events = Schedule.Stagger(Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList()), _offsetMs(), now);
+        if (events.Count > 0 && events[^1].DueMs is { } last) times = times.Append(last).ToList();
+        var loop = new PlaybackLoop(events, _clock, new WindowRemap(_keys, windows));
         loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
         lock (_gate)
         {
             _loop = loop;
             loop.Start();
         }
-        return times.Count == 0 ? _clock.NowMs : times[^1];
+        return times.Count == 0 ? _clock.NowMs : times.Max();
     }
 
     /// <summary>The arrangement for a client slot sends its k-th track to window k.</summary>

@@ -90,6 +90,11 @@ open, the extra parts are not played (the chat says so). **Ctrl+F3** stops and r
 skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
 Once the client is connected, the host takes over again.
 
+**⚙ → Offset (ms)** (client only, `Offset` in Config.txt, 0 = off) staggers the windows during solo play so no two
+press a key at the same instant. With *n* windows playing, each starts Offset ÷ *n* ms (rounded down) after the one
+before: Offset 50 with 3 windows puts Player2 16 ms and Player3 32 ms behind Player1. Each window keeps its own
+timing. One window, and playing with a host, are never offset.
+
 ### Playlists
 
 The song list has two tabs, **Songs** and **Playlists**; the Play icon (host F1, client F11) plays whatever the

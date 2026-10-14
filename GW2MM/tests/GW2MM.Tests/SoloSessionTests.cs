@@ -122,4 +122,20 @@ public sealed class SoloSessionTests : IDisposable
         Assert.Equal(9, _keys.All.Count(p => p.Key is not "9" and not "0"));      // 5 + 4 notes from both tracks
         Assert.DoesNotContain(_view.Dialog, l => l.StartsWith("This song has"));
     }
+
+    [Fact]
+    public void OffsetStaggersTheWindowsWhilePlayingSolo()
+    {
+        _windows = new() { 1, 3 };
+        using var solo = new SoloSession(_view, _solo.Library, () => _windows, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50, offsetMs: () => 60);
+        solo.PlaySong("Duet");
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 10, 5000);
+        var w1 = _keys.All.Where(p => p.Window == 1).ToList();
+        var w3 = _keys.All.Where(p => p.Window == 3).ToList();
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, w1.Select(p => p.Key));
+        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, w3.Select(p => p.Key));
+        // Track 3 starts 100 ms after track 2 in the song; Offset 60 over 2 windows adds 30 ms to the second window.
+        Assert.InRange(w3[0].Time - w1[0].Time, 130 - 15, 130 + 15);
+        for (var k = 1; k < w1.Count; k++) Assert.InRange(w1[k].Time - w1[k - 1].Time, 200 - 15, 200 + 15);
+    }
 }

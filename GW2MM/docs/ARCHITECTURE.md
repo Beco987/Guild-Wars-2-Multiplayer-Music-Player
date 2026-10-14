@@ -113,7 +113,8 @@ The client arranges the song itself. It maps the song's tracks that contain note
 `Player<n>` window, so `TrackWriter` gives the k-th track window k exactly as for a client part. It anchors the part
 500 ms ahead on its own clock and plays it with the client loop (`Schedule.ClientEvents`). Window k's keys go to the
 k-th open window, so Player1 + Player3 works. The end time feeds the same `PlaylistRunner`. Stop and the end of each
-playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback.
+playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback. Settings → Offset
+(`Schedule.Stagger`) shifts the k-th window that has notes by (k − 1) × Floor(Offset ÷ n) ms before the loop starts.
 
 ### Concurrency rules
 

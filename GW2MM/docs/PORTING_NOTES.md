@@ -120,6 +120,10 @@ reachable from any hotkey, button or message.
   unfinished engine for this (`OnePlayer`, never called); in the original every song went through the
   multiplayer arrangement and Players only labelled the song list.
 
+* **Offset for solo play** (not in the original). Client Settings → *Offset (ms)* staggers the windows in solo play:
+  with n windows playing, each starts Offset ÷ n ms (rounded down) after the one before, so no two windows press at
+  the same instant. Never applied to host or client playback.
+
 * **Optional launch prompts (client).** Settings → *Ask name & IP on launch?* (`AskOnLaunch`) skips the name and
   host address prompts and uses the saved values.
 

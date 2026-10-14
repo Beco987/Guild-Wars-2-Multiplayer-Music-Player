@@ -207,4 +207,27 @@ public class PlaybackLoopTests
         Assert.True(errors[0] >= 0);
         Assert.True(errors[(int)(errors.Count * 0.9)] < 2.0, "90th percentile lateness " + errors[(int)(errors.Count * 0.9)]);
     }
+
+
+    [Fact]
+    public void StaggerSpreadsWindowsEvenlyOverTheOffset()
+    {
+        var events = new List<PlaybackEvent> { new(null, K(1, 0) + K(2, 0) + K(3, 0)), new(100, K(1, 2) + K(3, 13) + K(3, 4)), new(100.5, K(2, 2)) };
+        var staggered = Schedule.Stagger(events, 50, 10);
+        // Three windows: Floor(50 / 3) = 16 ms apart.
+        Assert.Equal(new (double?, string)[]
+        {
+            (10, K(1, 0)), (26, K(2, 0)), (42, K(3, 0)), (100, K(1, 2)), (116.5, K(2, 2)), (132, K(3, 13) + K(3, 4)),
+        }, staggered.Select(e => (e.DueMs, e.Keys)));
+    }
+
+    [Fact]
+    public void StaggerLeavesOneWindowOrNoOffsetAlone()
+    {
+        var one = new List<PlaybackEvent> { new(null, K(1, 0)), new(100, K(1, 2)) };
+        Assert.Equal(one, Schedule.Stagger(one, 50, 0));
+        var two = new List<PlaybackEvent> { new(5, K(1, 0) + K(2, 0)) };
+        Assert.Equal(two, Schedule.Stagger(two, 0, 0));
+        Assert.Equal(two, Schedule.Stagger(two, 1, 0));   // Floor(1 / 2) = 0, as the original script's 1 ms tick
+    }
 }

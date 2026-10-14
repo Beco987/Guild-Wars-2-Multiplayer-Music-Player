@@ -43,6 +43,29 @@ public static class Schedule
     }
 
     /// <summary>
+    /// Solo play's Offset setting (not in the original): staggers the windows so no two press at the same instant.
+    /// With n windows that have notes, the k-th (by window number) plays everything (k − 1) × Floor(spread / n) ms
+    /// later; one window is unchanged. Each window keeps its own timing and order; an event that is due at once
+    /// (<c>null</c>) counts as due at <paramref name="nowMs"/>.
+    /// </summary>
+    public static List<PlaybackEvent> Stagger(IReadOnlyList<PlaybackEvent> events, double spreadMs, double nowMs)
+    {
+        var windows = events.SelectMany(e => e.Keys).Select(KeyMap.Decode).Where(d => d is not null)
+            .Select(d => d!.Value.Window).Distinct().OrderBy(w => w).ToList();
+        var step = windows.Count > 1 && spreadMs > 0 ? Math.Floor(spreadMs / windows.Count) : 0;
+        if (step <= 0) return events.ToList();
+        var rank = windows.Select((w, i) => (w, i)).ToDictionary(x => x.w, x => x.i);
+        var parts = new List<(double Due, int Order, string Keys)>();
+        foreach (var e in events)
+        {
+            var due = e.DueMs ?? nowMs;
+            foreach (var keys in e.Keys.GroupBy(c => KeyMap.Decode(c)?.Window ?? windows[0]))
+                parts.Add((due + rank[keys.Key] * step, parts.Count, new string(keys.ToArray())));
+        }
+        return parts.OrderBy(p => p.Due).ThenBy(p => p.Order).Select(p => new PlaybackEvent(p.Due, p.Keys)).ToList();
+    }
+
+    /// <summary>
     /// Client loop (client <c>SongPlayer1</c>): its index starts at 0, so the first element is pressed as soon as the
     /// song arrives; afterwards element k+1 is pressed at <c>Rest[k]</c>. A missing rest means "immediately".
     /// </summary>

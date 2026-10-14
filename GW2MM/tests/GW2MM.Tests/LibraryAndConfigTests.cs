@@ -213,9 +213,11 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.AskOnLaunch = false;
         s.Name = "Alice";
         s.HostAddress = "5.6.7.8";
-        s.SaveClientLaunch(_dir);
+        s.OffsetMs = 50;
+        s.SaveClientSettings(_dir);
         var again = AppSettings.Load(_dir);
         Assert.False(again.AskOnLaunch);
+        Assert.Equal(50, again.OffsetMs);
         Assert.Equal("Alice", again.Name);
         Assert.Equal("5.6.7.8", again.HostAddress);
     }

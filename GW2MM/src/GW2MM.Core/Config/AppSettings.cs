@@ -50,12 +50,22 @@ public sealed class AppSettings
     /// </summary>
     public bool AskOnLaunch { get; set; } = true;
 
-    /// <summary>Client Settings: the launch prompts option and the name and host address it uses.</summary>
-    public void SaveClientLaunch(string dataDir) =>
+    /// <summary>
+    /// Client only: solo play's Offset in ms (not in the original; Config.txt "Offset", 0 = off). The windows' starts
+    /// are spread evenly over it so no two press at the same instant. Never used when connected to a host.
+    /// </summary>
+    public int OffsetMs { get; set; }
+
+    /// <summary>Client Settings: the launch prompts option, the name and host address it uses, and solo Offset.</summary>
+    public void SaveClientSettings(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
         {
             ("AskOnLaunch", AskOnLaunch ? "1" : "0"), ("Name", Name), ("HostAddress", HostAddress),
+            ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         });
+
+    /// <summary>The largest Offset accepted (ms).</summary>
+    public const int MaxOffsetMs = 1000;
 
     /// <summary>Client only: the last host address entered, offered again on the next start (not in the original).</summary>
     public string HostAddress { get; set; } = "";
@@ -73,6 +83,7 @@ public sealed class AppSettings
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
             AskOnLaunch = c.Get("AskOnLaunch") is not { } ask || LegacyConfig.IsTrue(ask),
+            OffsetMs = Ahk.AhkValue.Number(c.Get("Offset") ?? "") is { } offset && offset > 0 ? (int)Math.Min(offset, MaxOffsetMs) : 0,
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
             LastPlaylist = c.Get("LastPlaylist") ?? "",
