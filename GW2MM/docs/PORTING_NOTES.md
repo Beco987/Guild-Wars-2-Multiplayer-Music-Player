@@ -120,14 +120,6 @@ reachable from any hotkey, button or message.
   unfinished engine for this (`OnePlayer`, never called); in the original every song went through the
   multiplayer arrangement and Players only labelled the song list.
 
-* **Humanize for solo play** (not in the original). Client Settings → *Humanize* (Off / Subtle / Natural / Loose /
-  Phrased / Expressive / Rubato, `Humanize` in Config.txt) changes only solo play's timing (`Humanizing/`). Chords
-  across two octaves keep their melody on the beat, with lower parts just before it. An octave change that needs more
-  time makes the chord wait, and the song eases back at most 2% faster instead of rushing. Each window drifts by
-  1–4 ms at most. Phrased / Expressive / Rubato also shape each phrase's tempo (phrases found with Cambouropoulos's
-  LBDM, bars from the MIDI time signatures), hold phrase endings slightly, and slow down at the end. The notes and
-  octave changes are exactly Off's. Host and client playback are never humanized.
-
 * **Optional launch prompts (client).** Settings → *Ask name & IP on launch?* (`AskOnLaunch`) skips the name and
   host address prompts and uses the saved values.
 

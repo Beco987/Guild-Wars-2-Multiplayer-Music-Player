@@ -1,5 +1,4 @@
 using GW2MM.Core.Arrangement;
-using GW2MM.Core.Humanizing;
 using GW2MM.Core.Library;
 using GW2MM.Core.Playback;
 using GW2MM.Core.Text;
@@ -26,8 +25,6 @@ public sealed class SoloSession : IDisposable
     private readonly Func<string> _octaveDelay;
     private readonly Func<int> _octaveDelayMs;
     private readonly PlaylistRunner _runner;
-    private readonly Func<HumanizeLevel> _humanize;
-    private readonly Random _random;
     private PlaybackLoop? _loop;
     private string? _lastWhere;
 
@@ -35,11 +32,8 @@ public sealed class SoloSession : IDisposable
     /// <param name="octaveDelay">OctaveDelay text for the arrangement (as the host uses it).</param>
     /// <param name="octaveDelayMs">Pause between octave-reset presses (as the client uses it after a Stop).</param>
     public SoloSession(ISessionView view, SongLibrary library, Func<IReadOnlyList<int>> openWindows, Func<string> octaveDelay,
-        Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, int tailMs = 1500, int gapMs = 1500,
-        Func<HumanizeLevel>? humanize = null, Random? random = null)
+        Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, int tailMs = 1500, int gapMs = 1500)
     {
-        _humanize = humanize ?? (() => HumanizeLevel.Off);
-        _random = random ?? new Random();
         _view = view;
         Library = library;
         _openWindows = openWindows;
@@ -135,8 +129,6 @@ public sealed class SoloSession : IDisposable
         }
 
         SlotPlan part;
-        SoloScore? score = null;
-        var humanize = _humanize();
         try
         {
             var song = CsvSong.Parse(LegacyText.Lines(csvText));
@@ -154,9 +146,6 @@ public sealed class SoloSession : IDisposable
             var mapping = new PortMapping();
             foreach (var t in tracks.Take(windows.Count)) mapping[SoloSlot, t] = true;
             part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor, singleInstrument: singleInstrument)[SoloSlot];
-            // Humanizing plays the same presses (notes and octave changes) with its own timing.
-            if (humanize != HumanizeLevel.Off && part.IsActive)
-                score = singleInstrument ? SoloScore.OnePlayer(song, tempoFactor) : SoloScore.FromPart(song, part, tempoFactor, tracks.Take(windows.Count).ToList());
         }
         catch (Exception ex)
         {
@@ -173,15 +162,8 @@ public sealed class SoloSession : IDisposable
         if (where != _lastWhere) _view.AppendDialog(where); // once, and again when the open windows change
         _lastWhere = where;
         // Anchored like a client's part: the first element plays at once, then each at its time.
-        var start = _clock.NowMs + LeadMs;
-        var times = Schedule.AbsoluteTimes(part, start - Schedule.StartDelayMs, 0);
-        var events = Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList());
-        if (score is not null)
-        {
-            events = Humanizer.Perform(score, SingleInstrument.DelayMs(_octaveDelay()), humanize, _random, start);
-            times = events.Select(e => e.DueMs ?? start).ToList();
-        }
-        var loop = new PlaybackLoop(events, _clock, new WindowRemap(_keys, windows));
+        var times = Schedule.AbsoluteTimes(part, _clock.NowMs + LeadMs - Schedule.StartDelayMs, 0);
+        var loop = new PlaybackLoop(Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList()), _clock, new WindowRemap(_keys, windows));
         loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
         lock (_gate)
         {

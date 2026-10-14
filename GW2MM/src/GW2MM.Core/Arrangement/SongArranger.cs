@@ -11,12 +11,6 @@ public sealed record SlotPlan(int Slot, IReadOnlyList<string> Notes, IReadOnlyLi
 {
     /// <summary>The original only schedules/sends a part with more than 3 elements.</summary>
     public bool IsActive => Notes.Count > 3;
-
-    /// <summary>
-    /// The MIDI tick of each element (parallel to <see cref="Notes"/>; null where not a number), when known. Not used
-    /// for playback; solo humanizing reads each element's score position from it.
-    /// </summary>
-    public IReadOnlyList<double?>? Ticks { get; init; }
 }
 
 public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
@@ -87,10 +81,7 @@ public static class SongArranger
                     notes.Add(isTempo ? "" : item);
                 }
             }
-            plans.Add(new SlotPlan(slot, notes, ms, hasKeys)
-            {
-                Ticks = hasKeys ? times[slot].Take(notes.Count).Select(t => AhkValue.Number(t)).ToList() : null,
-            });
+            plans.Add(new SlotPlan(slot, notes, ms, hasKeys));
         }
         return new SongPlan(plans);
     }

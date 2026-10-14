@@ -115,48 +115,6 @@ The client arranges the song itself. It maps the song's tracks that contain note
 k-th open window, so Player1 + Player3 works. The end time feeds the same `PlaylistRunner`. Stop and the end of each
 playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback.
 
-### 7. Humanizing (`Humanizing/`, solo play only)
-
-With Settings → Humanize on, `SoloSession` still arranges the song as usual and then hands `Humanizer.Perform` a
-`SoloScore`: every window's chords, each with its octave changes before it and its presses (note groups and octave
-changes) in playing order. For a one-player song it comes from `SingleInstrument.Plan` (the same routing as the plain
-arrangement); for several windows it comes from the arranged part, read element by element with `SlotPlan.Ticks`.
-A window's octave changes pressed on their own, with its notes or after them, lead into its next chord. So the presses
-and their order are exactly the plain arrangement's.
-
-For each moment of the score (all windows' chords at one tick):
-
-1. Target time = score time + how far the performance is behind + the window's own lag + a constant per-window offset
-   + an AR(1) drift (correlation time 300 ms). The drift's σ is a fraction of the gap to the window's neighbouring
-   chords, capped at 1 / 2 / 4 ms for Subtle / Natural / Loose (`HumanizeProfile`).
-2. The *melody group* (highest note) is placed at that target. Groups before it are spaced back from it, groups after
-   it forward: 1 ms after notes, OctaveDelay after an octave change. If the window's previous press, the octave changes
-   leading in, and those groups do not fit before the target, the melody moves later just enough. With one window
-   that delay becomes "behind" for everyone. With several windows a window may lag alone by up to 10–20 ms; beyond
-   that every window waits.
-3. Octave changes before a chord sit midway between the previous press and the latest point that still leaves
-   OctaveDelay before the next press.
-4. Between moments, "behind" shrinks by 2% of the score time passed (a lagging window by 4%), so the song eases back
-   to its time instead of rushing.
-
-Times are grouped to 0.1 ms into `PlaybackEvent`s and shifted so the first press is at the start time. Host and
-client sessions never call it.
-
-The phrased levels (Phrased, Expressive, Rubato) use an expressive *plan* instead of the score time in step 1:
-
-* `CsvSong` also reads the header's ticks per quarter, `Time_signature` events and each note's end (none of which the
-  arrangement uses). `Meter` gives bars, beats (dotted quarters in 6/8, 9/8, 12/8) and metrical weights.
-* `Phrasing` merges all windows' chords into onsets (time, highest pitch, silence after) and scores every gap with
-  the Local Boundary Detection Model (Cambouropoulos 2001): 0.5 × time between onsets, 0.25 × pitch interval,
-  0.25 × silence. Each parameter's strength is its value times its change from both neighbours. Peaks above
-  max(0.3, mean + 0.75 sd) become boundaries, strongest first, if both phrases keep ≥ 4 onsets and ≥ 2.4 s. Phrases
-  over 12 s are split at the bar line nearest their middle.
-* `Expression` turns that into a local tempo factor per gap: the time to the next onset × (1 + k). Its parts are a
-  zero-mean parabolic phrase arch (fastest at 45%), phrase-final lengthening scaled by boundary strength, a downbeat
-  stretch, the Friberg–Sundberg final ritardando v(x) = (1 + (w³ − 1)x)^(1/3) and an AR(1) tempo wander (4 s). k is
-  clamped to −10%…+60%, and integrating it gives each onset's planned time.
-* The drift's σ is reduced on strong beats (by up to 40% on a downbeat).
-
 ### Concurrency rules
 
 * Every session mutation (slots, port mapping, input delays, current run, pause) happens under one lock, and no

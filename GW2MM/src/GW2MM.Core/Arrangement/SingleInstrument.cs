@@ -37,12 +37,22 @@ public static class SingleInstrument
         var delay = DelayMs(octaveDelay);
         var toMs = TickToMs(song, tempoFactor);
 
+        var chords = new SortedDictionary<double, SortedSet<int>>();
+        for (var t = 1; t <= CsvSong.MaxTrack; t++)
+            for (var k = 0; k < song.TrackTimes[t].Count && k < song.TrackPitches[t].Count; k++)
+                if (song.TrackPitches[t][k] is { } pitch && AhkValue.Number(song.TrackTimes[t][k]) is { } tick)
+                {
+                    if (!chords.TryGetValue(tick, out var set)) chords[tick] = set = new SortedSet<int>();
+                    set.Add(IntoRange(pitch));
+                }
+
         var events = new List<(double Time, string Keys)>();
+        var octave = 1;                                   // octaves are reset to the middle one before a song
         double? lastPress = null, lastSwap = null;
-        foreach (var chord in Plan(song))
+        foreach (var (tick, pitches) in chords)
         {
-            var time = toMs(chord.Tick);
-            var steps = chord.Steps;
+            var time = toMs(tick);
+            var steps = Route(pitches.ToList(), ref octave);
             var leading = steps.TakeWhile(s => s.Swap != 0).Count();
             for (var i = 0; i < steps.Count; i++)
             {
@@ -92,33 +102,6 @@ public static class SingleInstrument
     /// <summary>One step of a chord: an octave change (+1 up / -1 down) or the notes to press together (KeyMap offsets).</summary>
     internal readonly record struct Step(int Swap, IReadOnlyList<int> Notes);
 
-    /// <summary>A chord of the one-player part: its tick, the octave the instrument is in before it, and its steps.</summary>
-    internal sealed record PlannedChord(double Tick, int Octave, IReadOnlyList<Step> Steps);
-
-    /// <summary>Every track's notes merged into chords (pitches moved into C3–C6), each routed through the octaves.</summary>
-    internal static List<PlannedChord> Plan(CsvSong song)
-    {
-        var chords = new SortedDictionary<double, SortedSet<int>>();
-        for (var t = 1; t <= CsvSong.MaxTrack; t++)
-            for (var k = 0; k < song.TrackTimes[t].Count && k < song.TrackPitches[t].Count; k++)
-                if (song.TrackPitches[t][k] is { } pitch && AhkValue.Number(song.TrackTimes[t][k]) is { } tick)
-                {
-                    if (!chords.TryGetValue(tick, out var set)) chords[tick] = set = new SortedSet<int>();
-                    set.Add(IntoRange(pitch));
-                }
-        var result = new List<PlannedChord>();
-        var octave = 1;                                   // octaves are reset to the middle one before a song
-        foreach (var (tick, pitches) in chords)
-        {
-            var before = octave;
-            result.Add(new PlannedChord(tick, before, Route(pitches.ToList(), ref octave)));
-        }
-        return result;
-    }
-
-    /// <summary>The MIDI pitch of a note offset (0..12) played in an octave (0 = low, 1 = middle, 2 = high).</summary>
-    internal static int PitchOf(int octave, int offset) => Lowest + 12 * octave + offset;
-
     /// <summary>
     /// The octave groups of a chord in playing order, with the octave changes between them, starting from
     /// <paramref name="octave"/> (updated to where the chord ends).
@@ -166,8 +149,8 @@ public static class SingleInstrument
     }
 
     // Window 1's key characters (see KeyMap): offset 0..12 = the notes C..C (1, F1, 2, …, 7, 8), 13 = 9, 14 = 0.
-    internal static string SwapKey(int swap) => ((char)(192 + (swap > 0 ? Up : Down))).ToString();
-    internal static string NotesKey(IEnumerable<int> offsets) => string.Concat(offsets.Select(o => (char)(192 + o)));
+    private static string SwapKey(int swap) => ((char)(192 + (swap > 0 ? Up : Down))).ToString();
+    private static string NotesKey(IEnumerable<int> offsets) => string.Concat(offsets.Select(o => (char)(192 + o)));
 
     private static int IntoRange(int pitch)
     {

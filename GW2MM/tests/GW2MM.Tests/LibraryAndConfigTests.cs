@@ -213,26 +213,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.AskOnLaunch = false;
         s.Name = "Alice";
         s.HostAddress = "5.6.7.8";
-        s.Humanize = GW2MM.Core.Humanizing.HumanizeLevel.Natural;
-        s.SaveClientSettings(_dir);
+        s.SaveClientLaunch(_dir);
         var again = AppSettings.Load(_dir);
         Assert.False(again.AskOnLaunch);
         Assert.Equal("Alice", again.Name);
         Assert.Equal("5.6.7.8", again.HostAddress);
-        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Natural, again.Humanize);
-        Assert.Contains("Humanize,2", File.ReadAllLines(P("Config.txt")));
-    }
-
-    [Fact]
-    public void HumanizeDefaultsOffAndIgnoresUnknownValues()
-    {
-        File.WriteAllText(P("Config.txt"), "OctaveDelay,130\nHumanize,7\n");
-        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
-        File.WriteAllText(P("Config.txt"), "OctaveDelay,130\n");
-        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
-        File.WriteAllText(P("Config.txt"), "Humanize,6\n");
-        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Rubato, AppSettings.Load(_dir).Humanize);
-        File.WriteAllText(P("Config.txt"), "Humanize,2.5\n");
-        Assert.Equal(GW2MM.Core.Humanizing.HumanizeLevel.Off, AppSettings.Load(_dir).Humanize);
     }
 }

@@ -127,8 +127,7 @@ internal sealed class MainForm : Form, IHostView
         {
             _client = new ClientSession(this, _library, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
             _input.TextChanged += (_, _) => _client.TypingChanged(_input.Text);
-            _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys,
-                humanize: () => _settings.Humanize);
+            _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys);
         }
 
         ApplyDisplaySettings();

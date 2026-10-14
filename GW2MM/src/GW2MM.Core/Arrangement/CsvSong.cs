@@ -19,15 +19,6 @@ public sealed class CsvSong
     public List<string> TempoTimes { get; } = new();
     public List<string> TempoMarkers { get; } = new();
 
-    // Not used by the original or by the arrangement; solo humanizing reads the song's meter and phrasing from them.
-
-    /// <summary>Ticks per quarter note from the <c>Header</c> line (0 when missing or not a positive number).</summary>
-    public int Division { get; private set; }
-    /// <summary>The <c>Time_signature</c> events (numerator and denominator, e.g. 6 and 8), in file order.</summary>
-    public List<(double Tick, int Numerator, int Denominator)> TimeSignatures { get; } = new();
-    /// <summary>Every recorded note with the tick it ends at (its <c>Note_off_c</c>, or <c>Note_on_c</c> with velocity 0).</summary>
-    public List<ScoreNote> Notes { get; } = new();
-
     public int NoteCount => TrackNotes.Sum(t => t.Count);
 
     /// <summary>
@@ -53,14 +44,12 @@ public sealed class CsvSong
         int? pitch = null;
         var postNotes = false;
         var pzero = false;
-        var sounding = new Dictionary<(int, double, int), Queue<ScoreNote>>();
         foreach (var line in lines)
         {
             if (line.Length == 0) continue;
             var record = false;
             var tempoer = false;
             var fields = line.Split(',');
-            ReadScoreEvent(song, fields, sounding);
             for (var f = 0; f < fields.Length; f++)
             {
                 var subIndex = f + 1;
@@ -115,40 +104,6 @@ public sealed class CsvSong
         return song;
     }
 
-    /// <summary>Header division, time signatures and note starts/ends (none of which the original parser kept).</summary>
-    private static void ReadScoreEvent(CsvSong song, string[] fields, Dictionary<(int, double, int), Queue<ScoreNote>> sounding)
-    {
-        if (fields.Length < 3) return;
-        string F(int i) => i < fields.Length ? fields[i].Trim(' ', '\t') : "";
-        var type = F(2);
-        if (type.Equals("Header", StringComparison.OrdinalIgnoreCase))
-        {
-            if (AhkValue.Number(F(5)) is { } division && division >= 1 && division < 32768) song.Division = (int)division;
-        }
-        else if (type.Equals("Time_signature", StringComparison.OrdinalIgnoreCase))
-        {
-            if (AhkValue.Number(F(1)) is { } tick && AhkValue.Number(F(3)) is { } num && num is >= 1 and <= 64
-                && AhkValue.Number(F(4)) is { } power && power is >= 0 and <= 6)
-                song.TimeSignatures.Add((tick, (int)num, 1 << (int)power));
-        }
-        else if (type.Equals("Note_on_c", StringComparison.OrdinalIgnoreCase) || type.Equals("Note_off_c", StringComparison.OrdinalIgnoreCase))
-        {
-            if (TrackNumber(F(0)) is not { } track || AhkValue.Number(F(1)) is not { } at || AhkValue.Number(F(3)) is not { } channel
-                || AhkValue.Number(F(4)) is not { } p || p != Math.Floor(p) || p is < 0 or > 127 || AhkValue.Number(F(5)) is not { } velocity)
-                return;
-            var key = (track, channel, (int)p);
-            if (type.Equals("Note_on_c", StringComparison.OrdinalIgnoreCase) && velocity > 0)
-            {
-                var note = new ScoreNote(track, at, (int)p);
-                song.Notes.Add(note);
-                if (!sounding.TryGetValue(key, out var open)) sounding[key] = open = new Queue<ScoreNote>();
-                open.Enqueue(note);
-            }
-            else if (sounding.TryGetValue(key, out var open) && open.Count > 0)
-                open.Dequeue().EndTick = at;
-        }
-    }
-
     // The original pushes onto the variable "Track<field1>", which only exists for "1".."25".
     private static int? TrackNumber(string s)
     {
@@ -156,13 +111,4 @@ public sealed class CsvSong
         var n = int.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
         return n is >= 1 and <= MaxTrack ? n : null;
     }
-}
-
-/// <summary>A note of the song: its track, start tick, MIDI pitch and end tick (null when it never ends).</summary>
-public sealed class ScoreNote(int track, double tick, int pitch)
-{
-    public int Track { get; } = track;
-    public double Tick { get; } = tick;
-    public int Pitch { get; } = pitch;
-    public double? EndTick { get; internal set; }
 }

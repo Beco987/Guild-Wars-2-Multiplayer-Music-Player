@@ -67,8 +67,8 @@ A chord whose notes lie in more than one octave is played octave by octave. Its 
 together, then the octave changes, then the next group follows OctaveDelay later. The order needs the fewest changes
 (from the lowest octave on a tie). After every octave change the next note waits at least OctaveDelay (150 ms if
 blank). The changes before a chord go into the gap before it when there is room. When there is not, the following
-notes are delayed just enough and the song catches up at the next rest (solo play with **Humanize** on keeps the
-melody on the beat instead; see below). Notes outside C3–C6 are moved by whole octaves into range.
+notes are delayed just enough and the song catches up at the next rest. Notes outside C3–C6 are moved by whole
+octaves into range.
 
 ### Octave changes and OctaveDelay
 
@@ -89,42 +89,6 @@ is the same arrangement a host gives a client assigned those tracks. If the song
 open, the extra parts are not played (the chat says so). **Ctrl+F3** stops and resets octaves, **Ctrl+F5** (or Next ►)
 skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
 Once the client is connected, the host takes over again.
-
-### Humanize (solo play)
-
-**⚙ → Humanize** (client only; `Humanize,0`–`6` in Config.txt) changes how solo play (client not connected) sounds.
-Playing with a host is never humanized: every player follows the host's timing exactly. Every option plays exactly the
-notes and octave changes Off plays; only their timing changes.
-
-**All options:**
-
-* **Chords across two octaves keep their melody on the beat.** The game can only change octave between presses,
-  OctaveDelay apart, so such a chord is played in two parts. Off starts the chord on its beat, so on every other
-  such chord the melody (its highest note) comes late. Humanize puts the melody on the beat. Lower notes the game
-  must play first come just before it, like a quick roll; notes it plays afterwards follow as soon as the game allows.
-* **No stumble-and-rush.** When an octave change needs more time than the notes leave, the chord waits just long
-  enough. The song then eases back to its own time, at most 2% faster than written, instead of squeezing the next
-  notes together. Busy one-player songs with many such chords can therefore run a little longer.
-* **A millisecond or so of drift.** Each window drifts around the beat, correlated from chord to chord, less for
-  closely spaced notes. With several windows each also leads or lags the others by a constant fraction of that.
-  Chords are never rolled.
-
-**Subtle / Natural / Loose** stop there; the drift is at most about 1, 2 or 4 ms.
-
-**Phrased / Expressive / Rubato** also shape the song phrase by phrase (gently, more, most), the way a player does:
-
-| | Phrased | Expressive | Rubato |
-|---|---|---|---|
-| Phrase arch: a little slower at the start, forward to the middle, relaxing at the end (same total length) | ±2% | ±3% | ±6% |
-| Last note of a phrase held longer (by how clear the phrase ending is) | up to 4% | up to 8% | up to 14% |
-| First note of a bar held a touch longer | 0.5% | 1% | 1.8% |
-| Slow, smooth tempo wander | 0.4% | 0.7% | 1.1% |
-| Closing ritardando over the last 2–6 beats, down to | 90% | 80% | 70% of the tempo |
-| Timing drift (as above), steadier on strong beats | ≤ 1.5 ms | ≤ 2 ms | ≤ 3 ms |
-
-Phrases are found from the music itself (longer notes, rests and melodic leaps; Cambouropoulos's Local Boundary
-Detection Model). Where the music gives no clear ending they are split at bar lines, keeping each phrase between
-about 2.4 and 12 seconds. A song's bars come from its MIDI time signatures (4/4 when it has none).
 
 ### Playlists
 
