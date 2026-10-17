@@ -176,6 +176,11 @@ Config.txt. Clients never need an open port.
 
 ## Updates
 
+**Version numbers** come from CI (shown in the Info window, the ? button): each build is numbered after the newest
+release, e.g. `2.0.6-pr.3` for pull request 3 while v2.0.5 is the latest. Merging a pull request into `main`
+publishes the next release (v2.0.6, v2.0.7, …) automatically. A release can also be made by hand: Actions →
+"GW2MM (.NET port)" → Run workflow, with a version such as `2.1.0` or `next`.
+
 On launch the app checks the repository's latest GitHub release in the background. If it is newer than the
 running version, it asks whether to install it. On "Yes" it downloads the executable for its role (checked against
 the release's size and SHA-256), replaces itself, and restarts with the same arguments. If the exe's folder is not

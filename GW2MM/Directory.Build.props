@@ -1,7 +1,10 @@
 <Project>
   <PropertyGroup>
-    <!-- Application version. Release builds override it from the git tag (vX.Y.Z); the updater compares it with
-         the latest GitHub release. -->
+    <!-- Application version for local builds. CI sets it for every build: the next patch after the newest vX.Y.Z
+         tag (with -pr.N / -dev.N for unreleased builds); a merged pull request publishes that release. The updater
+         compares it with the latest GitHub release, and the Info window shows it. -->
     <Version>2.0.5</Version>
+    <!-- Show "2.0.6", not "2.0.6+<commit id>". -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>
