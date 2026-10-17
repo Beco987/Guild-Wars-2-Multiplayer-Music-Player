@@ -25,7 +25,8 @@ internal sealed class DataEditorForm : Form
         ClientSize = new Size(720, 460);
         MinimumSize = new Size(520, 320);
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -34,6 +35,13 @@ internal sealed class DataEditorForm : Form
         root.Controls.Add(Modern.Heading("Song data"));
         root.Controls.Add(Modern.Caption("Click a cell to edit it. Renaming a song also renames its files in the Csv and Midi folders. " +
                                          "Commas are removed when saving. Changes are only written when you press Save.", 680));
+        // Search: shows only the songs whose names contain every word typed (Esc clears it).
+        var search = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search songs", Margin = new Padding(0, 4, 0, 6) };
+        search.TextChanged += (_, _) => Filter(search.Text);
+        // Without this the form's Cancel button takes the Esc key before the box sees it.
+        search.PreviewKeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && search.Text.Length > 0) e.IsInputKey = true; };
+        search.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && search.Text.Length > 0) { search.Clear(); e.SuppressKeyPress = true; } };
+        root.Controls.Add(search);
 
         _grid = new DataGridView
         {
@@ -75,6 +83,14 @@ internal sealed class DataEditorForm : Form
             row.Tag = f;
         }
         UpdateCount();
+    }
+
+    private void Filter(string query)
+    {
+        _grid.EndEdit();
+        _grid.CurrentCell = null; // a hidden row cannot hold the current cell
+        foreach (DataGridViewRow row in _grid.Rows)
+            row.Visible = new Core.Library.SongEntry(Cell(row, 0), "", "").Matches(query);
     }
 
     private void AddColumn(string header, float weight) =>

@@ -151,8 +151,10 @@ reachable from any hotkey, button or message.
   * *New Song* shows the help inline instead of "?" pop-ups, accepts a dragged .mid file and pre-fills the title
     from the file name. Players and Tempo are number boxes, with a live "10% faster"-style hint.
   * *Data Editor* is an editable grid with Save/Cancel and a "discard changes?" prompt. Only edited lines are
-    rewritten (as before, in "Name,Players,Tempo,Description" form), and renames still move the song's files.
+    rewritten (as before, in "Name,Players,Tempo,Description" form), and renames still move the song's files. A search
+    box above the grid filters the rows by song name.
   * *Controls* is gone: its button is now **Pause** and **Stop** buttons (F2 / F3), and keys are listed in Keybinds.
+  * The host's **Ping** button is gone; opening Port Mapping now measures each player's ping.
 
 ## 4. Verification
 

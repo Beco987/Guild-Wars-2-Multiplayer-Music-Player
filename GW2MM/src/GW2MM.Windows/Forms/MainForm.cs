@@ -12,7 +12,7 @@ public enum AppRole { Host, Client }
 
 /// <summary>
 /// The main window (same layout as the original GW2MM GUI): song list, New/Delete/Data Editor, Play, description,
-/// Controls, chat box and status line; the host also has the Port, Sync and Ping buttons.
+/// Controls, chat box and status line; the host also has the Port and Sync buttons.
 /// </summary>
 internal sealed class MainForm : Form, IHostView
 {
@@ -42,7 +42,7 @@ internal sealed class MainForm : Form, IHostView
     private readonly TextBox _description, _dialog, _input;
     private readonly Button _send;
     private readonly Label _status;
-    private readonly Button? _syncButton, _pingButton;
+    private readonly Button? _syncButton;
     private PortMappingForm? _portForm;
     private NewSongForm? _newSongForm;
     private string _highlighted = "";
@@ -128,7 +128,6 @@ internal sealed class MainForm : Form, IHostView
                 offsetMs: () => _settings.OffsetMs);
             Ui.Button(this, "Port", 355, 490, 45, 20, (_, _) => ShowPortMapping());
             _syncButton = Ui.Button(this, "Sync", 355, 510, 45, 20, async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token)));
-            _pingButton = Ui.Button(this, "Ping", 355, 530, 45, 20, async (_, _) => await RunGuarded(_pingButton!, () => _host.PingAsync(_closing.Token)));
         }
         else
         {
@@ -580,6 +579,13 @@ internal sealed class MainForm : Form, IHostView
         _portForm ??= new PortMappingForm(_host!);
         _portForm.Show(this);
         _portForm.Activate();
+        // There is no Ping button any more: opening the window measures the players' pings (skipped if already running).
+        var host = _host!;
+        _ = Task.Run(async () =>
+        {
+            try { await host.PingAsync(_closing.Token); }
+            catch (OperationCanceledException) { }
+        });
     }
 
     private void ApplyDisplaySettings()

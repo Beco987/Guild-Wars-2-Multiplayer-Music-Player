@@ -556,7 +556,7 @@ public sealed class HostSession : IDisposable
     private PingTracker PingTracker { get; } = new();
 
     /// <summary>
-    /// The Ping button: for each connected client in slot order, 50 probes 1 s apart; the displayed value is the
+    /// Measures pings (run when Port Mapping opens): for each connected client in slot order, 50 probes 1 s apart; the displayed value is the
     /// floor of the mean one-way time (half the round trip) after removing outliers. Each client is measured on its
     /// own samples (the original pooled samples across clients and button presses).
     /// </summary>
