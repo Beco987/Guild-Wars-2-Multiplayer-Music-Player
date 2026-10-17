@@ -16,6 +16,8 @@ internal sealed class NewSongForm : Form
     private readonly Action _added;
     private readonly Button _add;
     private readonly TextBox _file, _title, _description;
+    private readonly ToolTip _fileTip = new();
+    private string _path = ""; // the chosen file; the box shows only its name
     private readonly NumericUpDown _players, _tempo;
     private readonly Label _tempoHint;
 
@@ -37,7 +39,12 @@ internal sealed class NewSongForm : Form
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 340));
         root.Controls.Add(grid);
 
-        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "Choose or drop a .mid or .mscz file", Margin = new Padding(0, 4, 0, 0) };
+        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "Choose or drop a .mid or .mscz file", Margin = new Padding(0, 4, 0, 0), Cursor = Cursors.Hand };
+        _file.Click += (_, _) => SelectFile();
+        // A file dropped on the box (not just around it) is taken too.
+        _file.AllowDrop = true;
+        _file.DragEnter += (_, e) => e.Effect = DroppedFile(e) is null ? DragDropEffects.None : DragDropEffects.Copy;
+        _file.DragDrop += (_, e) => { if (DroppedFile(e) is { } f) UseFile(f); };
         var browse = Modern.Secondary("Browse…");
         browse.Click += (_, _) => SelectFile();
         var filePanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
@@ -89,10 +96,15 @@ internal sealed class NewSongForm : Form
         e.Data?.GetData(DataFormats.FileDrop) is string[] { Length: 1 } files && (MuseScore.IsMidi(files[0]) || MuseScore.IsScore(files[0]))
             ? files[0] : null;
 
+    /// <summary>Shows the chosen file's name; the title follows the file unless it was typed in.</summary>
     private void UseFile(string path)
     {
-        _file.Text = path;
-        if (_title.Text.Trim().Length == 0) _title.Text = Path.GetFileNameWithoutExtension(path);
+        var title = _title.Text.Trim();
+        if (title.Length == 0 || (_path.Length > 0 && title == Path.GetFileNameWithoutExtension(_path)))
+            _title.Text = Path.GetFileNameWithoutExtension(path);
+        _path = path;
+        _file.Text = Path.GetFileName(path);
+        _fileTip.SetToolTip(_file, path);
     }
 
     private void SelectFile()
@@ -101,14 +113,17 @@ internal sealed class NewSongForm : Form
         {
             Title = "Import a song",
             Filter = "MIDI or MuseScore files (*.mid; *.mscz)|*.mid;*.midi;*.mscz;*.mscx|MIDI files (*.mid)|*.mid;*.midi|MuseScore files (*.mscz)|*.mscz;*.mscx",
-            InitialDirectory = Directory.Exists(_library.MidiDir) ? _library.MidiDir : _library.Root,
+            InitialDirectory = Path.GetDirectoryName(_path) is { Length: > 0 } dir && Directory.Exists(dir) ? dir
+                : Directory.Exists(_library.MidiDir) ? _library.MidiDir : _library.Root,
         };
         if (dlg.ShowDialog(this) == DialogResult.OK) UseFile(dlg.FileName);
     }
 
     private void Reset()
     {
+        _path = "";
         _file.Text = "";
+        _fileTip.SetToolTip(_file, null);
         _title.Text = "";
         _description.Text = "";
         _players.Value = 1;
@@ -117,7 +132,7 @@ internal sealed class NewSongForm : Form
 
     private async Task AddSong()
     {
-        if (_file.Text.Length == 0)
+        if (_path.Length == 0)
         {
             MessageBox.Show(this, "Choose a .mid or .mscz file first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
@@ -125,7 +140,7 @@ internal sealed class NewSongForm : Form
         string? exported = null;
         try
         {
-            var midi = _file.Text;
+            var midi = _path;
             if (MuseScore.IsScore(midi))
             {
                 if (FindMuseScore() is not { } exe) return;
