@@ -26,8 +26,6 @@ internal sealed class MainForm : Form, IHostView
     /// <summary>Client only: plays on this computer's game windows while not connected to a host.</summary>
     private readonly SoloSession? _solo;
     private readonly WindowFinder _windowFinder = new();
-    private readonly string _clientHostAddress = "";
-    private readonly string _clientName = "";
     private readonly HotkeyWindow _hotkeys = new();
     private readonly HashSet<string> _renaming = new();
     private readonly CancellationTokenSource _closing = new();
@@ -50,14 +48,12 @@ internal sealed class MainForm : Form, IHostView
 
     private readonly string[] _args;
 
-    public MainForm(AppRole role, string dataDir, AppSettings settings, string[] args, string clientHostAddress = "", string clientName = "")
+    public MainForm(AppRole role, string dataDir, AppSettings settings, string[] args)
     {
         _args = args;
         _role = role;
         _dataDir = dataDir;
         _settings = settings;
-        _clientHostAddress = clientHostAddress;
-        _clientName = clientName;
         _library = new SongLibrary(dataDir, new RecycleBin());
 
         Ui.InitForm(this, Texts.AppTitle, 400, 620);
@@ -67,7 +63,8 @@ internal sealed class MainForm : Form, IHostView
         Ui.Picture(this, role == AppRole.Client ? "TitleClient.png" : "Title.png", 0, 0, 400, 75);
         // Added after the title picture they sit on, so they must be raised above it (WinForms stacks later controls below).
         Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this)).BringToFront();
-        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds).Show(this)).BringToFront();
+        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds,
+            _client is null ? null : new SettingsForm.Connection(() => _client.IsConnected, ConnectToServer, () => _client.Disconnect())).Show(this)).BringToFront();
 
         // Songs and Playlists share the list area as two tabs; Play plays whichever is showing.
         _tabs = Ui.Add(this, new TabControl(), 10, 75, 290, 305);
@@ -155,10 +152,6 @@ internal sealed class MainForm : Form, IHostView
                 MessageBox.Show(this, $"Could not listen for players on port {Core.Net.PeerConnection.DefaultPort}: {ex.Message}", Texts.AppTitle);
                 Close();
             }
-        }
-        else if (_client is not null)
-        {
-            _ = _client.ConnectAsync(_clientHostAddress, _clientName);
         }
         if (_settings.CheckForUpdates && !IsDisposed)
         {
@@ -332,6 +325,18 @@ internal sealed class MainForm : Form, IHostView
             AppLog.Write("UPnP: port forward removed.");
         }
         catch (Exception ex) { AppLog.Write("UPnP: could not remove the port forward: " + ex.Message); }
+    }
+
+    /// <summary>Settings → Connect to server: asks for the name and server IP (the last ones filled in) and connects.</summary>
+    private void ConnectToServer(IWin32Window owner)
+    {
+        if (_client is null || ConnectForm.Ask(owner, _settings.Name, _settings.HostAddress) is not { } target) return;
+        _settings.Name = target.Name;
+        _settings.HostAddress = target.Address;
+        try { _settings.SaveClientSettings(_dataDir); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { AppLog.Write("Could not save Config.txt: " + ex.Message); }
+        if (_client.IsConnected) _client.Disconnect();
+        _ = _client.ConnectAsync(target.Address, target.Name);
     }
 
     private void SettingsSaved()

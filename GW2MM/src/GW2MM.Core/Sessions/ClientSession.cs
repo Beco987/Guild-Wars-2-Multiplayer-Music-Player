@@ -235,6 +235,18 @@ public sealed class ClientSession : IDisposable
         return true;
     }
 
+    /// <summary>Settings → Disconnect: leaves the host (a part already scheduled is stopped).</summary>
+    public void Disconnect()
+    {
+        PeerConnection? conn;
+        lock (_gate)
+        {
+            _loop?.Stop();
+            conn = _conn;
+        }
+        conn?.Close();
+    }
+
     public void Dispose()
     {
         PeerConnection? conn;

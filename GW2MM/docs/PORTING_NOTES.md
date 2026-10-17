@@ -103,8 +103,8 @@ reachable from any hotkey, button or message.
   (SSDP discovery and the IGD SOAP calls) and `Net/PortOpener.cs`. Tests use a fake router (`UpnpTests`).
 
 * **No preset host address.** The original client's IP prompt was pre-filled with the author's address
-  (`97.118.35.47`). The prompt now offers the address last entered (saved as `HostAddress` in Config.txt), starts
-  empty the first time, and asks again if left blank.
+  (`97.118.35.47`). The Connect to server dialog now offers the address last used (saved as `HostAddress` in
+  Config.txt) and starts empty the first time.
 
 * **Playlists** (not in the original). A Playlists tab next to the song list creates, edits and plays playlists
   on host and client (a client's playlist is played by the host for everyone, like F11). The host plays the songs in
@@ -131,11 +131,12 @@ reachable from any hotkey, button or message.
 
 * **Same keys and Settings on host and client.** The client's default keys are now the host's (F1 play, F2 pause, F3
   stop, F5 next, F10/F11 tempo; it used F11 / Ctrl+F3 / Ctrl+F5 so both could run on one PC). A connected client's F3
-  stops the song for everyone, like typing `stop`. The Settings window is the same on both; options the other one
-  uses are greyed out. OctaveDelay is 100 ms when Config.txt has none.
+  stops the song for everyone, like typing `stop`. The Settings window is the same on both; options only the other one
+  uses (UPnP on the client, Connect to server on the host) are greyed out. OctaveDelay is 100 ms when Config.txt has none.
 
-* **Optional launch prompts (client).** Settings → *Ask name & IP on launch?* (`AskOnLaunch`) skips the name and
-  host address prompts and uses the saved values.
+* **Connecting from Settings (client).** The original client asked for a name and the host's IP address at every
+  start and connected straight away. Now it starts unconnected; Settings → *Connect to server…* asks for both
+  (filled in with the last ones used) and connects, and the same button disconnects.
 
 * **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
   Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.

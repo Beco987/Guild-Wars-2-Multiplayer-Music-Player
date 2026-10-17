@@ -47,35 +47,8 @@ public static class AppMain
             catch (Exception ex) { AppLog.Write("Could not raise process priority: " + ex.Message); }
 
             var settings = AppSettings.Load(dataDir);
-            if (role == AppRole.Client)
-            {
-                // Settings → "Ask for name and IP on launch?" off: use the saved ones (a missing address is still asked for).
-                var name = settings.Name;
-                if (settings.AskOnLaunch)
-                {
-                    (_, name) = InputDialog.Ask("Your Name", "Please enter your username:", settings.Name);
-                    settings.Name = name;
-                    try { settings.SaveWithName(dataDir); }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { AppLog.Write("Could not save Config.txt: " + ex.Message); }
-                }
-                var host = settings.HostAddress;
-                if (settings.AskOnLaunch || host.Trim().Length == 0)
-                {
-                    bool ok;
-                    (ok, host) = InputDialog.Ask("Peer IP address", "Please enter your peer's IP address:", settings.HostAddress);
-                    while (ok && host.Trim().Length == 0)
-                        (ok, host) = InputDialog.Ask("Peer IP address", "Please enter the host's IP address (ask the host for it):", "");
-                    if (!ok) return 0;
-                    settings.HostAddress = host.Trim();
-                    try { settings.SaveHostAddress(dataDir); }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { AppLog.Write("Could not save Config.txt: " + ex.Message); }
-                }
-                form = new MainForm(role, dataDir, settings, args, host.Trim(), name);
-            }
-            else
-            {
-                form = new MainForm(role, dataDir, settings, args);
-            }
+            // A client starts unconnected; it connects from Settings → Connect to server.
+            form = new MainForm(role, dataDir, settings, args);
             Application.Run(form);
             return 0;
         }

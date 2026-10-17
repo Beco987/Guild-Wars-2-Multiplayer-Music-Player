@@ -197,19 +197,18 @@ public sealed class LibraryAndConfigTests : IDisposable
     }
 
     [Fact]
-    public void LaunchPromptsSettingDefaultsOnAndIsSaved()
+    public void TheLastServerAndNameAreRemembered()
     {
-        File.WriteAllText(P("Config.txt"), "Name,Bob\nHostAddress,1.2.3.4\n");
+        File.WriteAllText(P("Config.txt"), "Name,Bob\nHostAddress,1.2.3.4\nAskOnLaunch,0\n");
         var s = AppSettings.Load(_dir);
-        Assert.True(s.AskOnLaunch);
-        s.AskOnLaunch = false;
+        Assert.Equal("Bob", s.Name);
+        Assert.Equal("1.2.3.4", s.HostAddress);
         s.Name = "Alice";
         s.HostAddress = "5.6.7.8";
         s.OffsetMs = 50;
         s.SaveClientSettings(_dir);
         s.SaveDisplaySettings(_dir);
         var again = AppSettings.Load(_dir);
-        Assert.False(again.AskOnLaunch);
         Assert.Equal(50, again.OffsetMs);
         Assert.Equal("Alice", again.Name);
         Assert.Equal("5.6.7.8", again.HostAddress);

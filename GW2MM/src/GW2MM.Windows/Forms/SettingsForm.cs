@@ -13,7 +13,12 @@ internal sealed class SettingsForm : Form
 {
     private const int Width_ = 220;
 
-    public SettingsForm(AppSettings settings, string dataDir, bool isHost, Action applied, Action<IWin32Window> showKeybinds)
+    /// <summary>The client's link to a server: whether it is connected, and connecting (asks for name and IP) or disconnecting.</summary>
+    public sealed record Connection(Func<bool> IsConnected, Action<IWin32Window> Connect, Action Disconnect);
+
+    /// <param name="connection">The client's server connection; null on the host, where the button is greyed out.</param>
+    public SettingsForm(AppSettings settings, string dataDir, bool isHost, Action applied, Action<IWin32Window> showKeybinds,
+        Connection? connection = null)
     {
         Ui.InitForm(this, "Settings", Width_, 330);
         ShowInTaskbar = false;
@@ -35,15 +40,29 @@ internal sealed class SettingsForm : Form
 
         var delay = Field("Octave delay (ms)", settings.OctaveDelay, 60);
         var offset = Field("Offset (ms)", settings.OffsetMs.ToString(CultureInfo.InvariantCulture), 60);
-        var name = Field("Name", settings.Name, 140, enabled: !isHost);
-        var hostAddress = Field("Host IP", settings.HostAddress, 140, enabled: !isHost);
         y += 4;
-        var askOnLaunch = Check("Ask for name && IP on launch", settings.AskOnLaunch, enabled: !isHost);
         var onTop = Check("Always on top", settings.AlwaysOnTop);
         var transparent = Check("Transparent", settings.IsTransparent);
         var updates = Check("Check for updates on launch", settings.CheckForUpdates);
         var openPort = Check("Open port automatically (UPnP)", settings.OpenPortAutomatically, enabled: isHost);
         y += 8;
+        // Client: connect to a server (or leave it). The label follows the connection while the window is open.
+        string ConnectText() => connection?.IsConnected() == true ? "Disconnect from server" : "Connect to server…";
+        var connect = Ui.Button(this, ConnectText(), 0, y, Width_, 28, (_, _) =>
+        {
+            if (connection is null) return;
+            if (connection.IsConnected()) connection.Disconnect();
+            else connection.Connect(this);
+        });
+        connect.Enabled = connection is not null;
+        if (connection is not null)
+        {
+            var refresh = new System.Windows.Forms.Timer { Interval = 300 };
+            refresh.Tick += (_, _) => connect.Text = ConnectText();
+            refresh.Start();
+            FormClosed += (_, _) => refresh.Dispose();
+        }
+        y += 34;
         Ui.Button(this, "Keybinds…", 0, y, Width_, 28, (_, _) => showKeybinds(this));
         y += 34;
         Ui.Button(this, "Save", 0, y, Width_, 36, (_, _) =>
@@ -67,16 +86,9 @@ internal sealed class SettingsForm : Form
             settings.IsTransparent = transparent.Checked;
             settings.CheckForUpdates = updates.Checked;
             if (isHost) settings.OpenPortAutomatically = openPort.Checked;
-            else
-            {
-                settings.AskOnLaunch = askOnLaunch.Checked;
-                settings.Name = name.Text.Replace(",", "").Trim();          // Config.txt is comma-separated
-                settings.HostAddress = hostAddress.Text.Replace(",", "").Trim();
-            }
             try
             {
                 settings.SaveDisplaySettings(dataDir);
-                if (!isHost) settings.SaveClientSettings(dataDir);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

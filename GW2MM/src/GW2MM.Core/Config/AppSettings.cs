@@ -47,11 +47,6 @@ public sealed class AppSettings
             ("PlaylistShuffle", PlaylistShuffle ? "1" : "0"), ("PlaylistRepeat", PlaylistRepeat ? "1" : "0"), ("LastPlaylist", LastPlaylist),
         });
 
-    /// <summary>
-    /// Client only: ask for the user name and host address every launch (the original always did). When off, the
-    /// saved Name and HostAddress are used, and only a missing host address is still asked for.
-    /// </summary>
-    public bool AskOnLaunch { get; set; } = true;
 
     /// <summary>
     /// Offset in ms when playing alone (not in the original; Config.txt "Offset", 0 = off): the windows' starts are
@@ -60,12 +55,9 @@ public sealed class AppSettings
     /// </summary>
     public int OffsetMs { get; set; }
 
-    /// <summary>Client Settings: the launch prompts option and the name and host address it uses.</summary>
+    /// <summary>Client: the name and server address last used to connect (offered again next time).</summary>
     public void SaveClientSettings(string dataDir) =>
-        LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
-        {
-            ("AskOnLaunch", AskOnLaunch ? "1" : "0"), ("Name", Name), ("HostAddress", HostAddress),
-        });
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), new[] { ("Name", Name), ("HostAddress", HostAddress) });
 
     /// <summary>The largest Offset accepted (ms).</summary>
     public const int MaxOffsetMs = 1000;
@@ -85,7 +77,6 @@ public sealed class AppSettings
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
-            AskOnLaunch = c.Get("AskOnLaunch") is not { } ask || LegacyConfig.IsTrue(ask),
             OffsetMs = Ahk.AhkValue.Number(c.Get("Offset") ?? "") is { } offset && offset > 0 ? (int)Math.Min(offset, MaxOffsetMs) : 0,
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
