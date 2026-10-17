@@ -49,6 +49,13 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
    (*Player1*, or else any Guild Wars 2 window) to the front, waits briefly, then plays the 10 test notes.
    A note is only sent while the game is in front. If the game isn't open, Sync says so and keeps the old value.
 
+### Adding songs
+
+**New Song** takes a MIDI file (`.mid`) or a MuseScore score (`.mscz`). A score is first exported to MIDI by
+MuseScore 4, which must be installed. GW2MM looks for `MuseScore4.exe` in the usual install folders. If it isn't
+there, GW2MM asks you to select it once and remembers it (Config.txt `MuseScore`). The exported MIDI is saved
+in `Midi\` like any other song.
+
 ### Chat
 
 Every message shows the sender's name (`bob > hi`; the host is `Host`). The host passes each client's message on

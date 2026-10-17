@@ -65,6 +65,12 @@ public sealed class AppSettings
     /// <summary>Client only: the last host address entered, offered again on the next start (not in the original).</summary>
     public string HostAddress { get; set; } = "";
 
+    /// <summary>Where MuseScore4.exe is, when the user had to point to it (Config.txt "MuseScore"; blank = look in the usual places).</summary>
+    public string MuseScorePath { get; set; } = "";
+
+    public void SaveMuseScorePath(string dataDir) =>
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), new[] { ("MuseScore", MuseScorePath) });
+
     public const string FileName = "Config.txt";
 
     public static AppSettings Load(string dataDir)
@@ -77,6 +83,7 @@ public sealed class AppSettings
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
+            MuseScorePath = (c.Get("MuseScore") ?? "").Trim(),
             OffsetMs = Ahk.AhkValue.Number(c.Get("Offset") ?? "") is { } offset && offset > 0 ? (int)Math.Min(offset, MaxOffsetMs) : 0,
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),

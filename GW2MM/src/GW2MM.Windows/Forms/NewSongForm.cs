@@ -1,24 +1,34 @@
+using GW2MM.Core.Config;
 using GW2MM.Core.Library;
+using Microsoft.Win32;
 
 namespace GW2MM.Windows.Forms;
 
-/// <summary>"New Song": imports a MIDI into the library (Midi\, Data.csv entry, Csv\ conversion).</summary>
+/// <summary>
+/// "New Song": imports a MIDI into the library (Midi\, Data.csv entry, Csv\ conversion). A MuseScore score (.mscz) is
+/// first exported to MIDI by MuseScore 4, which must be installed.
+/// </summary>
 internal sealed class NewSongForm : Form
 {
     private readonly SongLibrary _library;
+    private readonly AppSettings _settings;
+    private readonly string _dataDir;
     private readonly Action _added;
+    private readonly Button _add;
     private readonly TextBox _file, _title, _description;
     private readonly NumericUpDown _players, _tempo;
     private readonly Label _tempoHint;
 
-    public NewSongForm(SongLibrary library, Action added)
+    public NewSongForm(SongLibrary library, AppSettings settings, string dataDir, Action added)
     {
         _library = library;
+        _settings = settings;
+        _dataDir = dataDir;
         _added = added;
         Modern.InitDialog(this, "New Song");
         AllowDrop = true;
-        DragEnter += (_, e) => e.Effect = DroppedMidi(e) is null ? DragDropEffects.None : DragDropEffects.Copy;
-        DragDrop += (_, e) => { if (DroppedMidi(e) is { } f) UseFile(f); };
+        DragEnter += (_, e) => e.Effect = DroppedFile(e) is null ? DragDropEffects.None : DragDropEffects.Copy;
+        DragDrop += (_, e) => { if (DroppedFile(e) is { } f) UseFile(f); };
 
         var root = Modern.Stack(this);
 
@@ -27,13 +37,13 @@ internal sealed class NewSongForm : Form
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 340));
         root.Controls.Add(grid);
 
-        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "Choose or drop a .mid file", Margin = new Padding(0, 4, 0, 0) };
+        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "Choose or drop a .mid or .mscz file", Margin = new Padding(0, 4, 0, 0) };
         var browse = Modern.Secondary("Browse…");
         browse.Click += (_, _) => SelectFile();
         var filePanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
         filePanel.Controls.Add(_file);
         filePanel.Controls.Add(browse);
-        AddRow(grid, "MIDI file", filePanel);
+        AddRow(grid, "File", filePanel);
 
         _title = new TextBox { Width = 334 };
         AddRow(grid, "Title", _title);
@@ -53,8 +63,8 @@ internal sealed class NewSongForm : Form
         _description = new TextBox { Multiline = true, Height = 64, Width = 334, ScrollBars = ScrollBars.Vertical };
         AddRow(grid, "Description", _description);
 
-        var add = Modern.Primary("Add song");
-        add.Click += (_, _) => AddSong();
+        var add = _add = Modern.Primary("Add song");
+        add.Click += async (_, _) => await AddSong();
         var cancel = Modern.Secondary("Cancel");
         cancel.Click += (_, _) => Hide();
         root.Controls.Add(Modern.ButtonRow(add, cancel));
@@ -75,9 +85,8 @@ internal sealed class NewSongForm : Form
         _tempoHint.Text = m == 0 ? "Normal speed" : $"{Math.Abs(m) * 5}% {(m > 0 ? "faster" : "slower")}";
     }
 
-    private static string? DroppedMidi(DragEventArgs e) =>
-        e.Data?.GetData(DataFormats.FileDrop) is string[] { Length: 1 } files
-        && (files[0].EndsWith(".mid", StringComparison.OrdinalIgnoreCase) || files[0].EndsWith(".midi", StringComparison.OrdinalIgnoreCase))
+    private static string? DroppedFile(DragEventArgs e) =>
+        e.Data?.GetData(DataFormats.FileDrop) is string[] { Length: 1 } files && (MuseScore.IsMidi(files[0]) || MuseScore.IsScore(files[0]))
             ? files[0] : null;
 
     private void UseFile(string path)
@@ -90,8 +99,8 @@ internal sealed class NewSongForm : Form
     {
         using var dlg = new OpenFileDialog
         {
-            Title = "Import a MIDI file",
-            Filter = "MIDI files (*.mid; *.midi)|*.mid;*.midi",
+            Title = "Import a song",
+            Filter = "MIDI or MuseScore files (*.mid; *.mscz)|*.mid;*.midi;*.mscz;*.mscx|MIDI files (*.mid)|*.mid;*.midi|MuseScore files (*.mscz)|*.mscz;*.mscx",
             InitialDirectory = Directory.Exists(_library.MidiDir) ? _library.MidiDir : _library.Root,
         };
         if (dlg.ShowDialog(this) == DialogResult.OK) UseFile(dlg.FileName);
@@ -106,16 +115,29 @@ internal sealed class NewSongForm : Form
         _tempo.Value = 0;
     }
 
-    private void AddSong()
+    private async Task AddSong()
     {
         if (_file.Text.Length == 0)
         {
-            MessageBox.Show(this, "Choose a MIDI file first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Choose a .mid or .mscz file first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
+        string? exported = null;
         try
         {
-            var r = _library.AddSong(new NewSongRequest(_title.Text, ((int)_players.Value).ToString(), ((int)_tempo.Value).ToString(), _description.Text, _file.Text));
+            var midi = _file.Text;
+            if (MuseScore.IsScore(midi))
+            {
+                if (FindMuseScore() is not { } exe) return;
+                exported = Path.Combine(Path.GetTempPath(), $"GW2MM-{Guid.NewGuid():N}.mid");
+                _add.Enabled = false;
+                _add.Text = "Converting…";
+                UseWaitCursor = true;
+                try { await MuseScore.ExportMidiAsync(exe, midi, exported); }
+                finally { EndConverting(); }
+                midi = exported;
+            }
+            var r = _library.AddSong(new NewSongRequest(_title.Text, ((int)_players.Value).ToString(), ((int)_tempo.Value).ToString(), _description.Text, midi));
             if (r.ConversionError is not null)
                 MessageBox.Show(this, "The MIDI file could not be fully converted: " + r.ConversionError, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             MessageBox.Show(this, $"\"{r.Title}\" was added to your library.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -123,9 +145,51 @@ internal sealed class NewSongForm : Form
             Hide();
             _added();
         }
-        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            if (exported is not null) try { File.Delete(exported); } catch (IOException) { }
+        }
+    }
+
+    private void EndConverting()
+    {
+        _add.Enabled = true;
+        _add.Text = "Add song";
+        UseWaitCursor = false;
+    }
+
+    /// <summary>MuseScore4.exe: the saved path, the usual install folders, or what opens .mscz files; else the user picks it (and it is saved).</summary>
+    private string? FindMuseScore()
+    {
+        if (MuseScore.Find(_settings.MuseScorePath, MuseScore.DefaultLocations().Append(ScoreOpener() ?? "")) is { } found) return found;
+        MessageBox.Show(this, "MuseScore 4 is needed to import .mscz files, but it wasn't found. Please select MuseScore4.exe.",
+            Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        using var dlg = new OpenFileDialog { Title = "Select MuseScore4.exe", Filter = "MuseScore (MuseScore4.exe)|MuseScore*.exe|Programs (*.exe)|*.exe" };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return null;
+        _settings.MuseScorePath = dlg.FileName;
+        try { _settings.SaveMuseScorePath(_dataDir); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { } // still used this time
+        return dlg.FileName;
+    }
+
+    /// <summary>The program Windows opens .mscz files with, if any (from the file association).</summary>
+    private static string? ScoreOpener()
+    {
+        try
+        {
+            if (Registry.ClassesRoot.OpenSubKey(".mscz")?.GetValue("") is not string progId || progId.Length == 0) return null;
+            if (Registry.ClassesRoot.OpenSubKey(progId + @"\shell\open\command")?.GetValue("") is not string command) return null;
+            command = command.Trim();
+            var exe = command.StartsWith('"') ? command[1..].Split('"')[0] : command.Split(' ')[0];
+            return Path.GetFileName(exe).StartsWith("MuseScore", StringComparison.OrdinalIgnoreCase) ? exe : null;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return null;
         }
     }
 

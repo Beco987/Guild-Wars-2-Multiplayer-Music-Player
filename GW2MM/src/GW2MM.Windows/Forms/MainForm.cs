@@ -545,7 +545,7 @@ internal sealed class MainForm : Form, IHostView
 
     private void ShowNewSong()
     {
-        _newSongForm ??= new NewSongForm(_library, () => { ReloadSongs(); Activate(); });
+        _newSongForm ??= new NewSongForm(_library, _settings, _dataDir, () => { ReloadSongs(); Activate(); });
         _newSongForm.Show(this);
         _newSongForm.Activate();
     }

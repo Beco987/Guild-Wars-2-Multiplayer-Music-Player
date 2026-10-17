@@ -149,7 +149,7 @@ reachable from any hotkey, button or message.
     them in the hidden window without applying them). A client disconnecting still applies the window's values.
     Ping is shown read-only.
   * *New Song* shows the help inline instead of "?" pop-ups, accepts a dragged .mid file and pre-fills the title
-    from the file name. Players and Tempo are number boxes, with a live "10% faster"-style hint.
+    from the file name. It also takes MuseScore scores (.mscz), exported to MIDI by MuseScore 4's command line. Players and Tempo are number boxes, with a live "10% faster"-style hint.
   * *Data Editor* is an editable grid with Save/Cancel and a "discard changes?" prompt. Only edited lines are
     rewritten (as before, in "Name,Players,Tempo,Description" form), and renames still move the song's files. A search
     box above the grid filters the rows by song name.
