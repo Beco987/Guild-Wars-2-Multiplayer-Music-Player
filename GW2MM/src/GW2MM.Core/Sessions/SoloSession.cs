@@ -56,6 +56,7 @@ public sealed class SoloSession : IDisposable
             report: _view.ReportProblem)
         {
             TailMs = tailMs,
+            CurrentEnd = () => { lock (_gate) return _loop?.LastDueMs; },
             GapMs = gapMs,
         };
     }
@@ -87,6 +88,25 @@ public sealed class SoloSession : IDisposable
     }
 
     public bool NextSong() => _runner.Next();
+
+    /// <summary>F2: pauses / resumes the song playing here (a new song starts unpaused).</summary>
+    public void TogglePause()
+    {
+        lock (_gate)
+            if (_loop is { Completion.IsCompleted: false } loop) loop.SetPaused(!loop.IsPaused);
+    }
+
+    /// <summary>F10 / F11: plays the rest of the current song <paramref name="percent"/> % faster (or slower).</summary>
+    public void ChangeTempo(int percent)
+    {
+        lock (_gate)
+        {
+            if (_loop is not { Completion.IsCompleted: false } loop) return;
+            var speed = Math.Clamp(Math.Round(loop.Speed * 100) + percent, 25, 400) / 100.0;
+            loop.SetSpeed(speed);
+            _view.AppendDialog($"Tempo {speed * 100:0}%");
+        }
+    }
 
     /// <summary>Stop: ends the song and playlist and resets the octaves.</summary>
     public Task StopAsync()

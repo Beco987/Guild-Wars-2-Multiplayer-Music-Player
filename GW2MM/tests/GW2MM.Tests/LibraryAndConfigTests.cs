@@ -158,10 +158,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
     }
@@ -180,14 +180,6 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.SaveWithName(_dir);
         Assert.Equal("mynameserver.example.net", AppSettings.Load(_dir).HostAddress);
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
-    }
-
-    [Fact]
-    public void MissingConfigGivesBlankOctaveDelay()
-    {
-        var s = AppSettings.Load(_dir);
-        Assert.Equal("", s.OctaveDelay);
-        Assert.Equal(AppSettings.DefaultOctaveResetDelayMs, s.OctaveDelayMs); // blank: 150 ms, not 0 (all three presses at once)
     }
 
     [Fact]
@@ -215,10 +207,24 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.HostAddress = "5.6.7.8";
         s.OffsetMs = 50;
         s.SaveClientSettings(_dir);
+        s.SaveDisplaySettings(_dir);
         var again = AppSettings.Load(_dir);
         Assert.False(again.AskOnLaunch);
         Assert.Equal(50, again.OffsetMs);
         Assert.Equal("Alice", again.Name);
         Assert.Equal("5.6.7.8", again.HostAddress);
+    }
+
+    [Fact]
+    public void OctaveDelayDefaultsTo100()
+    {
+        Assert.Equal("100", new AppSettings().OctaveDelay);
+        File.WriteAllText(P("Config.txt"), "AlwaysOnTop,0\n");
+        Assert.Equal("100", AppSettings.Load(_dir).OctaveDelay);
+        File.WriteAllText(P("Config.txt"), "OctaveDelay,\n");
+        Assert.Equal("100", AppSettings.Load(_dir).OctaveDelay);
+        File.WriteAllText(P("Config.txt"), "OctaveDelay,130\n");
+        Assert.Equal("130", AppSettings.Load(_dir).OctaveDelay);
+        Assert.Equal(100, new AppSettings().OctaveDelayMs);
     }
 }

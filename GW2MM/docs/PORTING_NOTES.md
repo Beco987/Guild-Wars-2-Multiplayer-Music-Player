@@ -35,7 +35,8 @@ they are covered by the golden tests against the original code.
 * Stop: the host resets octaves (9, 9, 0 to Player1–5, 150 ms apart) and shows its window; a client resets with
   *OctaveDelay* ms pauses. F4 resets octaves and exits. A song ending naturally does not reset octaves.
 * F2 pauses only the host; on resume it catches up overdue notes in a burst, as the paused AHK timer did.
-* F10/F11 on the host change a tempo value that is recalculated at the next Play, so they have no audible effect.
+* (Changed, see section 3: F10/F11 now change the tempo when playing alone. In the original they changed a value
+  that was recalculated at the next Play, so they had no audible effect.)
 * A client can stop the song by typing "stop" in the chat (it has no stop hotkey). The whole message must be "stop"
   (any case); see change 2.
 * Client slots are assigned in order (2–5) and reused after a disconnect. Extra clients can chat but get no slot.
@@ -112,7 +113,7 @@ reachable from any hotkey, button or message.
   (`PlayRequest` carries the name).
 
 * **Solo play on a client** (not in the original). While the client is not connected, Play / F11 plays songs and
-  playlists on its own Player windows, each track with notes on the next open window. Ctrl+F3 stops, Ctrl+F5 skips.
+  playlists on its own Player windows, each track with notes on the next open window. F3 stops, F5 skips.
 
 * **One-player songs on one instrument.** A song with Players = 1 plays all its tracks on one instrument
   (`Arrangement/SingleInstrument`). A chord spanning octaves is played octave by octave, with OctaveDelay after each
@@ -120,9 +121,18 @@ reachable from any hotkey, button or message.
   unfinished engine for this (`OnePlayer`, never called); in the original every song went through the
   multiplayer arrangement and Players only labelled the song list.
 
-* **Offset for solo play** (not in the original). Client Settings → *Offset (ms)* staggers the windows in solo play:
-  with n windows playing, each starts Offset ÷ n ms (rounded down) after the one before, so no two windows press at
-  the same instant. Never applied to host or client playback.
+* **Offset when playing alone** (not in the original). Settings → *Offset (ms)* staggers the windows: with n windows
+  playing, each starts Offset ÷ n ms (rounded down) after the one before, so no two windows press at the same instant.
+  Used by a client that is not connected and a host with no players connected; never when playing with others.
+
+* **Working tempo keys when playing alone.** F10 / F11 make the rest of the current song 1% faster / slower (the
+  chat shows the tempo; each song starts at 100%), on a host with no players connected or a client that is not
+  connected. With players they do nothing (and say so), since every part must follow the host's timing.
+
+* **Same keys and Settings on host and client.** The client's default keys are now the host's (F1 play, F2 pause, F3
+  stop, F5 next, F10/F11 tempo; it used F11 / Ctrl+F3 / Ctrl+F5 so both could run on one PC). A connected client's F3
+  stops the song for everyone, like typing `stop`. The Settings window is the same on both; options the other one
+  uses are greyed out. OctaveDelay is 100 ms when Config.txt has none.
 
 * **Optional launch prompts (client).** Settings → *Ask name & IP on launch?* (`AskOnLaunch`) skips the name and
   host address prompts and uses the saved values.

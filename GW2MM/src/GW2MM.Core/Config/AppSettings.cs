@@ -6,9 +6,12 @@ public sealed class AppSettings
     /// <summary>
     /// Raw OctaveDelay text. The arranger compares it with the gap in MIDI ticks before splitting an octave swap
     /// into its own key press; the client also sleeps this many ms between the octave-reset presses after a stop.
-    /// A missing value behaves like the original's blank value (every swap is split, no sleep).
+    /// A missing or blank value is <see cref="DefaultOctaveDelay"/>.
     /// </summary>
-    public string OctaveDelay { get; set; } = "";
+    public string OctaveDelay { get; set; } = DefaultOctaveDelay;
+
+    /// <summary>OctaveDelay when Config.txt has none (ms).</summary>
+    public const string DefaultOctaveDelay = "100";
     public bool AlwaysOnTop { get; set; }
     public bool IsTransparent { get; set; }
     /// <summary>Look for a newer GitHub release on launch (not in the original; on unless Config.txt says 0).</summary>
@@ -51,17 +54,17 @@ public sealed class AppSettings
     public bool AskOnLaunch { get; set; } = true;
 
     /// <summary>
-    /// Client only: solo play's Offset in ms (not in the original; Config.txt "Offset", 0 = off). The windows' starts
-    /// are spread evenly over it so no two press at the same instant. Never used when connected to a host.
+    /// Offset in ms when playing alone (not in the original; Config.txt "Offset", 0 = off): the windows' starts are
+    /// spread evenly over it so no two press at the same instant. Used by a client that is not connected and by a host
+    /// with no players connected; never when players on other computers take part.
     /// </summary>
     public int OffsetMs { get; set; }
 
-    /// <summary>Client Settings: the launch prompts option, the name and host address it uses, and solo Offset.</summary>
+    /// <summary>Client Settings: the launch prompts option and the name and host address it uses.</summary>
     public void SaveClientSettings(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
         {
             ("AskOnLaunch", AskOnLaunch ? "1" : "0"), ("Name", Name), ("HostAddress", HostAddress),
-            ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         });
 
     /// <summary>The largest Offset accepted (ms).</summary>
@@ -77,7 +80,7 @@ public sealed class AppSettings
         var c = LegacyConfig.Load(Path.Combine(dataDir, FileName));
         return new AppSettings
         {
-            OctaveDelay = c.Get("OctaveDelay") ?? "",
+            OctaveDelay = c.Get("OctaveDelay") is { } od && od.Trim().Length > 0 ? od : DefaultOctaveDelay,
             AlwaysOnTop = LegacyConfig.IsTrue(c.Get("AlwaysOnTop")),
             IsTransparent = LegacyConfig.IsTrue(c.Get("IsTransparent")),
             Name = c.Get("Name") ?? "",
@@ -93,12 +96,13 @@ public sealed class AppSettings
         };
     }
 
-    /// <summary>Settings window "Save": OctaveDelay, AlwaysOnTop, IsTransparent (and the added CheckForUpdates, OpenPort).</summary>
+    /// <summary>Settings window "Save": OctaveDelay, AlwaysOnTop, IsTransparent (and the added CheckForUpdates, OpenPort, Offset).</summary>
     public void SaveDisplaySettings(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[]
         {
             ("OctaveDelay", OctaveDelay), ("AlwaysOnTop", AlwaysOnTop ? "1" : "0"), ("IsTransparent", IsTransparent ? "1" : "0"),
             ("CheckForUpdates", CheckForUpdates ? "1" : "0"), ("OpenPort", OpenPortAutomatically ? "1" : "0"),
+            ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         });
 
     /// <summary>Client start-up: the original rewrote all four values after asking for the user name.</summary>

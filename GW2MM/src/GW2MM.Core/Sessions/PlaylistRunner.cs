@@ -64,6 +64,12 @@ public sealed class PlaylistRunner
     }
 
     public int TailMs { get; init; } = 1500;
+
+    /// <summary>
+    /// When the current song's last note is now due, if that can change while it plays (the tempo keys); the wait
+    /// follows it. Null keeps the time the start function returned.
+    /// </summary>
+    public Func<double?>? CurrentEnd { get; init; }
     public int GapMs { get; init; } = 1500;
 
     public bool IsRunning { get { lock (_gate) return _playlist is not null; } }
@@ -103,8 +109,15 @@ public sealed class PlaylistRunner
                     lock (_gate) _songWait = wait;
                     try
                     {
-                        var remaining = end.Value + TailMs - _clock.NowMs;
-                        if (remaining > 0) await Task.Delay(TimeSpan.FromMilliseconds(remaining), wait.Token).ConfigureAwait(false);
+                        while (true)
+                        {
+                            var due = CurrentEnd?.Invoke() ?? end.Value;
+                            var remaining = due + TailMs - _clock.NowMs;
+                            if (remaining <= 0) break;
+                            // With a changing end, look again at least every quarter second.
+                            await Task.Delay(TimeSpan.FromMilliseconds(CurrentEnd is null ? remaining : Math.Min(remaining, 250)), wait.Token).ConfigureAwait(false);
+                            if (CurrentEnd is null) break;
+                        }
                     }
                     catch (OperationCanceledException) when (!ct.IsCancellationRequested) { } // Next
                     finally { lock (_gate) if (_songWait == wait) _songWait = null; }

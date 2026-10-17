@@ -481,4 +481,19 @@ public sealed class SessionIntegrationTests : IDisposable
         await Wait.Until(() => c.View.Dialog.Contains("♪ Now playing: Scale"), what: "notice");
         Assert.Contains("♪ Now playing: Scale", h.View.Dialog);
     }
+
+    [Fact]
+    public async Task TempoKeysWorkOnlyWhileNoPlayerIsConnected()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12,23"));
+        await host.PlayAsync(Song, 1.0);
+        await Wait.Until(() => host.IsPlaying, what: "the song to start");
+        host.ChangeTempo(5);
+        Assert.Contains("Tempo 105%", h.View.Dialog);
+
+        var (_, _) = await StartClient(host, offset: 0);
+        host.ChangeTempo(5);
+        Assert.Contains("The tempo keys only work while no players are connected.", h.View.Dialog);
+        Assert.DoesNotContain("Tempo 110%", h.View.Dialog);
+    }
 }

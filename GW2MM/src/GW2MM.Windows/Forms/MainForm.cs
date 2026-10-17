@@ -118,7 +118,8 @@ internal sealed class MainForm : Form, IHostView
 
         if (role == AppRole.Host)
         {
-            _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
+            _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter(),
+                offsetMs: () => _settings.OffsetMs);
             Ui.Button(this, "Port", 355, 490, 45, 20, (_, _) => ShowPortMapping());
             _syncButton = Ui.Button(this, "Sync", 355, 510, 45, 20, async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token)));
             _pingButton = Ui.Button(this, "Ping", 355, 530, 45, 20, async (_, _) => await RunGuarded(_pingButton!, () => _host.PingAsync(_closing.Token)));
@@ -184,21 +185,34 @@ internal sealed class MainForm : Form, IHostView
             h["PauseResume"] = () => _host.TogglePause();
             h["NextSong"] = () => _host.NextSong();
             h["StopSong"] = () => _ = _host.Stop();
-            h["TempoUp"] = () => _host.NudgeTempo(0.01);
-            h["TempoDown"] = () => _host.NudgeTempo(-0.01);
+            h["TempoUp"] = () => _host.ChangeTempo(1);
+            h["TempoDown"] = () => _host.ChangeTempo(-1);
         }
         else
         {
+            bool Connected() => _client?.IsConnected == true;
+            void SoloOnly(Action action)
+            {
+                if (Connected()) AppendDialog("That key only works while not connected to a host.");
+                else action();
+            }
             h["RequestSong"] = Play;
-            h["StopSong"] = () => { if (_solo is not null && (_solo.IsPlaying || _solo.IsPlaylistRunning)) _ = RunLogged(_solo.StopAsync); };
+            h["PauseResume"] = () => SoloOnly(() => _solo?.TogglePause());
+            h["StopSong"] = () =>
+            {
+                if (Connected()) _client!.SendChat("stop");   // the chat command that stops the song for everyone
+                else if (_solo is not null && (_solo.IsPlaying || _solo.IsPlaylistRunning)) _ = RunLogged(_solo.StopAsync);
+            };
             h["NextSong"] = () => _solo?.NextSong();
+            h["TempoUp"] = () => SoloOnly(() => _solo?.ChangeTempo(1));
+            h["TempoDown"] = () => SoloOnly(() => _solo?.ChangeTempo(-1));
         }
         return h;
     }
 
     /// <summary>The key combination currently assigned to each action of this role.</summary>
     public IReadOnlyList<(HotkeyAction Action, Hotkey Keys)> CurrentBindings() =>
-        HotkeyCatalog.For(_role).Select(a => (a, _settings.HotkeyFor(a.Id, a.Default))).ToList();
+        HotkeyCatalog.For(_role).Select(a => (a, HotkeyCatalog.KeysFor(_role, _settings, a))).ToList();
 
     /// <summary>(Re)registers every hotkey from the current settings; keys owned by another program are reported.</summary>
     private void RegisterHotkeys()
@@ -349,7 +363,7 @@ internal sealed class MainForm : Form, IHostView
 
     // ------------------------------------------------------------------ commands
 
-    /// <summary>Play icon / F1 (host) / F11 (client): the selected song, or on the Playlists tab the playlist from the selected song.</summary>
+    /// <summary>Play icon / F1: the selected song, or on the Playlists tab the playlist from the selected song.</summary>
     private void Play()
     {
         if (_tabs.SelectedTab == _playlistsPage)

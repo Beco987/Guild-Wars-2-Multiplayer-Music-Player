@@ -21,14 +21,37 @@ internal static class HotkeyCatalog
             new HotkeyAction("NextSong", "Skip to the next song of the playlist", "F5"),
         }.Concat(Windows()).Concat(new[]
         {
-            new HotkeyAction("TempoUp", "Tempo +1% (no audible effect, as in the original)", "F10"),
-            new HotkeyAction("TempoDown", "Tempo -1% (no audible effect, as in the original)", "F11"),
+            new HotkeyAction("TempoUp", "Tempo +1% (no players connected)", "F10"),
+            new HotkeyAction("TempoDown", "Tempo -1% (no players connected)", "F11"),
         }).ToList()
         : new[]
         {
-            new HotkeyAction("RequestSong", "Ask the host to play the selected song (not connected: play it here)", "F11"),
-            new HotkeyAction("StopSong", "Not connected: stop playing and reset octaves", "Ctrl+F3"),
+            // The same default keys as the host.
+            new HotkeyAction("RequestSong", "Play the selected song (connected: ask the host)", "F1"),
+            new HotkeyAction("PauseResume", "Pause / resume (not connected)", "F2"),
+            new HotkeyAction("StopSong", "Stop and reset octaves (connected: stop everyone)", "F3"),
             new HotkeyAction("Exit", "Reset octaves and exit", "F4"),
-            new HotkeyAction("NextSong", "Not connected: skip to the next song of the playlist", "Ctrl+F5"),
-        }.Concat(Windows()).ToList();
+            new HotkeyAction("NextSong", "Skip to the next song of the playlist (not connected)", "F5"),
+        }.Concat(Windows()).Concat(new[]
+        {
+            new HotkeyAction("TempoUp", "Tempo +1% (not connected)", "F10"),
+            new HotkeyAction("TempoDown", "Tempo -1% (not connected)", "F11"),
+        }).ToList();
+
+    /// <summary>
+    /// The client's earlier defaults. Config.txt keeps every binding once the Keybinds window is saved, so a stored
+    /// binding equal to its old default is treated as "default" and follows the new one.
+    /// </summary>
+    private static readonly Dictionary<string, string> OldClientDefaults = new()
+    {
+        ["RequestSong"] = "F11", ["StopSong"] = "Ctrl+F3", ["NextSong"] = "Ctrl+F5",
+    };
+
+    /// <summary>The keys for an action: the stored binding, else its default.</summary>
+    public static GW2MM.Core.Config.Hotkey KeysFor(AppRole role, GW2MM.Core.Config.AppSettings settings, HotkeyAction action) =>
+        role != AppRole.Host && settings.Hotkeys.TryGetValue(action.Id, out var stored)
+            && OldClientDefaults.TryGetValue(action.Id, out var old)
+            && GW2MM.Core.Config.Hotkey.TryParse(stored, out var keys) && keys.ToString() == GW2MM.Core.Config.Hotkey.Parse(old).ToString()
+            ? GW2MM.Core.Config.Hotkey.Parse(action.Default)
+            : settings.HotkeyFor(action.Id, action.Default);
 }

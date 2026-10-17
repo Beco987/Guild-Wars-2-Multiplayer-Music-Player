@@ -230,4 +230,33 @@ public class PlaybackLoopTests
         Assert.Equal(two, Schedule.Stagger(two, 0, 0));
         Assert.Equal(two, Schedule.Stagger(two, 1, 0));   // Floor(1 / 2) = 0, as the original script's 1 ms tick
     }
+
+    [Fact]
+    public void SpeedRetimesTheRestOfTheSong()
+    {
+        var clock = new VirtualClock();
+        var events = new List<PlaybackEvent> { new(100, K(1, 0)), new(200, K(1, 2)), new(300, K(1, 4)), new(400, K(1, 5)) };
+        var keys = new RecordingKeys(clock);
+        var loop = new PlaybackLoop(events, clock, keys);
+        loop.SetSpeed(2);                                // twice as fast from now (0)
+        Assert.Equal(200, loop.LastDueMs);
+        loop.Start();
+        Assert.True(loop.Completion.Wait(5000));
+        Assert.Equal(new[] { 50.0, 100, 150, 200 }, keys.All.Select(p => p.Time));
+        Assert.Equal(2, loop.Speed);
+    }
+
+    [Fact]
+    public void ASpeedChangeWakesAWaitingLoop()
+    {
+        var clock = new OffsetClock(0);
+        var keys = new RecordingKeys(clock);
+        var start = clock.NowMs;
+        var loop = new PlaybackLoop(new List<PlaybackEvent> { new(start + 800, K(1, 0)) }, clock, keys);
+        loop.Start();
+        Thread.Sleep(100);
+        loop.SetSpeed(4);                                // 700 ms left becomes 175 ms
+        Assert.True(loop.Completion.Wait(2000));
+        Assert.InRange(keys.All.Single().Time - start, 200, 400);
+    }
 }

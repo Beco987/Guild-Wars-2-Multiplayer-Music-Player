@@ -138,4 +138,17 @@ public sealed class SoloSessionTests : IDisposable
         Assert.InRange(w3[0].Time - w1[0].Time, 130 - 15, 130 + 15);
         for (var k = 1; k < w1.Count; k++) Assert.InRange(w1[k].Time - w1[k - 1].Time, 200 - 15, 200 + 15);
     }
+
+    [Fact]
+    public void TempoKeysChangeTheSongPlayingSolo()
+    {
+        _windows = new() { 1 };
+        _solo.PlaySong("Duet");
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 1, 5000);
+        for (var i = 0; i < 25; i++) _solo.ChangeTempo(-1);   // 75%: 200 ms apart becomes about 267
+        Assert.Contains("Tempo 75%", _view.Dialog);
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 5, 5000);
+        var p = _keys.All;
+        Assert.InRange(p[4].Time - p[3].Time, 267 - 20, 267 + 20);
+    }
 }

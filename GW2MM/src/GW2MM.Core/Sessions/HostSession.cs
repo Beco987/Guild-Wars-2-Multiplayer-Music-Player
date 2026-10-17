@@ -34,9 +34,14 @@ public sealed class HostSession : IDisposable
     private bool _paused;
     private int _nextId;
     private int _pingBusy, _syncBusy;
+    private readonly Func<int> _offsetMs;
 
-    public HostSession(IHostView view, SongLibrary library, Func<string> octaveDelay, IClock clock, IKeyOutput keys, IInputDelayMeter meter, HostTimings? timings = null)
+    /// <param name="offsetMs">Settings → Offset: while no player is connected, spread the host's windows' starts over
+    /// this many ms (see <see cref="Schedule.Stagger"/>).</param>
+    public HostSession(IHostView view, SongLibrary library, Func<string> octaveDelay, IClock clock, IKeyOutput keys, IInputDelayMeter meter,
+        HostTimings? timings = null, Func<int>? offsetMs = null)
     {
+        _offsetMs = offsetMs ?? (() => 0);
         Timings = timings ?? new HostTimings();
         _view = view;
         Library = library;
@@ -51,11 +56,31 @@ public sealed class HostSession : IDisposable
     public Func<string> OctaveDelay { get; }
 
     /// <summary>
-    /// The tempo factor of the last song started. F10/F11 nudge it by 0.01 like the original hotkeys did; as in the
-    /// original the value is recalculated whenever a song starts, so the nudge has no audible effect.
+    /// The tempo factor of the last song started (the song's Data.csv tempo).
     /// </summary>
     public double DefaultTempo { get; private set; } = 1;
-    public void NudgeTempo(double delta) { lock (_gate) DefaultTempo += delta; }
+
+    /// <summary>
+    /// F10 / F11 (not in the original, whose tempo keys had no audible effect): plays the rest of the current song
+    /// <paramref name="percent"/> % of its tempo faster (or slower). Only while no player is connected: players on
+    /// other computers follow the host's timing. Each new song starts at 100%.
+    /// </summary>
+    public void ChangeTempo(int percent)
+    {
+        lock (_gate)
+        {
+            if (_connections.Count > 0)
+            {
+                _view.AppendDialog("The tempo keys only work while no players are connected.");
+                return;
+            }
+            if (_current?.Loop is not { Completion.IsCompleted: false } loop) return;
+            var speed = Math.Clamp(Math.Round(loop.Speed * 100) + percent, 25, 400) / 100.0;
+            loop.SetSpeed(speed);
+            _current.EndMs = loop.LastDueMs ?? _current.EndMs;
+            _view.AppendDialog($"Tempo {speed * 100:0}%");
+        }
+    }
 
     public int Port { get; private set; }
     public bool IsPaused { get { lock (_gate) return _paused; } }
@@ -367,9 +392,14 @@ public sealed class HostSession : IDisposable
 
             var host = plan[1];
             var hostTimes = host.IsActive ? Schedule.AbsoluteTimes(host, hostTick, 0) : new List<double>();
+            var hostEvents = Schedule.HostEvents(host.Notes, hostTimes);
+            // Playing alone (no player connected): Offset staggers the host's windows. Never with players, who must
+            // follow the host's timing.
+            if (_connections.Count == 0) hostEvents = Schedule.Stagger(hostEvents, _offsetMs(), _clock.NowMs);
             end = Math.Max(end, LastTime(hostTimes));
+            if (hostEvents.Count > 0 && hostEvents[^1].DueMs is { } lastDue) end = Math.Max(end, lastDue);
             run.EndMs = end;
-            var loop = new PlaybackLoop(Schedule.HostEvents(host.Notes, hostTimes), _clock, _keys, _paused);
+            var loop = new PlaybackLoop(hostEvents, _clock, _keys, _paused);
             loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
             run.Loop = loop;
             loop.Start();
@@ -392,6 +422,7 @@ public sealed class HostSession : IDisposable
             lock (_gate) _playlistRun = run;
             return run?.EndMs;
         },
+
         end: () =>
         {
             SongRun? run;
@@ -408,6 +439,7 @@ public sealed class HostSession : IDisposable
         report: _view.ReportProblem)
     {
         TailMs = Timings.SongTailMs,
+        CurrentEnd = () => { lock (_gate) return _playlistRun?.EndMs; },
         GapMs = Timings.PlaylistGapMs,
     };
 

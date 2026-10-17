@@ -36,7 +36,7 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 2. Start `GW2MM-Host.exe`. It listens for clients straight away and reports in the chat box whether it opened the
    port and which address players connect to. Each client starts `GW2MM-Client.exe`, enters a user name and the
    host's IP address (remembered in Config.txt as `HostAddress` and filled in next time), and gets the next free
-   player slot (Ip2–Ip5). To skip both prompts, untick **⚙ → Ask name & IP on launch?** and fill in the Name and Host
+   player slot (Ip2–Ip5). To skip both prompts, untick **⚙ → Ask for name & IP on launch** and fill in the Name and Host
    IP there (`AskOnLaunch,0` in Config.txt). A missing host address is still asked for.
 3. On the host, open **Port**. For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
    the input delays (or use **Sync**), then press **Save**.
@@ -44,7 +44,7 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
    Player2, and so on.
 4. Select a song and press **F1** (or the Play icon). Every machine starts together about 4 s later. **F3** stops
    everyone and resets the instruments' octaves. **F2** pauses/resumes the host's own playback.
-   A client can press **F11** to have the host play the client's selected song, or type `stop` in the chat to stop.
+   A client can press **F1** to have the host play the client's selected song, or **F3** (or type `stop` in the chat) to stop.
 5. **Sync** needs Guild Wars 2 open on every machine. After you press OK on its prompt, GW2MM brings the game window
    (*Player1*, or else any Guild Wars 2 window) to the front, waits briefly, then plays the 10 test notes.
    A note is only sent while the game is in front. If the game isn't open, Sync says so and keeps the old value.
@@ -65,8 +65,8 @@ octave changes.
 
 A chord whose notes lie in more than one octave is played octave by octave. Its notes in one octave are pressed
 together, then the octave changes, then the next group follows OctaveDelay later. The order needs the fewest changes
-(from the lowest octave on a tie). After every octave change the next note waits at least OctaveDelay (150 ms if
-blank). The changes before a chord go into the gap before it when there is room. When there is not, the following
+(from the lowest octave on a tie). After every octave change the next note waits at least OctaveDelay (100 ms
+by default). The changes before a chord go into the gap before it when there is room. When there is not, the following
 notes are delayed just enough and the song catches up at the next rest. Notes outside C3–C6 are moved by whole
 octaves into range.
 
@@ -77,27 +77,27 @@ octave. Every song (any number of players) presses each octave change at least *
 the gap since the previous note allows. It stays at the gap's midpoint when there is plenty of room, and goes right
 after the previous note when the gap is shorter. A jump straight between the low and high octave gets two changes,
 OctaveDelay apart. Notes are never moved, so the rhythm and the sync between players are unchanged. The octave resets
-after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients (150 ms
-when OctaveDelay is blank). Set it to about twice your in-game ping.
+after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients. OctaveDelay
+is 100 ms unless set (⚙ → Octave delay). Set it to about twice your in-game ping.
 
 ### Playing solo (client, not connected)
 
-When the client is not connected to a host (it could not connect, or the host went away), Play / F11 plays the song
+When the client is not connected to a host (it could not connect, or the host went away), Play / F1 plays the song
 or playlist on this computer's own game windows instead of asking a host. The song's tracks that contain notes go,
 in order, to the open windows named Player1…Player8: the first track to the lowest-numbered window, and so on. This
 is the same arrangement a host gives a client assigned those tracks. If the song has more parts than windows are
-open, the extra parts are not played (the chat says so). **Ctrl+F3** stops and resets octaves, **Ctrl+F5** (or Next ►)
+open, the extra parts are not played (the chat says so). **F3** stops and resets octaves, **F5** (or Next ►)
 skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
 Once the client is connected, the host takes over again.
 
-**⚙ → Offset (ms)** (client only, `Offset` in Config.txt, 0 = off) staggers the windows during solo play so no two
-press a key at the same instant. With *n* windows playing, each starts Offset ÷ *n* ms (rounded down) after the one
+**⚙ → Offset (ms)** (`Offset` in Config.txt, 0 = off) staggers the windows when you play alone (a client that is not
+connected, or a host with no players connected) so no two press a key at the same instant. With *n* windows playing, each starts Offset ÷ *n* ms (rounded down) after the one
 before: Offset 50 with 3 windows puts Player2 16 ms and Player3 32 ms behind Player1. Each window keeps its own
-timing. One window, and playing with a host, are never offset.
+timing. One window, and playing with others, are never offset.
 
 ### Playlists
 
-The song list has two tabs, **Songs** and **Playlists**; the Play icon (host F1, client F11) plays whatever the
+The song list has two tabs, **Songs** and **Playlists**; the Play icon (F1) plays whatever the
 tab shows.
 
 * **Make a playlist:** Playlists tab → **Playlist ▾ → New playlist…**, then **Add songs…** (tick songs, filter by
@@ -111,7 +111,7 @@ tab shows.
   host's **Next ►** button or **F5** skips ahead. **F3**, typing `stop` in the chat, or playing any other song or
   playlist ends it.
 * **From a client:** a client plays its own playlists the same way. Its songs are sent to the host, which plays them
-  for everyone, exactly like a single song requested with F11.
+  for everyone, exactly like a single song requested with F1.
 
 Playlists are plain text files in the `Playlists` folder next to the exe (one song name per line; **Playlist ▾ →
 Open Playlists folder**), so they are easy to copy to another computer. Songs that are not in the song list are
@@ -123,16 +123,22 @@ there too.
 Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybinds…**; they are saved in Config.txt as
 `Key_<action>,<keys>` lines):
 
+Host and client have the same default keys:
+
 | Keys | Host | Client |
 |---|---|---|
-| F1 | Play the selected song (on the Playlists tab: the playlist) | – |
-| F2 | Pause/resume this computer's playback | – |
-| F3 | Stop everyone, reset octaves | Ctrl+F3: stop solo playback, reset octaves |
+| F1 | Play the selected song (on the Playlists tab: the playlist) | Same; when connected, asks the host to play it for everyone |
+| F2 | Pause/resume this computer's playback | Pause/resume (not connected) |
+| F3 | Stop everyone, reset octaves | Stop, reset octaves; when connected, stops the song for everyone (like typing `stop`) |
 | F4 | Reset octaves, exit | Reset octaves, exit |
-| F5 | Skip to the next song of the playlist | Ctrl+F5: same, when playing solo |
-| Shift+F1 … Shift+F8 | Rename the active Guild Wars 2 window to Player1 … Player8 | same |
-| F10 / F11 | Tempo ±1 % (no audible effect, as in the original) | F11: ask the host to play the selected song (or playlist); not connected: play it solo |
+| F5 | Skip to the next song of the playlist | Same (not connected) |
+| Shift+F1 … Shift+F8 | Rename the active Guild Wars 2 window to Player1 … Player8 | Same |
+| F10 / F11 | Tempo +1 % / −1 % for the song playing, while no players are connected | Same, while not connected |
 | Esc | Close (main window) | – |
+
+The tempo keys speed up or slow down the rest of the current song (the chat shows the new tempo); each new song
+starts at 100%. They never apply while playing with others, whose parts must follow the host's timing. Running
+host and client on the same PC, the second one can't use keys the first already has: change them in Keybinds.
 
 Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.
 
@@ -165,7 +171,7 @@ computer. Testing your own public address from inside your network often fails e
 routers don't support it). `GW2MM.log` records the router, the forwarded address and the firewall result.
 
 The forward GW2MM added is removed when the host closes. If the host crashes, the forward is cleaned up the next time
-it closes normally. Turn this off in Settings (⚙) → *Auto-open port (UPnP)?*, stored as `OpenPort,0` in
+it closes normally. Turn this off in Settings (⚙) → *Open port automatically (UPnP)*, stored as `OpenPort,0` in
 Config.txt. Clients never need an open port.
 
 ## Updates
@@ -175,7 +181,7 @@ running version, it asks whether to install it. On "Yes" it downloads the execut
 the release's size and SHA-256), replaces itself, and restarts with the same arguments. If the exe's folder is not
 writable, or the release has no matching file, it offers to open the release page instead. A failed check (offline,
 GitHub unreachable) is silent; the details go to `GW2MM.log`. Turn it off in Settings (⚙) → *Check for updates
-on launch?*, stored as `CheckForUpdates,0` in Config.txt. Drafts and pre-releases are never offered.
+on launch*, stored as `CheckForUpdates,0` in Config.txt. Drafts and pre-releases are never offered.
 
 **Publishing a release:** use any one of these. Each runs the tests, builds `GW2MM-Host.exe` and `GW2MM-Client.exe`
 stamped with the version, and attaches them to the GitHub release:

@@ -93,7 +93,7 @@ internal sealed class PlaylistPanel : UserControl
         var tips = new ToolTip();
         tips.SetToolTip(_up, "Move up (Alt+Up)");
         tips.SetToolTip(_down, "Move down (Alt+Down)");
-        if (_next is not null) tips.SetToolTip(_next, "Skip to the next song of the playlist that is playing (F5 on the host, Ctrl+F5 on a client)");
+        if (_next is not null) tips.SetToolTip(_next, "Skip to the next song of the playlist that is playing (F5)");
         tips.SetToolTip(menuButton, "New, rename, delete, shuffle, repeat");
 
         _picker.SelectedIndexChanged += (_, _) =>

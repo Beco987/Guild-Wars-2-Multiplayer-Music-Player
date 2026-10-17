@@ -199,7 +199,7 @@ public sealed class ClientSession : IDisposable
         Send(new Typing(typing));
     }
 
-    /// <summary>F11 / the Play button: asks the host to play the selected song from this machine's library.</summary>
+    /// <summary>F1 / the Play button: asks the host to play the selected song from this machine's library.</summary>
     public void RequestPlay(string? songName)
     {
         var name = songName ?? "";
@@ -209,7 +209,7 @@ public sealed class ClientSession : IDisposable
     }
 
     /// <summary>
-    /// Asks the host to play one of this library's playlists for everyone (the client's F11 / Play on the Playlists
+    /// Asks the host to play one of this library's playlists for everyone (the client's F1 / Play on the Playlists
     /// tab). Songs missing from the library are skipped. Returns false when nothing could be sent.
     /// </summary>
     public bool RequestPlaylist(Playlist playlist, int startIndex, bool shuffle, bool repeat)
