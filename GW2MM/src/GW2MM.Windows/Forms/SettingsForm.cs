@@ -5,9 +5,9 @@ using GW2MM.Core.Config;
 namespace GW2MM.Windows.Forms;
 
 /// <summary>
-/// The Settings window, the same on host and client except that only the host has the UPnP option; the client's
-/// Connect to server button is greyed out on the host. Saving writes Config.txt and applies the values immediately (the original restarted the whole script,
-/// which also dropped every network connection).
+/// The Settings window, the same on host and client except that only the host has the UPnP option and only the
+/// client has Connect to server. Saving writes Config.txt and applies the values immediately (the original restarted
+/// the whole script, which also dropped every network connection).
 /// </summary>
 internal sealed class SettingsForm : Form
 {
@@ -16,7 +16,7 @@ internal sealed class SettingsForm : Form
     /// <summary>The client's link to a server: whether it is connected, and connecting (asks for name and IP) or disconnecting.</summary>
     public sealed record Connection(Func<bool> IsConnected, Action<IWin32Window> Connect, Action Disconnect);
 
-    /// <param name="connection">The client's server connection; null on the host, where the button is greyed out.</param>
+    /// <param name="connection">The client's server connection; null on the host (no Connect button).</param>
     public SettingsForm(AppSettings settings, string dataDir, bool isHost, Action applied, Action<IWin32Window> showKeybinds,
         Connection? connection = null)
     {
@@ -46,23 +46,21 @@ internal sealed class SettingsForm : Form
         var updates = Check("Check for updates on launch", settings.CheckForUpdates);
         var openPort = isHost ? Check("Open port automatically (UPnP)", settings.OpenPortAutomatically) : null;
         y += 8;
-        // Client: connect to a server (or leave it). The label follows the connection while the window is open.
-        string ConnectText() => connection?.IsConnected() == true ? "Disconnect from server" : "Connect to server…";
-        var connect = Ui.Button(this, ConnectText(), 0, y, Width_, 28, (_, _) =>
-        {
-            if (connection is null) return;
-            if (connection.IsConnected()) connection.Disconnect();
-            else connection.Connect(this);
-        });
-        connect.Enabled = connection is not null;
+        // Client only: connect to a server (or leave it). The label follows the connection while the window is open.
         if (connection is not null)
         {
+            string ConnectText() => connection.IsConnected() ? "Disconnect from server" : "Connect to server…";
+            var connect = Ui.Button(this, ConnectText(), 0, y, Width_, 28, (_, _) =>
+            {
+                if (connection.IsConnected()) connection.Disconnect();
+                else connection.Connect(this);
+            });
             var refresh = new System.Windows.Forms.Timer { Interval = 300 };
             refresh.Tick += (_, _) => connect.Text = ConnectText();
             refresh.Start();
             FormClosed += (_, _) => refresh.Dispose();
+            y += 34;
         }
-        y += 34;
         Ui.Button(this, "Keybinds…", 0, y, Width_, 28, (_, _) => showKeybinds(this));
         y += 34;
         Ui.Button(this, "Save", 0, y, Width_, 36, (_, _) =>

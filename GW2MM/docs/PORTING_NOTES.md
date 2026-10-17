@@ -132,7 +132,7 @@ reachable from any hotkey, button or message.
 * **Same keys and Settings on host and client.** The client's default keys are now the host's (F1 play, F2 pause, F3
   stop, F5 next, F10/F11 tempo; it used F11 / Ctrl+F3 / Ctrl+F5 so both could run on one PC). A connected client's F3
   stops the song for everyone, like typing `stop`. The Settings window is the same on both; options only the other one
-  uses (UPnP on the client, Connect to server on the host) are greyed out. OctaveDelay is 100 ms when Config.txt has none.
+  uses (UPnP on the host, Connect to server on the client) only appear there. OctaveDelay is 100 ms when Config.txt has none.
 
 * **Connecting from Settings (client).** The original client asked for a name and the host's IP address at every
   start and connected straight away. Now it starts unconnected; Settings → *Connect to server…* asks for both
