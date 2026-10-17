@@ -5,8 +5,8 @@ using GW2MM.Core.Config;
 namespace GW2MM.Windows.Forms;
 
 /// <summary>
-/// The Settings window, the same on host and client. Options that only one of them uses are shown greyed out on the
-/// other. Saving writes Config.txt and applies the values immediately (the original restarted the whole script,
+/// The Settings window, the same on host and client except that only the host has the UPnP option; the client's
+/// Connect to server button is greyed out on the host. Saving writes Config.txt and applies the values immediately (the original restarted the whole script,
 /// which also dropped every network connection).
 /// </summary>
 internal sealed class SettingsForm : Form
@@ -44,7 +44,7 @@ internal sealed class SettingsForm : Form
         var onTop = Check("Always on top", settings.AlwaysOnTop);
         var transparent = Check("Transparent", settings.IsTransparent);
         var updates = Check("Check for updates on launch", settings.CheckForUpdates);
-        var openPort = Check("Open port automatically (UPnP)", settings.OpenPortAutomatically, enabled: isHost);
+        var openPort = isHost ? Check("Open port automatically (UPnP)", settings.OpenPortAutomatically) : null;
         y += 8;
         // Client: connect to a server (or leave it). The label follows the connection while the window is open.
         string ConnectText() => connection?.IsConnected() == true ? "Disconnect from server" : "Connect to server…";
@@ -85,7 +85,7 @@ internal sealed class SettingsForm : Form
             settings.AlwaysOnTop = onTop.Checked;
             settings.IsTransparent = transparent.Checked;
             settings.CheckForUpdates = updates.Checked;
-            if (isHost) settings.OpenPortAutomatically = openPort.Checked;
+            if (openPort is not null) settings.OpenPortAutomatically = openPort.Checked;
             try
             {
                 settings.SaveDisplaySettings(dataDir);

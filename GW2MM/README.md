@@ -120,10 +120,10 @@ there too.
 
 ### Hotkeys
 
-Defaults (change them in **Controls → Change keybinds…** or **⚙ → Keybinds…**; they are saved in Config.txt as
+Defaults (change them in **⚙ → Keybinds…**; they are saved in Config.txt as
 `Key_<action>,<keys>` lines):
 
-Host and client have the same default keys:
+Host and client have the same default keys. The **Pause** and **Stop** buttons (bottom right) do what F2 and F3 do.
 
 | Keys | Host | Client |
 |---|---|---|

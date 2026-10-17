@@ -138,8 +138,8 @@ reachable from any hotkey, button or message.
   start and connected straight away. Now it starts unconnected; Settings → *Connect to server…* asks for both
   (filled in with the last ones used) and connects, and the same button disconnects.
 
-* **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Controls → Change keybinds…, or
-  Settings → Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
+* **Configurable hotkeys.** Every hotkey can be changed in a Keybinds window (Settings →
+  Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
   The window-naming defaults changed on request from F5–F9 (host also Shift+F6–F8) to **Shift+F1–Shift+F8 for
   Player1–Player8**, now on the client too (it could only name Player1–5 before). The other defaults are unchanged.
 * **Redesigned dialogs** (New Song, Data Editor, Controls, Port Mapping). Same fields and the same effects on
@@ -152,7 +152,7 @@ reachable from any hotkey, button or message.
     from the file name. Players and Tempo are number boxes, with a live "10% faster"-style hint.
   * *Data Editor* is an editable grid with Save/Cancel and a "discard changes?" prompt. Only edited lines are
     rewritten (as before, in "Name,Players,Tempo,Description" form), and renames still move the song's files.
-  * *Controls* lists the hotkeys as key caps.
+  * *Controls* is gone: its button is now **Pause** and **Stop** buttons (F2 / F3), and keys are listed in Keybinds.
 
 ## 4. Verification
 

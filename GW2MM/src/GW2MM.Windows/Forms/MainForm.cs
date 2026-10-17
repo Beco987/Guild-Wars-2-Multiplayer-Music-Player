@@ -109,8 +109,11 @@ internal sealed class MainForm : Form, IHostView
         _tabs.SelectedIndexChanged += (_, _) => _playLabel.Text = _tabs.SelectedTab == _playlistsPage ? "Play playlist" : "Play";
         _description = Ui.Add(this, new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical }, 100, 390, 200, 80);
         Ui.Label(this, "Song Description", 100, 470, 200, 15, ContentAlignment.TopCenter);
-        Ui.Picture(this, "return.png", 310, 390, 80, 80, (_, _) => new ControlsForm(this).Show(this));
-        Ui.Label(this, "Controls", 310, 470, 80, 15, ContentAlignment.TopCenter);
+        // Pause and Stop do what F2 and F3 do.
+        Ui.Picture(this, "Pause.png", 310, 410, 38, 38, (_, _) => RunHotkey("PauseResume"));
+        Ui.Label(this, "Pause", 302, 450, 54, 15, ContentAlignment.TopCenter);
+        Ui.Picture(this, "Stop.png", 352, 410, 38, 38, (_, _) => RunHotkey("StopSong"));
+        Ui.Label(this, "Stop", 344, 450, 54, 15, ContentAlignment.TopCenter);
 
         _dialog = Ui.Add(this, new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical }, 50, 490, 300, 80);
         _input = Ui.Add(this, new TextBox { ReadOnly = true, MaxLength = 65535 }, 50, 570, 300, 22);
@@ -207,6 +210,12 @@ internal sealed class MainForm : Form, IHostView
             h["TempoDown"] = () => SoloOnly(() => _solo?.ChangeTempo(-1));
         }
         return h;
+    }
+
+    /// <summary>Runs what a hotkey action does (the Pause and Stop buttons).</summary>
+    private void RunHotkey(string actionId)
+    {
+        if (HotkeyHandlers().TryGetValue(actionId, out var action)) action();
     }
 
     /// <summary>The key combination currently assigned to each action of this role.</summary>
