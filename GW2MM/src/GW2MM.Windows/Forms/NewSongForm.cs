@@ -21,27 +21,25 @@ internal sealed class NewSongForm : Form
         DragDrop += (_, e) => { if (DroppedMidi(e) is { } f) UseFile(f); };
 
         var root = Modern.Stack(this);
-        root.Controls.Add(Modern.Heading("Add a song"));
-        root.Controls.Add(Modern.Caption("Import a MIDI file into your library. It is converted for playback and listed in the main window.", 420));
 
         var grid = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Margin = new Padding(0) };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 340));
         root.Controls.Add(grid);
 
-        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "No file selected", Margin = new Padding(0, 4, 0, 0) };
+        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "Choose or drop a .mid file", Margin = new Padding(0, 4, 0, 0) };
         var browse = Modern.Secondary("Browse…");
         browse.Click += (_, _) => SelectFile();
         var filePanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
         filePanel.Controls.Add(_file);
         filePanel.Controls.Add(browse);
-        AddRow(grid, "MIDI file", filePanel, "Or drag a .mid file onto this window.");
+        AddRow(grid, "MIDI file", filePanel);
 
         _title = new TextBox { Width = 334 };
-        AddRow(grid, "Title", _title, "The song's name in the list (also used for its file names).");
+        AddRow(grid, "Title", _title);
 
         _players = new NumericUpDown { Minimum = 1, Maximum = 8, Value = 1, Width = 70 };
-        AddRow(grid, "Players", _players, "How many players the arrangement is for (shown in the song list).");
+        AddRow(grid, "Players", _players);
 
         _tempo = new NumericUpDown { Minimum = -10, Maximum = 10, Value = 0, Width = 70, Margin = new Padding(0) };
         _tempoHint = new Label { AutoSize = true, ForeColor = Modern.Accent, Margin = new Padding(10, 3, 0, 0) };
@@ -49,11 +47,11 @@ internal sealed class NewSongForm : Form
         var tempoPanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
         tempoPanel.Controls.Add(_tempo);
         tempoPanel.Controls.Add(_tempoHint);
-        AddRow(grid, "Tempo", tempoPanel, "MIDI files don't always import at the right speed. Each step is 5% (you can change it later in the Data Editor).");
+        AddRow(grid, "Tempo", tempoPanel);
         UpdateTempoHint();
 
         _description = new TextBox { Multiline = true, Height = 64, Width = 334, ScrollBars = ScrollBars.Vertical };
-        AddRow(grid, "Description", _description, "For example, which instruments to use, in player order.");
+        AddRow(grid, "Description", _description);
 
         var add = Modern.Primary("Add song");
         add.Click += (_, _) => AddSong();
@@ -64,16 +62,11 @@ internal sealed class NewSongForm : Form
         CancelButton = cancel;
     }
 
-    private static void AddRow(TableLayoutPanel grid, string label, Control input, string caption)
+    private static void AddRow(TableLayoutPanel grid, string label, Control input)
     {
         grid.Controls.Add(Modern.FieldLabel(label));
-        var cell = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = new Padding(0, 0, 0, 4) };
-        input.Margin = new Padding(0, 3, 0, 0);
-        cell.Controls.Add(input);
-        var c = Modern.Caption(caption, 334);
-        c.Margin = new Padding(0, 2, 0, 6);
-        cell.Controls.Add(c);
-        grid.Controls.Add(cell);
+        input.Margin = new Padding(0, 3, 0, 8);
+        grid.Controls.Add(input);
     }
 
     private void UpdateTempoHint()

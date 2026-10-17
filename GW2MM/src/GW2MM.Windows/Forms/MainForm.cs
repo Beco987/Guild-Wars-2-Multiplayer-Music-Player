@@ -33,6 +33,8 @@ internal sealed class MainForm : Form, IHostView
     private PortOpener? _portOpener;
 
     private readonly ListView _songs;
+    private readonly TextBox _search;
+    private List<SongEntry> _allSongs = new();
     private readonly TabControl _tabs;
     private readonly TabPage _playlistsPage;
     private readonly PlaylistPanel _playlists;
@@ -76,7 +78,11 @@ internal sealed class MainForm : Form, IHostView
         {
             View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, ShowItemToolTips = true, Dock = DockStyle.Fill,
         };
+        _search = new TextBox { Dock = DockStyle.Top, PlaceholderText = "Search songs" };
+        _search.TextChanged += (_, _) => ShowSongs();
+        songsPage.Controls.Add(_search);
         songsPage.Controls.Add(_songs);
+        _songs.BringToFront(); // fills the space below the search box
         _songs.Columns.Add("Name", 162);
         _songs.Columns.Add("Players", 54);
         _songs.Columns.Add("Date", 62);
@@ -250,6 +256,12 @@ internal sealed class MainForm : Form, IHostView
     protected override void OnKeyDown(KeyEventArgs e)
     {
         // The original host window closed on Escape (GuiEscape); the client's did not.
+        if (e.KeyCode == Keys.Escape && ActiveControl == _search && _search.Text.Length > 0)
+        {
+            _search.Clear();                     // Esc in the search box clears it
+            e.Handled = e.SuppressKeyPress = true;
+            return;
+        }
         if (_role == AppRole.Host && e.KeyCode == Keys.Escape) Close();
         base.OnKeyDown(e);
     }
@@ -462,19 +474,31 @@ internal sealed class MainForm : Form, IHostView
 
     private void ReloadSongs()
     {
-        _songs.BeginUpdate();
-        _songs.Items.Clear();
-        try
-        {
-            foreach (var s in _library.ListSongs()) _songs.Items.Add(new ListViewItem(new[] { s.Name, s.Players, s.Date }) { Tag = s });
-        }
+        try { _allSongs = _library.ListSongs(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            _allSongs = new List<SongEntry>();
             ReportProblem("Could not read the song list: " + ex.Message);
         }
-        _songs.EndUpdate();
+        ShowSongs();
         try { _playlists.LibraryChanged(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ReportProblem("Could not read the playlists: " + ex.Message); }
+    }
+
+    /// <summary>Lists the songs that match the search box (all of them when it is empty), keeping the selection.</summary>
+    private void ShowSongs()
+    {
+        var query = _search.Text;
+        _songs.BeginUpdate();
+        _songs.Items.Clear();
+        foreach (var s in _allSongs.Where(s => s.Matches(query)))
+        {
+            var item = new ListViewItem(new[] { s.Name, s.Players, s.Date }) { Tag = s };
+            _songs.Items.Add(item);
+            if (s.Name == _highlighted) item.Selected = true;
+        }
+        _songs.EndUpdate();
+        if (_songs.SelectedItems.Count > 0) _songs.SelectedItems[0].EnsureVisible();
     }
 
     private int _sortColumn = -1;

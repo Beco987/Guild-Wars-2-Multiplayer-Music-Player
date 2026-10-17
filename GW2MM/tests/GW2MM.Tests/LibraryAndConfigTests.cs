@@ -226,4 +226,15 @@ public sealed class LibraryAndConfigTests : IDisposable
         Assert.Equal("130", AppSettings.Load(_dir).OctaveDelay);
         Assert.Equal(100, new AppSettings().OctaveDelayMs);
     }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("ave", true)]
+    [InlineData("MARIA ave", true)]
+    [InlineData("  bach  ", true)]
+    [InlineData("gounod", false)]
+    [InlineData("ave tetris", false)]
+    [InlineData("eclair", true)]   // accents are ignored
+    public void SongSearchMatchesEveryWordOfTheName(string query, bool matches) =>
+        Assert.Equal(matches, new SongEntry("Ave Maria (Bach) Éclair", "1", "2026-10-11").Matches(query));
 }

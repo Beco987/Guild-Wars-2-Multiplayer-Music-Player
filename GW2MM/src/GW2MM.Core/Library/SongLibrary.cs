@@ -18,7 +18,28 @@ public sealed class DeleteFileRecycler : IFileRecycler
 
 /// <summary>A row of the main song list.</summary>
 /// <param name="Added">When the song was added: the full timestamp behind <paramref name="Date"/>, for sorting.</param>
-public sealed record SongEntry(string Name, string Players, string Date, DateTime Added = default);
+public sealed record SongEntry(string Name, string Players, string Date, DateTime Added = default)
+{
+    /// <summary>
+    /// The song list's search: every word of <paramref name="query"/> appears in the name (any order, any case,
+    /// ignoring accents); an empty query matches everything.
+    /// </summary>
+    public bool Matches(string query)
+    {
+        var name = Fold(Name);
+        return query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).All(w => name.Contains(Fold(w), StringComparison.Ordinal));
+    }
+
+    private static string Fold(string s)
+    {
+        var d = s.Normalize(System.Text.NormalizationForm.FormD);
+        var b = new System.Text.StringBuilder(d.Length);
+        foreach (var c in d)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                b.Append(char.ToLowerInvariant(c));
+        return b.ToString();
+    }
+}
 
 public sealed record NewSongRequest(string Title, string Players, string TempoModifier, string Description, string SelectedMidiPath);
 

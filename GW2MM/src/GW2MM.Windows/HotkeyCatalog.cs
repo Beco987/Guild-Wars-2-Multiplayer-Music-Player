@@ -8,34 +8,20 @@ internal sealed record HotkeyAction(string Id, string Label, string Default);
 internal static class HotkeyCatalog
 {
     private static IEnumerable<HotkeyAction> Windows() =>
-        Enumerable.Range(1, 8).Select(n => new HotkeyAction($"Window{n}",
-            n == 1 ? "Name the active Guild Wars 2 window Player 1" : $"Name it Player {n}", $"Shift+F{n}"));
+        Enumerable.Range(1, 8).Select(n => new HotkeyAction($"Window{n}", $"Name window Player{n}", $"Shift+F{n}"));
 
-    public static IReadOnlyList<HotkeyAction> For(AppRole role) => role == AppRole.Host
-        ? new[]
+    // Host and client have the same keys; the client's Play action keeps its own id ("RequestSong") in Config.txt.
+    public static IReadOnlyList<HotkeyAction> For(AppRole role) => new[]
         {
-            new HotkeyAction("PlaySong", "Play the selected song for everyone", "F1"),
-            new HotkeyAction("PauseResume", "Pause / resume this computer's playback", "F2"),
-            new HotkeyAction("StopSong", "Stop everyone and reset octaves", "F3"),
-            new HotkeyAction("Exit", "Reset octaves and exit", "F4"),
-            new HotkeyAction("NextSong", "Skip to the next song of the playlist", "F5"),
+            new HotkeyAction(role == AppRole.Host ? "PlaySong" : "RequestSong", "Play", "F1"),
+            new HotkeyAction("PauseResume", "Pause / resume", "F2"),
+            new HotkeyAction("StopSong", "Stop", "F3"),
+            new HotkeyAction("Exit", "Exit", "F4"),
+            new HotkeyAction("NextSong", "Next song", "F5"),
         }.Concat(Windows()).Concat(new[]
         {
-            new HotkeyAction("TempoUp", "Tempo +1% (no players connected)", "F10"),
-            new HotkeyAction("TempoDown", "Tempo -1% (no players connected)", "F11"),
-        }).ToList()
-        : new[]
-        {
-            // The same default keys as the host.
-            new HotkeyAction("RequestSong", "Play the selected song (connected: ask the host)", "F1"),
-            new HotkeyAction("PauseResume", "Pause / resume (not connected)", "F2"),
-            new HotkeyAction("StopSong", "Stop and reset octaves (connected: stop everyone)", "F3"),
-            new HotkeyAction("Exit", "Reset octaves and exit", "F4"),
-            new HotkeyAction("NextSong", "Skip to the next song of the playlist (not connected)", "F5"),
-        }.Concat(Windows()).Concat(new[]
-        {
-            new HotkeyAction("TempoUp", "Tempo +1% (not connected)", "F10"),
-            new HotkeyAction("TempoDown", "Tempo -1% (not connected)", "F11"),
+            new HotkeyAction("TempoUp", "Tempo up", "F10"),
+            new HotkeyAction("TempoDown", "Tempo down", "F11"),
         }).ToList();
 
     /// <summary>

@@ -98,7 +98,7 @@ timing. One window, and playing with others, are never offset.
 ### Playlists
 
 The song list has two tabs, **Songs** and **Playlists**; the Play icon (F1) plays whatever the
-tab shows.
+tab shows. The search box above the songs shows only the songs whose names contain every word typed (Esc clears it).
 
 * **Make a playlist:** Playlists tab → **Playlist ▾ → New playlist…**, then **Add songs…** (tick songs, filter by
   name). Or right-click a song on the Songs tab → **Add to playlist**.

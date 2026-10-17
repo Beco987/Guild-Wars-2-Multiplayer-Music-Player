@@ -24,11 +24,7 @@ internal sealed class KeybindsForm : Form
         KeyPreview = false;
 
         var root = Modern.Stack(this);
-        root.Controls.Add(Modern.Heading("Keybinds"));
-        root.Controls.Add(Modern.Caption(
-            "Click a box, then press the new key combination. Backspace or Delete removes a binding. " +
-            "These keys work everywhere while GW2MM is running, and other programs (including the game) no longer " +
-            "receive them, so prefer combinations you don't otherwise use.", 470));
+        root.Controls.Add(Modern.Caption("Click a box and press a key. Delete clears it.", 300));
 
         var table = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, BackColor = Modern.Surface, Padding = new Padding(10, 6, 10, 6), Margin = new Padding(0) };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -56,7 +52,7 @@ internal sealed class KeybindsForm : Form
         saveButton.Click += (_, _) => Save();
         var cancel = Modern.Secondary("Cancel");
         cancel.Click += (_, _) => Close();
-        var reset = Modern.Secondary("Reset to defaults");
+        var reset = Modern.Secondary("Defaults");
         reset.Click += (_, _) =>
         {
             foreach (var a in _actions) _keys[a.Id] = Hotkey.Parse(a.Default);
@@ -105,7 +101,7 @@ internal sealed class KeybindsForm : Form
     {
         foreach (var (id, box) in _boxes) box.Text = _keys[id].IsNone ? "—" : _keys[id].ToString();
         var duplicates = _keys.Where(k => !k.Value.IsNone).GroupBy(k => k.Value).Where(g => g.Count() > 1).Select(g => g.Key.ToString()).ToList();
-        _problem.Text = duplicates.Count > 0 ? "Used twice: " + string.Join(", ", duplicates) + ". Each key can only do one thing." : "";
+        _problem.Text = duplicates.Count > 0 ? "Used twice: " + string.Join(", ", duplicates) : "";
     }
 
     private void Save()
