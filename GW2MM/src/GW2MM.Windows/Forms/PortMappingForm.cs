@@ -200,7 +200,7 @@ internal sealed class PlayerCard : Control
         }
         else
         {
-            Theme.FillRound(g, r, Theme.Sf(8), Theme.Alpha(Color.White, 140));
+            Theme.FillRound(g, r, Theme.Sf(8), Theme.Alpha(Theme.Surface, 140));
             using var dash = new Pen(Theme.BorderStrong, Theme.Sf(1)) { DashPattern = new[] { 3f, 2f } };
             using var path = Theme.Round(RectangleF.Inflate(r, -Theme.Sf(0.5f), -Theme.Sf(0.5f)), Theme.Sf(8));
             g.DrawPath(dash, path);
@@ -218,7 +218,7 @@ internal sealed class PlayerCard : Control
         }
         Theme.Text(g, _slot.ToString(), Theme.SmallBold, Rectangle.Round(avatar), _host ? Color.White : _connected ? Theme.LavenderText : Theme.Muted, Theme.TextCenter);
         var dot = new RectangleF(avatar.Right - Theme.Sf(7), avatar.Bottom - Theme.Sf(7), Theme.Sf(9), Theme.Sf(9));
-        g.FillEllipse(Brushes.White, dot);
+        using (var ring = new SolidBrush(Theme.Surface)) g.FillEllipse(ring, dot);
         using (var b = new SolidBrush(_connected ? Theme.Success : Theme.Offline)) g.FillEllipse(b, RectangleF.Inflate(dot, -Theme.Sf(1.5f), -Theme.Sf(1.5f)));
         var x = Theme.S(40);
         Theme.Text(g, _name, Theme.BodyBold, new Rectangle(x, Theme.S(8), Width - x - Theme.S(6), Theme.S(18)), _connected ? Theme.Title : Theme.Muted);

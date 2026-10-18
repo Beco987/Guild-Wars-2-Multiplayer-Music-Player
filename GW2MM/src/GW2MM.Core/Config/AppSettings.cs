@@ -68,6 +68,9 @@ public sealed class AppSettings
     /// <summary>Where MuseScore4.exe is, when the user had to point to it (Config.txt "MuseScore"; blank = look in the usual places).</summary>
     public string MuseScorePath { get; set; } = "";
 
+    /// <summary>The dusk (dark) look instead of the light one (Config.txt "Theme,Dusk"); used from the next start.</summary>
+    public bool DuskTheme { get; set; }
+
     public void SaveMuseScorePath(string dataDir) =>
         LegacyConfig.Save(Path.Combine(dataDir, FileName), new[] { ("MuseScore", MuseScorePath) });
 
@@ -84,6 +87,7 @@ public sealed class AppSettings
             Name = c.Get("Name") ?? "",
             HostAddress = (c.Get("HostAddress") ?? "").Trim(),
             MuseScorePath = (c.Get("MuseScore") ?? "").Trim(),
+            DuskTheme = string.Equals((c.Get("Theme") ?? "").Trim(), "Dusk", StringComparison.OrdinalIgnoreCase),
             OffsetMs = Ahk.AhkValue.Number(c.Get("Offset") ?? "") is { } offset && offset > 0 ? (int)Math.Min(offset, MaxOffsetMs) : 0,
             PlaylistShuffle = LegacyConfig.IsTrue(c.Get("PlaylistShuffle")),
             PlaylistRepeat = LegacyConfig.IsTrue(c.Get("PlaylistRepeat")),
@@ -100,7 +104,7 @@ public sealed class AppSettings
         {
             ("OctaveDelay", OctaveDelay), ("AlwaysOnTop", AlwaysOnTop ? "1" : "0"), ("IsTransparent", IsTransparent ? "1" : "0"),
             ("CheckForUpdates", CheckForUpdates ? "1" : "0"), ("OpenPort", OpenPortAutomatically ? "1" : "0"),
-            ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)), ("Theme", DuskTheme ? "Dusk" : "Light"),
         });
 
     /// <summary>Client start-up: the original rewrote all four values after asking for the user name.</summary>

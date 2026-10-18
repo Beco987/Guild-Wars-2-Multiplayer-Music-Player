@@ -158,12 +158,23 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
+    }
+
+    [Fact]
+    public void TheDuskThemeIsRemembered()
+    {
+        Assert.False(AppSettings.Load(_dir).DuskTheme);
+        var s = AppSettings.Load(_dir);
+        s.DuskTheme = true;
+        s.SaveDisplaySettings(_dir);
+        Assert.Contains("Theme,Dusk\n", File.ReadAllText(P("Config.txt")));
+        Assert.True(AppSettings.Load(_dir).DuskTheme);
     }
 
     [Fact]

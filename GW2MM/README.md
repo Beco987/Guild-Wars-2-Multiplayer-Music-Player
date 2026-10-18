@@ -52,6 +52,9 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
    The prompt comes to the front over the game, with a sound, even when GW2MM is minimized. If the host's own test
    fails, the players are still asked.
 
+**Settings → Dusk theme** switches to a dark look (stored as `Theme,Dusk` in Config.txt). It applies the next time
+GW2MM starts.
+
 ### Adding songs
 
 **New Song** takes a MIDI file (`.mid`) or a MuseScore score (`.mscz`). A score is first exported to MIDI by

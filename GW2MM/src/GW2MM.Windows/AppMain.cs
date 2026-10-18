@@ -47,6 +47,7 @@ public static class AppMain
             catch (Exception ex) { AppLog.Write("Could not raise process priority: " + ex.Message); }
 
             var settings = AppSettings.Load(dataDir);
+            if (settings.DuskTheme) Theme.UseDusk();   // before any window is created
             // A client starts unconnected; it connects from Settings → Connect to server.
             form = new MainForm(role, dataDir, settings, args);
             Application.Run(form);

@@ -40,10 +40,10 @@ internal sealed class InfoForm : ThemedDialog
             Text = role == AppRole.Host ? "Server · plays songs together in Guild Wars 2" : "Client · plays songs together in Guild Wars 2",
             Font = Theme.Small, ForeColor = Theme.Muted,
         }, 158));
-        Body.Controls.Add(Centered(new Label { Text = "Version " + AppVersion, Font = Theme.SmallBold, ForeColor = Theme.Navy, BackColor = Theme.Ice, Padding = Theme.P(8, 2, 8, 2) }, 180));
+        Body.Controls.Add(Centered(new Label { Text = "Version " + AppVersion, Font = Theme.SmallBold, ForeColor = Theme.AccentInk, BackColor = Theme.Ice, Padding = Theme.P(8, 2, 8, 2) }, 180));
         var link = new LinkLabel
         {
-            Text = "Open the user guide", Font = Theme.BodyBold, LinkColor = Theme.AzureText, ActiveLinkColor = Theme.Navy, VisitedLinkColor = Theme.AzureText,
+            Text = "Open the user guide", Font = Theme.BodyBold, LinkColor = Theme.AzureText, ActiveLinkColor = Theme.AccentInk, VisitedLinkColor = Theme.AzureText,
             LinkBehavior = LinkBehavior.HoverUnderline,
         };
         link.LinkClicked += (_, _) =>

@@ -33,8 +33,10 @@ internal sealed class SettingsForm : ThemedDialog
         var window = Section("Window");
         var onTop = new ToggleSwitch("Always on top") { Checked = settings.AlwaysOnTop };
         var transparent = new ToggleSwitch("Transparent") { Checked = settings.IsTransparent };
+        var dusk = new ToggleSwitch("Dusk theme") { Checked = settings.DuskTheme };
         window.AddRow("Always on top", onTop);
         window.AddRow("Transparent", transparent);
+        window.AddRow("Dusk theme", dusk);
 
         var other = Section(isHost ? "Startup & network" : "Startup");
         var updates = new ToggleSwitch("Check for updates on launch") { Checked = settings.CheckForUpdates };
@@ -109,6 +111,8 @@ internal sealed class SettingsForm : ThemedDialog
             settings.IsTransparent = transparent.Checked;
             settings.CheckForUpdates = updates.Checked;
             if (openPort is not null) settings.OpenPortAutomatically = openPort.Checked;
+            var themeChanged = settings.DuskTheme != dusk.Checked;
+            settings.DuskTheme = dusk.Checked;
             try
             {
                 settings.SaveDisplaySettings(dataDir);
@@ -119,6 +123,9 @@ internal sealed class SettingsForm : ThemedDialog
                 return;
             }
             applied();
+            if (themeChanged)
+                Dialogs.Show(this, "The new theme is used the next time you start GW2MM.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information,
+                    heading: dusk.Checked ? "Dusk theme" : "Light theme");
             Close();
         };
 

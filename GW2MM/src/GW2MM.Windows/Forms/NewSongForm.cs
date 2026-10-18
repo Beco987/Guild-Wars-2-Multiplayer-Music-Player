@@ -45,7 +45,7 @@ internal sealed class NewSongForm : ThemedDialog
         Row("Players", _players, 132);
         _tempo = new Stepper(-10, 10, 0);
         Row("Tempo", _tempo, 172);
-        _tempoHint = new Label { AutoSize = true, Font = Theme.SmallBold, ForeColor = Theme.Navy, BackColor = Theme.Ice, Padding = Theme.P(8, 3, 8, 3) };
+        _tempoHint = new Label { AutoSize = true, Font = Theme.SmallBold, ForeColor = Theme.AccentInk, BackColor = Theme.Ice, Padding = Theme.P(8, 3, 8, 3) };
         _tempoHint.Location = new Point(_tempo.Right + Theme.S(10), _tempo.Top + (_tempo.Height - _tempoHint.PreferredHeight) / 2);
         Body.Controls.Add(_tempoHint);
         _tempo.ValueChanged += (_, _) => UpdateTempoHint();

@@ -82,7 +82,7 @@ internal sealed class MainForm : Form, IHostView
         KeyPreview = true;
 
         // Banner: each program has its own art ("SERVER" / "CLIENT"), with Settings and About in a frosted capsule.
-        var banner = Add(new Banner(Assets.Load(role == AppRole.Client ? "TitleClient.png" : "Title.png")), 0, 0, 420, 80);
+        var banner = Add(new Banner(Assets.Load(Theme.Art(role == AppRole.Client ? "TitleClient.png" : "Title.png"))), 0, 0, 420, 80);
         banner.SettingsClicked += (_, _) => ShowSettings();
         banner.AboutClicked += (_, _) => ShowInfo();
 
@@ -159,7 +159,7 @@ internal sealed class MainForm : Form, IHostView
         _play.Click += (_, _) => Play();
         _playLabel = new Label
         {
-            Text = "Play", Font = Theme.SmallBold, ForeColor = Theme.Navy, BackColor = Theme.Surface, TextAlign = ContentAlignment.TopCenter,
+            Text = "Play", Font = Theme.SmallBold, ForeColor = Theme.AccentInk, BackColor = Theme.Surface, TextAlign = ContentAlignment.TopCenter,
             Bounds = Theme.S(3, 53, 78, 16), AutoEllipsis = true,
         };
         _songInfo = new SongInfoPanel { Bounds = Theme.S(84, 6, 214, 62) };

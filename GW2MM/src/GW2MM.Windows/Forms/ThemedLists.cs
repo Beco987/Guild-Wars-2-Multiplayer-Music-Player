@@ -69,7 +69,7 @@ internal sealed class ThemedListView : ListView
             HorizontalAlignment.Center => Theme.TextCenter,
             _ => Theme.TextLeft,
         };
-        var color = sorted ? Theme.Navy : Theme.Muted;
+        var color = sorted ? Theme.AccentInk : Theme.Muted;
         var caret = sorted ? Theme.S(10) : 0;
         var tw = Theme.Measure(text, Theme.Overline).Width;
         if (sorted)
@@ -203,7 +203,7 @@ internal sealed class ChatLog : RichTextBox
         else if (line.StartsWith('♪')) Append(line, Theme.LavenderText, Theme.Small);
         else if (m.Success)
         {
-            Append(m.Groups["name"].Value + "  ", Theme.Navy, Theme.SmallBold);
+            Append(m.Groups["name"].Value + "  ", Theme.AccentInk, Theme.SmallBold);
             Append(m.Groups["text"].Value, Theme.Ink, Theme.Small);
         }
         else Append(line, Theme.Muted, Theme.Small);
@@ -235,7 +235,7 @@ internal sealed class Banner : Control
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         _art = art;
-        BackColor = Color.White;
+        BackColor = Theme.BannerBack;
     }
 
     public event EventHandler? SettingsClicked;
@@ -273,7 +273,7 @@ internal sealed class Banner : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
-        g.Clear(Color.White);
+        g.Clear(Theme.BannerBack);
         g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
         var h = (float)Width * _art.Height / _art.Width;
@@ -295,8 +295,9 @@ internal sealed class Banner : Control
         Theme.Smooth(g);
         var cap = Capsule;
         Theme.Shadow(g, cap, cap.Width / 2, blur: 3, dy: 1, alpha: 50);
-        Theme.FillRound(g, cap, cap.Width / 2, Color.FromArgb(225, 255, 255, 255));
-        Theme.DrawRound(g, cap, cap.Width / 2, Color.White);
+        // Frosted glass: white by day, deep navy at dusk.
+        Theme.FillRound(g, cap, cap.Width / 2, Theme.Alpha(Theme.Surface, 225));
+        Theme.DrawRound(g, cap, cap.Width / 2, Theme.Dusk ? Theme.BorderStrong : Color.White);
         for (var i = 0; i < 2; i++)
         {
             var b = Button(i);

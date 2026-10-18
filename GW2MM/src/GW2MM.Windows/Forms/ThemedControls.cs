@@ -94,15 +94,15 @@ internal class ThemedButton : Button
     {
         if (!Enabled)
             return Kind is ButtonKind.Ghost ? (Color.Transparent, Color.Transparent, Theme.Disabled)
-                : Kind is ButtonKind.Secondary ? (Theme.Surface, Theme.Divider, Theme.Disabled) : (Theme.Track, Color.Transparent, Theme.Disabled);
+                : Kind is ButtonKind.Secondary ? (Theme.Raised, Theme.Divider, Theme.Disabled) : (Theme.Track, Color.Transparent, Theme.Disabled);
         return Kind switch
         {
             ButtonKind.Primary => (_pressed ? Theme.NavyPressed : _hover ? Theme.NavyHover : Theme.Navy, Color.Transparent, Color.White),
             ButtonKind.Danger => (_pressed ? Theme.DangerPressed : _hover ? Theme.DangerHover : Theme.Danger, Color.Transparent, Color.White),
-            ButtonKind.Tonal => (_pressed ? Theme.IcePressed : _hover ? Theme.Alpha(Theme.Ice, 255) : Theme.Ice, _hover ? Theme.Alpha(Theme.Azure, 90) : Color.Transparent, Theme.Navy),
+            ButtonKind.Tonal => (_pressed ? Theme.IcePressed : _hover ? Theme.Alpha(Theme.Ice, 255) : Theme.Ice, _hover ? Theme.Alpha(Theme.Azure, 90) : Color.Transparent, Theme.AccentInk),
             ButtonKind.Ghost => (_pressed ? Theme.IcePressed : _hover ? Theme.IceHover : _toggled ? Theme.Ice : Color.Transparent,
                 Color.Transparent, _toggled ? Theme.AzureText : Theme.Ink2),
-            _ => (_pressed ? Theme.IcePressed : _hover ? Theme.IceHover : Theme.Surface, _hover ? Theme.BorderStrong : Theme.Border, Theme.Ink),
+            _ => (_pressed ? Theme.IcePressed : _hover ? Theme.RaisedHover : Theme.Raised, _hover ? Theme.BorderStrong : Theme.Border, Theme.Ink),
         };
     }
 }
@@ -158,12 +158,12 @@ internal sealed class RoundButton : Button
         }
         else
         {
-            using var brush = new SolidBrush(_pressed ? Theme.IcePressed : _hover ? Theme.IceHover : Theme.Surface);
+            using var brush = new SolidBrush(_pressed ? Theme.IcePressed : _hover ? Theme.RaisedHover : Theme.Raised);
             g.FillPath(brush, path);
             using var pen = new Pen(_hover ? Theme.Azure : Theme.BorderStrong, Theme.Sf(1));
             g.DrawEllipse(pen, RectangleF.Inflate(circle, -Theme.Sf(0.5f), -Theme.Sf(0.5f)));
             var size = d * 0.44f;
-            Glyphs.Draw(g, Glyph, new RectangleF(circle.X + (d - size) / 2, circle.Y + (d - size) / 2, size, size), Theme.Navy);
+            Glyphs.Draw(g, Glyph, new RectangleF(circle.X + (d - size) / 2, circle.Y + (d - size) / 2, size, size), Theme.AccentInk);
         }
         if (Focused && ShowFocusCues)
         {
@@ -428,7 +428,7 @@ internal sealed class SegmentedControl : Control
             if (on)
             {
                 Theme.Shadow(g, seg, Theme.Sf(6), blur: 2, dy: 1, alpha: 40);
-                Theme.FillRound(g, seg, Theme.Sf(6), Theme.Surface);
+                Theme.FillRound(g, seg, Theme.Sf(6), Theme.Raised);
                 if (Focused && ShowFocusCues) Theme.DrawRound(g, seg, Theme.Sf(6), Theme.Azure, 1.5f);
             }
             var (text, count) = _items[i];
@@ -440,7 +440,7 @@ internal sealed class SegmentedControl : Control
             {
                 var pr = new RectangleF(x + tw + Theme.S(6), seg.Y + (seg.Height - Theme.S(16)) / 2f, pill, Theme.S(16));
                 Theme.FillRound(g, pr, pr.Height / 2, on ? Theme.Ice : Theme.Alpha(Theme.Title, 18));
-                Theme.Text(g, n.ToString(), Theme.Tiny, Rectangle.Round(pr), on ? Theme.Navy : Theme.Muted, Theme.TextCenter);
+                Theme.Text(g, n.ToString(), Theme.Tiny, Rectangle.Round(pr), on ? Theme.AccentInk : Theme.Muted, Theme.TextCenter);
             }
         }
     }
@@ -532,7 +532,8 @@ internal sealed class CheckMark : CheckBox
         if (on)
         {
             Theme.FillRound(g, box, radius, !enabled ? Theme.Disabled : hover ? Theme.AzureText : Theme.Azure);
-            Glyphs.Draw(g, Glyph.Check, RectangleF.Inflate(box, -Theme.Sf(1.5f), -Theme.Sf(1.5f)), Color.White, 2f);
+            // Dark on the bright dusk azure, white on the light theme's.
+            Glyphs.Draw(g, Glyph.Check, RectangleF.Inflate(box, -Theme.Sf(1.5f), -Theme.Sf(1.5f)), Theme.Dusk ? Theme.NavyDeep : Color.White, 2f);
         }
         else
         {
@@ -624,7 +625,7 @@ internal sealed class ThemedToolTip : ToolTip
         };
         Draw += (_, e) =>
         {
-            using var back = new SolidBrush(Theme.NavyDeep);
+            using var back = new SolidBrush(Theme.TooltipBack);
             e.Graphics.FillRectangle(back, e.Bounds);
             var r = Rectangle.Inflate(e.Bounds, -Theme.S(8), -Theme.S(5));
             TextRenderer.DrawText(e.Graphics, e.ToolTipText, Theme.Small, r, Color.White, TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter);
@@ -767,7 +768,7 @@ internal sealed class Stepper : Control
                 g.Restore(state);
             }
             var s = Theme.Sf(12);
-            using var pen = new Pen(enabled ? Theme.Navy : Theme.Disabled, Theme.Sf(1.6f)) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round };
+            using var pen = new Pen(enabled ? Theme.AccentInk : Theme.Disabled, Theme.Sf(1.6f)) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round };
             var cx = b.X + b.Width / 2f;
             var cy = Height / 2f;
             g.DrawLine(pen, cx - s / 2.4f, cy, cx + s / 2.4f, cy);

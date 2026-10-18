@@ -66,6 +66,7 @@ internal sealed class DataEditorForm : ThemedDialog
         header.Font = Theme.Overline;
         header.Padding = Theme.P(6, 0, 6, 0);
         var cells = _grid.DefaultCellStyle;
+        cells.BackColor = Theme.Surface;
         cells.ForeColor = Theme.Ink;
         cells.SelectionBackColor = Theme.Ice;
         cells.SelectionForeColor = Theme.Title;

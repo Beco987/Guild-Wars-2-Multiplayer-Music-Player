@@ -11,52 +11,121 @@ namespace GW2MM.Windows.Forms;
 internal static class Theme
 {
     // Surfaces
-    public static readonly Color Frost = Hex(0xEDF1F7);        // window background
-    public static readonly Color Surface = Color.White;         // cards
-    public static readonly Color Inset = Hex(0xF4F7FB);        // search field, chat log
-    public static readonly Color Stripe = Hex(0xF8FAFD);       // alternating grid rows
-    public static readonly Color Track = Hex(0xE1E7F0);        // segmented track, toggle off
-    public static readonly Color Border = Hex(0xD5DDE8);
-    public static readonly Color BorderStrong = Hex(0xB7C3D5);
-    public static readonly Color Divider = Hex(0xE5EAF1);
-    public static readonly Color Underline = Hex(0x808CA3);    // input bottom edge, unchecked box (3:1 on white)
-    public static readonly Color StatusBack = Hex(0xE4E9F1);
-    public static readonly Color FooterBack = Hex(0xF5F7FB);
+    public static Color Frost { get; private set; } = Hex(0xEDF1F7);        // window background
+    public static Color Surface { get; private set; } = Color.White;         // cards
+    public static Color Raised { get; private set; } = Color.White;          // secondary buttons, selected segment
+    public static Color RaisedHover { get; private set; } = Hex(0xEEF5FE);
+    public static Color Inset { get; private set; } = Hex(0xF4F7FB);        // search field, chat log
+    public static Color Stripe { get; private set; } = Hex(0xF8FAFD);       // alternating grid rows
+    public static Color Track { get; private set; } = Hex(0xE1E7F0);        // segmented track, toggle off
+    public static Color Border { get; private set; } = Hex(0xD5DDE8);
+    public static Color BorderStrong { get; private set; } = Hex(0xB7C3D5);
+    public static Color Divider { get; private set; } = Hex(0xE5EAF1);
+    public static Color Underline { get; private set; } = Hex(0x808CA3);    // input bottom edge, unchecked box (3:1 on white)
+    public static Color StatusBack { get; private set; } = Hex(0xE4E9F1);
+    public static Color FooterBack { get; private set; } = Hex(0xF5F7FB);
 
     // Text
-    public static readonly Color Ink = Hex(0x1A2640);
-    public static readonly Color Ink2 = Hex(0x43506B);
-    public static readonly Color Muted = Hex(0x5A6680);
-    public static readonly Color Placeholder = Hex(0x667187);
-    public static readonly Color Disabled = Hex(0x9AA5B8);
-    public static readonly Color Title = Hex(0x1E3356);        // banner lettering navy
+    public static Color Ink { get; private set; } = Hex(0x1A2640);
+    public static Color Ink2 { get; private set; } = Hex(0x43506B);
+    public static Color Muted { get; private set; } = Hex(0x5A6680);
+    public static Color Placeholder { get; private set; } = Hex(0x667187);
+    public static Color Disabled { get; private set; } = Hex(0x9AA5B8);
+    public static Color Title { get; private set; } = Hex(0x1E3356);        // banner lettering navy
 
     // Brand
-    public static readonly Color Navy = Hex(0x1F4671);
-    public static readonly Color NavyHover = Hex(0x285A8F);
-    public static readonly Color NavyPressed = Hex(0x183A5E);
-    public static readonly Color NavyDeep = Hex(0x14243F);
-    public static readonly Color NavyLight = Hex(0x3D85CB);    // top of the Play gradient
-    public static readonly Color Azure = Hex(0x3A8FD9);        // focus ring, selection bar, toggles
-    public static readonly Color AzureText = Hex(0x1F6AB3);
-    public static readonly Color Ice = Hex(0xDDEBFB);          // selected row, tonal button
-    public static readonly Color IceHover = Hex(0xEEF5FE);
-    public static readonly Color IcePressed = Hex(0xCFE2F8);
-    public static readonly Color Lavender = Hex(0x7D73C9);
-    public static readonly Color LavenderTint = Hex(0xECE9FA);
-    public static readonly Color LavenderText = Hex(0x4D4398);
+    public static Color Navy { get; private set; } = Hex(0x1F4671);
+    public static Color NavyHover { get; private set; } = Hex(0x285A8F);
+    public static Color NavyPressed { get; private set; } = Hex(0x183A5E);
+    public static Color NavyDeep { get; private set; } = Hex(0x14243F);
+    public static Color NavyLight { get; private set; } = Hex(0x3D85CB);    // top of the Play gradient
+    public static Color Azure { get; private set; } = Hex(0x3A8FD9);        // focus ring, selection bar, toggles
+    public static Color AzureText { get; private set; } = Hex(0x1F6AB3);
+    public static Color Ice { get; private set; } = Hex(0xDDEBFB);          // selected row, tonal button
+    public static Color IceHover { get; private set; } = Hex(0xEEF5FE);
+    public static Color IcePressed { get; private set; } = Hex(0xCFE2F8);
+    public static Color Lavender { get; private set; } = Hex(0x7D73C9);
+    public static Color LavenderTint { get; private set; } = Hex(0xECE9FA);
+    public static Color LavenderText { get; private set; } = Hex(0x4D4398);
 
     // Meaning
-    public static readonly Color Success = Hex(0x2E9E5B);
-    public static readonly Color Warning = Hex(0xD08A16);
-    public static readonly Color WarningText = Hex(0x8A5A00);
-    public static readonly Color WarningTint = Hex(0xFFF3DE);
-    public static readonly Color Danger = Hex(0xC23B2E);
-    public static readonly Color DangerHover = Hex(0xA83226);
-    public static readonly Color DangerPressed = Hex(0x8E2A20);
-    public static readonly Color DangerText = Hex(0xB03A2E);
-    public static readonly Color DangerTint = Hex(0xFCEBE9);
-    public static readonly Color Offline = Hex(0xA3AEC0);
+    public static Color Success { get; private set; } = Hex(0x2E9E5B);
+    public static Color Warning { get; private set; } = Hex(0xD08A16);
+    public static Color WarningText { get; private set; } = Hex(0x8A5A00);
+    public static Color WarningTint { get; private set; } = Hex(0xFFF3DE);
+    public static Color Danger { get; private set; } = Hex(0xC23B2E);
+    public static Color DangerHover { get; private set; } = Hex(0xA83226);
+    public static Color DangerPressed { get; private set; } = Hex(0x8E2A20);
+    public static Color DangerText { get; private set; } = Hex(0xB03A2E);
+    public static Color DangerTint { get; private set; } = Hex(0xFCEBE9);
+    public static Color Offline { get; private set; } = Hex(0xA3AEC0);
+
+    // Roles the dusk theme colours differently from the plain navy / white of the light theme.
+    public static Color AccentInk { get; private set; } = Hex(0x1F4671);     // accent text and glyphs (sorted header, chat names)
+    public static Color TooltipBack { get; private set; } = Hex(0x14243F);
+    public static Color ShadowTint { get; private set; } = Hex(0x14243F);
+    public static Color BannerBack { get; private set; } = Color.White;      // behind the banner art and the dialog header band
+
+    /// <summary>True when the dusk (dark) theme is in use. Chosen once at start-up (Settings → Dusk theme).</summary>
+    public static bool Dusk { get; private set; }
+
+    /// <summary>
+    /// Switches to the dusk theme: the Janthir Wilds banner at nightfall, deep navy surfaces, frost-white text, icy
+    /// azure accents. Call before any window is created; windows read these colours as they are built.
+    /// </summary>
+    public static void UseDusk()
+    {
+        Dusk = true;
+        Frost = Hex(0x0C1628);
+        Surface = Hex(0x13213A);
+        Raised = Hex(0x1C2F4E);
+        RaisedHover = Hex(0x243C62);
+        Inset = Hex(0x0A1426);
+        Stripe = Hex(0x16263F);
+        Track = Hex(0x0A1426);
+        Border = Hex(0x243A5E);
+        BorderStrong = Hex(0x3D5E8E);
+        Divider = Hex(0x1C2E4C);
+        Underline = Hex(0x4A6694);
+        StatusBack = Hex(0x070E1A);
+        FooterBack = Hex(0x091222);
+        Ink = Hex(0xE8F0FA);
+        Ink2 = Hex(0xA7B9D3);
+        Muted = Hex(0x8094B3);
+        Placeholder = Hex(0x8094B3);
+        Disabled = Hex(0x4F6280);
+        Title = Hex(0xE8F0FA);
+        Navy = Hex(0x1E75C0);          // primary fills: azure at dusk
+        NavyHover = Hex(0x2585D2);
+        NavyPressed = Hex(0x175F9F);
+        NavyDeep = Hex(0x070E1A);
+        NavyLight = Hex(0x2B8BD8);
+        Azure = Hex(0x5CC8FF);
+        AzureText = Hex(0x7FD3FF);
+        Ice = Hex(0x1C4170);           // selection
+        IceHover = Hex(0x1B2D4A);
+        IcePressed = Hex(0x234C80);
+        Lavender = Hex(0xB9A8F5);
+        LavenderTint = Hex(0x2A2856);
+        LavenderText = Hex(0xB9A8F5);
+        Success = Hex(0x4CD69B);
+        Warning = Hex(0xF2C46B);
+        WarningText = Hex(0xF2C46B);
+        WarningTint = Hex(0x3A2F14);
+        Danger = Hex(0xC9425A);
+        DangerHover = Hex(0xD04A63);
+        DangerPressed = Hex(0xA93049);
+        DangerText = Hex(0xFF8597);
+        DangerTint = Hex(0x3A1B24);
+        Offline = Hex(0x4F6280);
+        AccentInk = Hex(0x7FD3FF);
+        TooltipBack = Hex(0x1F3354);
+        ShadowTint = Color.Black;
+        BannerBack = Hex(0x0E1830);
+    }
+
+    /// <summary>The banner art for this theme ("Title.png" / "TitleClient.png", or their dusk versions).</summary>
+    public static string Art(string lightName) => Dusk ? lightName.Replace(".png", "Dusk.png").Replace("HeaderFrostDusk", "HeaderDusk") : lightName;
 
     private static Color Hex(int rgb) => Color.FromArgb(255, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
 
@@ -165,7 +234,7 @@ internal static class Theme
     /// <summary>A soft drop shadow under a rounded rectangle (stacked translucent outlines, so no bitmaps are needed).</summary>
     public static void Shadow(Graphics g, RectangleF r, float radius, float blur = 4, float dy = 1, int alpha = 40, Color? tint = null)
     {
-        var color = tint ?? NavyDeep;
+        var color = tint ?? ShadowTint;
         var steps = Math.Max(1, (int)Math.Round(blur * Scale));
         var shifted = r;
         shifted.Offset(0, dy * Scale);
@@ -203,7 +272,8 @@ internal static class Theme
     {
         void Apply()
         {
-            try { _ = SetWindowTheme(c.Handle, "Explorer", null); }
+            // Dark scrollbars and list visuals at dusk (Windows 10 1809 and later; older versions ignore the name).
+            try { _ = SetWindowTheme(c.Handle, Dusk ? "DarkMode_Explorer" : "Explorer", null); }
             catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
         }
         if (c.IsHandleCreated) Apply();
@@ -248,12 +318,22 @@ internal static class Theme
     /// <summary>Windows 11 lets apps colour the title bar: frost background, navy text. Older Windows ignores this.</summary>
     public static void TintCaption(IntPtr hwnd)
     {
+        if (Dusk && OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763))
+        {
+            // A dark title bar on Windows 10 1809+ (attribute 20; 19 before build 18985).
+            try
+            {
+                var on = 1;
+                if (DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int)) != 0) _ = DwmSetWindowAttribute(hwnd, 19, ref on, sizeof(int));
+            }
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
+        }
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return;
         try
         {
-            var caption = ColorRef(Frost);
-            var text = ColorRef(Title);
-            var border = ColorRef(BorderStrong);
+            var caption = ColorRef(Dusk ? StatusBack : Frost);
+            var text = ColorRef(Dusk ? Hex(0xCFDCEE) : Title);
+            var border = ColorRef(Dusk ? Hex(0x2A4066) : BorderStrong);
             _ = DwmSetWindowAttribute(hwnd, 35, ref caption, sizeof(int));  // DWMWA_CAPTION_COLOR
             _ = DwmSetWindowAttribute(hwnd, 36, ref text, sizeof(int));     // DWMWA_TEXT_COLOR
             _ = DwmSetWindowAttribute(hwnd, 34, ref border, sizeof(int));   // DWMWA_BORDER_COLOR

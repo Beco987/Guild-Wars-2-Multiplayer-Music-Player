@@ -174,6 +174,8 @@ reachable from any hotkey, button or message.
     as toggle buttons.
   * *Dialogs* share a shell (title band with pine art, frost body, footer buttons). Message boxes are themed too,
     with the same owners, modality and answers; confirmations name the action ("Delete", "Allow").
+  * *Dusk theme* (new): Settings → *Dusk theme* switches every window to a night palette with dusk banner art and
+    dark title bars. Stored as `Theme,Dusk` / `Theme,Light` in Config.txt; it applies the next time GW2MM starts.
 
 ## 4. Verification
 

@@ -105,7 +105,7 @@ internal class ThemedDialog : Form
         if (_heading is null) return;
         var g = e.Graphics;
         var band = new Rectangle(0, 0, ClientSize.Width, HeaderHeight);
-        g.FillRectangle(Brushes.White, band);
+        using (var back = new SolidBrush(Theme.BannerBack)) g.FillRectangle(back, band);
         _headerArt ??= LoadArt();
         if (_headerArt is { } art)
         {
@@ -124,7 +124,7 @@ internal class ThemedDialog : Form
 
     private static Image? LoadArt()
     {
-        try { return Assets.Load("HeaderFrost.png"); }
+        try { return Assets.Load(Theme.Art("HeaderFrost.png")); }
         catch (FileNotFoundException) { return null; }
     }
 
