@@ -259,4 +259,94 @@ public class PlaybackLoopTests
         Assert.True(loop.Completion.Wait(2000));
         Assert.InRange(keys.All.Single().Time - start, 200, 400);
     }
+
+    // ------------------------------------------------------------------ live octave timer
+
+    private static List<Press> RunWithOctaveTimer(IReadOnlyList<PlaybackEvent> events, double delayMs)
+    {
+        var clock = new VirtualClock();
+        var keys = new RecordingKeys(clock);
+        var loop = new PlaybackLoop(events, clock, keys, octaveTimerMs: delayMs);
+        loop.Start();
+        Assert.True(loop.Completion.Wait(5000));
+        return keys.All;
+    }
+
+    private const int Down = 13, Up = 14;
+
+    [Fact]
+    public void TheOctaveTimerPressesAChordsOctaveChangeAtTheFirstStepAfterThePreviousChord()
+    {
+        // No change yet, so the timer has run out: the change goes at the first 10 ms step after the previous chord.
+        var presses = RunWithOctaveTimer(new[]
+        {
+            new PlaybackEvent(0, K(1, 0)), new PlaybackEvent(50, K(1, 2)), new PlaybackEvent(500, K(1, Down) + K(1, 4)),
+        }, 100);
+        Assert.Equal(new[] { new Press(0, 1, "1"), new Press(50, 1, "2"), new Press(60, 1, "9"), new Press(500, 1, "3") }, presses);
+    }
+
+    [Fact]
+    public void TheOctaveTimerWaitsOctaveDelayAfterEachChange()
+    {
+        var presses = RunWithOctaveTimer(new[]
+        {
+            new PlaybackEvent(0, K(1, Down) + K(1, 0)),    // a change at 0 starts the timer
+            new PlaybackEvent(30, K(1, 2)),
+            new PlaybackEvent(80, K(1, Up) + K(1, 4)),     // the timer is at 80 < 100: stays with its chord, restarts at 80
+            new PlaybackEvent(400, K(1, Down) + K(1, 5)),  // pressed early once the timer reaches 100 (at 180)
+        }, 100);
+        Assert.Equal(new[]
+        {
+            new Press(0, 1, "9"), new Press(0, 1, "1"), new Press(30, 1, "2"), new Press(80, 1, "0"), new Press(80, 1, "3"),
+            new Press(180, 1, "9"), new Press(400, 1, "4"),
+        }, presses);
+    }
+
+    [Fact]
+    public void TheOctaveTimerCountsInTenMillisecondSteps()
+    {
+        // OctaveDelay 95 is reached at the step of 100 ms after the change at 0.
+        var presses = RunWithOctaveTimer(new[] { new PlaybackEvent(0, K(1, Up) + K(1, 0)), new PlaybackEvent(400, K(1, Down) + K(1, 2)) }, 95);
+        Assert.Equal(new[] { new Press(0, 1, "0"), new Press(0, 1, "1"), new Press(100, 1, "9"), new Press(400, 1, "2") }, presses);
+    }
+
+    [Fact]
+    public void TwoLeadingChangesAreBothPressedEarlyOctaveDelayApart()
+    {
+        var presses = RunWithOctaveTimer(new[] { new PlaybackEvent(0, K(1, 0)), new PlaybackEvent(1000, K(1, Down) + K(1, Down) + K(1, 0)) }, 100);
+        Assert.Equal(new[] { new Press(0, 1, "1"), new Press(10, 1, "9"), new Press(110, 1, "9"), new Press(1000, 1, "1") }, presses);
+    }
+
+    [Fact]
+    public void EachWindowHasItsOwnTimerAndFillerIsSkipped()
+    {
+        var presses = RunWithOctaveTimer(new[]
+        {
+            new PlaybackEvent(0, K(1, 0)),
+            new PlaybackEvent(100, ""),                                // filler
+            new PlaybackEvent(200, K(1, 2)),                           // window 1 only: not window 2's next chord
+            new PlaybackEvent(600, K(1, 4) + K(2, Up) + K(2, 0)),      // window 2's chord starts with its change
+        }, 100);
+        Assert.Equal(new[]
+        {
+            new Press(0, 1, "1"), new Press(10, 2, "0"), new Press(200, 1, "2"), new Press(600, 1, "3"), new Press(600, 2, "1"),
+        }, presses);
+    }
+
+    [Fact]
+    public void AChangeWithNoTimeToSpareStaysWithItsChord()
+    {
+        var presses = RunWithOctaveTimer(new[]
+        {
+            new PlaybackEvent(0, K(1, Up) + K(1, 0)), new PlaybackEvent(60, K(1, Down) + K(1, 2)),   // timer at 60 < 100
+        }, 100);
+        Assert.Equal(new[] { new Press(0, 1, "0"), new Press(0, 1, "1"), new Press(60, 1, "9"), new Press(60, 1, "2") }, presses);
+    }
+
+    [Fact]
+    public void WithoutTheOctaveTimerChangesArePressedWithTheirChords()
+    {
+        var presses = RunToEnd(new[] { new PlaybackEvent(0, K(1, 0)), new PlaybackEvent(500, K(1, Down) + K(1, 4)) }, new VirtualClock(), out _);
+        Assert.Equal(new[] { new Press(0, 1, "1"), new Press(500, 1, "9"), new Press(500, 1, "3") }, presses);
+    }
 }

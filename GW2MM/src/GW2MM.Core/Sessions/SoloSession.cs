@@ -152,6 +152,7 @@ public sealed class SoloSession : IDisposable
         }
 
         SlotPlan part;
+        var liveTimer = false;
         try
         {
             var song = CsvSong.Parse(LegacyText.Lines(csvText));
@@ -168,7 +169,9 @@ public sealed class SoloSession : IDisposable
                     : $"This song has {tracks.Count} parts but only {windows.Count} game windows are open, so only the first {windows.Count} parts are played.");
             var mapping = new PortMapping();
             foreach (var t in tracks.Take(windows.Count)) mapping[SoloSlot, t] = true;
-            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor, singleInstrument: singleInstrument)[SoloSlot];
+            liveTimer = LiveOctaveTimer() && !singleInstrument;
+            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor,
+                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Original, singleInstrument)[SoloSlot];
         }
         catch (Exception ex)
         {
@@ -190,7 +193,7 @@ public sealed class SoloSession : IDisposable
         var times = Schedule.AbsoluteTimes(part, now + LeadMs - Schedule.StartDelayMs, 0);
         var events = Schedule.Stagger(Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList()), _offsetMs(), now);
         if (events.Count > 0 && events[^1].DueMs is { } last) times = times.Append(last).ToList();
-        var loop = new PlaybackLoop(events, _clock, new WindowRemap(_keys, windows));
+        var loop = new PlaybackLoop(events, _clock, new WindowRemap(_keys, windows), octaveTimerMs: liveTimer ? _octaveDelayMs() : null);
         loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
         lock (_gate)
         {
@@ -202,6 +205,9 @@ public sealed class SoloSession : IDisposable
 
     /// <summary>The arrangement for a client slot sends its k-th track to window k.</summary>
     private const int SoloSlot = 2;
+
+    /// <summary>Settings → Live octave timer (test option; see <see cref="HostSession.LiveOctaveTimer"/>).</summary>
+    public Func<bool> LiveOctaveTimer { get; init; } = () => false;
 
     /// <summary>Settings → Reset octaves between songs: false keeps the octaves between playlist songs.</summary>
     public Func<bool> ResetOctavesBetweenSongs { get; init; } = () => true;

@@ -26,6 +26,13 @@ public enum OctaveSwapMode
     /// The oracle tests check it against the AutoHotkey scripts byte for byte.
     /// </summary>
     Original,
+
+    /// <summary>
+    /// Test option (Settings → Live octave timer): the original <c>AddSwaps</c> without <c>OpportunisticSwaps</c>.
+    /// Every octave change stays at the start of its chord; playback then presses it early with a live timer
+    /// (see <see cref="Playback.PlaybackLoop"/>).
+    /// </summary>
+    LiveTimer,
 }
 
 /// <summary>

@@ -137,7 +137,8 @@ public sealed class ClientSession : IDisposable
     /// <summary>A new part replaces whatever is playing (the original reset its single timer and index).</summary>
     private void StartPart(SongPart part)
     {
-        var loop = new PlaybackLoop(Schedule.ClientEvents(part.Notes, part.Rests), _clock, _keys);
+        var loop = new PlaybackLoop(Schedule.ClientEvents(part.Notes, part.Rests), _clock, _keys,
+            octaveTimerMs: part.OctaveTimer ? _octaveDelayMs() : null);
         loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
         lock (_gate)
         {

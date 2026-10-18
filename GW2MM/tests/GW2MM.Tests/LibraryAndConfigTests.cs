@@ -158,10 +158,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nLiveOctaveTimer,0\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nLiveOctaveTimer,0\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
     }
@@ -186,6 +186,17 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.SaveDisplaySettings(_dir);
         Assert.Contains("OctaveResetBetweenSongs,0\n", File.ReadAllText(P("Config.txt")));
         Assert.False(AppSettings.Load(_dir).ResetOctavesBetweenSongs);
+    }
+
+    [Fact]
+    public void TheLiveOctaveTimerIsOffUnlessTurnedOn()
+    {
+        Assert.False(AppSettings.Load(_dir).LiveOctaveTimer);
+        var s = AppSettings.Load(_dir);
+        s.LiveOctaveTimer = true;
+        s.SaveDisplaySettings(_dir);
+        Assert.Contains("LiveOctaveTimer,1\n", File.ReadAllText(P("Config.txt")));
+        Assert.True(AppSettings.Load(_dir).LiveOctaveTimer);
     }
 
     [Fact]

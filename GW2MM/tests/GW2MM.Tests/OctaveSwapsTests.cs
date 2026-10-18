@@ -119,4 +119,20 @@ public sealed class OctaveSwapsTests
         Assert.Equal("91", Keys(OctaveSwapMode.Original));        // the two high D's are lost
         Assert.Equal("910022", Keys(OctaveSwapMode.Improved));   // low C, up, up, D, D
     }
+
+    [Fact]
+    public void TheLiveTimerModeLeavesEachOctaveChangeInItsChord()
+    {
+        // One track: middle C, then high D 1000 ticks later (room for the original's opportunistic swap).
+        var song = CsvSong.Parse(new[]
+        {
+            "0, 0, Header, 1, 2, 480", "1, 0, Start_track", "1, 0, Tempo, 500000", "1, 0, End_track",
+            "2, 0, Start_track", "2, 0, Note_on_c, 0, 60, 90", "2, 1000, Note_on_c, 0, 74, 90", "2, 1000, End_track", "0, 0, End_of_file",
+        });
+        var mapping = PortMapping.Parse("22");
+        List<string> Chords(OctaveSwapMode mode) => SongArranger.Arrange(song, mapping, "130", 1.0, mode)[2].Notes
+            .Where(n => n.Length > 0).Select(n => string.Concat(n.Select(c => KeyMap.Decode(c)?.Key ?? ""))).ToList();
+        Assert.Equal(new[] { "1", "0", "2" }, Chords(OctaveSwapMode.Original));   // the change moved to its own element
+        Assert.Equal(new[] { "1", "02" }, Chords(OctaveSwapMode.LiveTimer));      // pressed early by playback instead
+    }
 }

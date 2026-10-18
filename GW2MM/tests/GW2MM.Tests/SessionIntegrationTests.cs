@@ -41,13 +41,14 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     private (HostSession Session, Machine M) StartHost(PortMapping mapping, string[]? delays = null, double offset = 0, IInputDelayMeter? meter = null,
-        bool resetOctavesBetweenSongs = true)
+        bool resetOctavesBetweenSongs = true, bool liveOctaveTimer = false)
     {
         var m = NewMachine(offset);
         var lib = new SongLibrary(Path.Combine(_dir, "host"));
         var host = new HostSession(m.View, lib, () => "130", m.Clock, m.Keys, meter ?? new FakeMeter(), FastTimings)
         {
             ResetOctavesBetweenSongs = () => resetOctavesBetweenSongs,
+            LiveOctaveTimer = () => liveOctaveTimer,
         };
         host.CommitPortMapping(mapping, delays ?? new[] { "0", "0", "0", "0", "0" });
         host.Start(0);
@@ -97,6 +98,20 @@ public sealed class SessionIntegrationTests : IDisposable
         var clientExpected = new[] { 100, 200, 300, 500, 700 };
         for (var k = 0; k < 5; k++)
             Assert.InRange(c.Clock.ToReal(cp[k].Time) - hostStart, clientExpected[k] - 40 - 10, clientExpected[k] - 40 + 15);
+    }
+
+    [Fact]
+    public async Task WithTheLiveOctaveTimerPlayersPressOctaveChangesEarly()
+    {
+        var (host, _) = StartHost(PortMapping.Parse("12,23"), liveOctaveTimer: true);
+        var (_, c) = await StartClient(host, 0);
+        await host.PlayAsync(Song, 1.0);
+        await Wait.Until(() => c.Keys.Presses.Count >= 5, timeoutMs: 8000, what: "client presses");
+        var cp = c.Keys.All;
+        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, cp.Select(p => p.Key));
+        // The "0" goes at the first 10 ms step after the high C (the original put it at the midpoint, 100 ms later).
+        Assert.InRange(cp[1].Time - cp[0].Time, 1, 25);
+        Assert.InRange(cp[2].Time - cp[0].Time, 195, 215);
     }
 
     [Fact]

@@ -112,6 +112,12 @@ public static class SongArranger
                     outTimes[window] = o.Alpha;
                     outKeys[window] = SongFunctions.ReplaceChars(o.Num, KeyMap.Replacements(window));
                 }
+                else if (octaveSwaps == OctaveSwapMode.LiveTimer)
+                {
+                    // The changes stay in their chords; the playback loop's live timer presses them early.
+                    outTimes[window] = c.Num;
+                    outKeys[window] = SongFunctions.ReplaceChars(SongFunctions.AddSwaps(c.Alpha), KeyMap.Replacements(window));
+                }
                 else
                 {
                     var chords = OctaveSwaps.AddSwaps(c.Alpha);

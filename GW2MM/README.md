@@ -93,6 +93,13 @@ so the rhythm and the sync between players are unchanged. The octave resets
 after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients. OctaveDelay
 is 100 ms unless set (Settings → Octave delay). Set it to about twice your in-game ping.
 
+**Settings → Live octave timer** (test option, off by default; `LiveOctaveTimer,1` in Config.txt) replaces the
+opportunistic swaps above. Each octave change stays in its chord, and while the song plays each game window has a
+timer that starts whenever its octave changes and counts in 10 ms steps. Once it reaches OctaveDelay, the window's
+next chord (filler skipped) is checked at every step: if it starts with an octave change, that change is pressed
+right then, taken out of the chord, and the timer starts again. The host's setting applies to its players too; each
+computer times with its own OctaveDelay. One-player songs keep their own timing.
+
 **Settings → Reset octaves between songs** (on by default; `OctaveResetBetweenSongs,0` in Config.txt turns it off)
 skips the 9, 9, 0 between playlist songs. The host's setting applies to its players too. Songs assume the instrument
 starts in the middle octave, so with it off a song that ends in another octave starts the next one there.

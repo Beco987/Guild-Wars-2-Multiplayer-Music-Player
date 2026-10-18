@@ -177,6 +177,10 @@ reachable from any hotkey, button or message.
     as toggle buttons.
   * *Dialogs* share a shell (title band with pine art, frost body, footer buttons). Message boxes are themed too,
     with the same owners, modality and answers; confirmations name the action ("Delete", "Allow").
+  * *Live octave timer* (test option, off by default): Settings → *Live octave timer* (`LiveOctaveTimer,1`) uses
+    `AddSwaps` without `OpportunisticSwaps`; the playback loop keeps a timer per window (10 ms steps) and presses a
+    chord's leading octave change early once OctaveDelay has passed since that window's last change. The host sends
+    `octaveTimer` with each part so players do the same with their own OctaveDelay.
   * *Dusk theme* (new): Settings → *Dusk theme* switches every window to a night palette with dusk banner art and
     dark title bars. Stored as `Theme,Dusk` / `Theme,Light` in Config.txt; it applies the next time GW2MM starts.
 

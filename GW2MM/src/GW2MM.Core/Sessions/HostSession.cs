@@ -54,6 +54,13 @@ public sealed class HostSession : IDisposable
     public SongLibrary Library { get; }
     public HostTimings Timings { get; }
     public Func<string> OctaveDelay { get; }
+    /// <summary>
+    /// Settings → Live octave timer (test option): octave changes stay in their chords and every machine presses
+    /// them early with a live timer (<see cref="OctaveSwapMode.LiveTimer"/>) instead of the original's
+    /// opportunistic swaps. One-player songs keep their own timing.
+    /// </summary>
+    public Func<bool> LiveOctaveTimer { get; init; } = () => false;
+
     /// <summary>Settings → Reset octaves between songs: false keeps everyone's octaves between playlist songs.</summary>
     public Func<bool> ResetOctavesBetweenSongs { get; init; } = () => true;
 
@@ -330,10 +337,12 @@ public sealed class HostSession : IDisposable
 
         SongPlan plan;
         PortMapping mapping;
+        var liveTimer = LiveOctaveTimer() && !singleInstrument;
         lock (_gate) mapping = _mapping.Clone();
         try
         {
-            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor, singleInstrument: singleInstrument);
+            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor,
+                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Original, singleInstrument);
         }
         catch (Exception ex)
         {
@@ -388,7 +397,7 @@ public sealed class HostSession : IDisposable
                     continue;
                 }
                 var times = Schedule.AbsoluteTimes(part, tick, DelayNumber(_inputDelays[slot]) - hostDelay);
-                conn.Send(new SongPart(part.Notes.ToArray(), times.Select(x => (double?)x).ToArray()));
+                conn.Send(new SongPart(part.Notes.ToArray(), times.Select(x => (double?)x).ToArray(), liveTimer));
                 end = Math.Max(end, LastTime(Schedule.AbsoluteTimes(part, hostTick, 0)));
             }
 
@@ -401,7 +410,8 @@ public sealed class HostSession : IDisposable
             end = Math.Max(end, LastTime(hostTimes));
             if (hostEvents.Count > 0 && hostEvents[^1].DueMs is { } lastDue) end = Math.Max(end, lastDue);
             run.EndMs = end;
-            var loop = new PlaybackLoop(hostEvents, _clock, _keys, _paused);
+            var loop = new PlaybackLoop(hostEvents, _clock, _keys, _paused,
+                liveTimer ? Config.AppSettings.OctaveResetDelay(OctaveDelay()) : null);
             loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
             run.Loop = loop;
             loop.Start();
