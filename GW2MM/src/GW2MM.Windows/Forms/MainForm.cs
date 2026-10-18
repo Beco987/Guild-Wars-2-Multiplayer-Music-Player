@@ -123,7 +123,7 @@ internal sealed class MainForm : Form, IHostView
             }
         };
         _songsPage.Controls.Add(_search);
-        _songs = new ThemedListView { MultiSelect = false, ShowItemToolTips = true, Bounds = Theme.S(3, 43, 388, 219), FillColumn = 0 };
+        _songs = new ThemedListView { MultiSelect = false, Bounds = Theme.S(3, 43, 388, 219), FillColumn = 0 };
         _songs.Columns.Add("Name", Theme.S(200));
         _songs.Columns.Add("Players", Theme.S(70), HorizontalAlignment.Center);
         _songs.Columns.Add("Added", Theme.S(100), HorizontalAlignment.Right);

@@ -69,7 +69,7 @@ internal sealed class PlaylistPanel : UserControl
         _tips.SetToolTip(_repeatButton, "Repeat");
         _tips.SetToolTip(more, "New, rename, delete, open the folder");
 
-        _list = new ThemedListView { MultiSelect = true, AllowDrop = true, ShowItemToolTips = true, Bounds = Theme.S(3, 43, 388, 176), FillColumn = 1 };
+        _list = new ThemedListView { MultiSelect = true, AllowDrop = true, Bounds = Theme.S(3, 43, 388, 176), FillColumn = 1 };
         _list.Columns.Add("#", Theme.S(40), HorizontalAlignment.Right);
         _list.Columns.Add("Song", Theme.S(250));
         _list.Columns.Add("Players", Theme.S(80), HorizontalAlignment.Center);

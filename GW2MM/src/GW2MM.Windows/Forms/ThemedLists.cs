@@ -12,6 +12,9 @@ internal readonly record struct RowLook(bool Bold = false, Color? Color = null, 
 internal sealed class ThemedListView : ListView
 {
     private int _hover = -1;
+    // A row's ToolTipText shows in the themed tooltip. The ListView's own item tooltips stay off: after the hover
+    // delay they pop a plain copy of the row's text over it, which looks like the text flickering.
+    private readonly ThemedToolTip _tip = new();
 
     public ThemedListView()
     {
@@ -157,6 +160,8 @@ internal sealed class ThemedListView : ListView
         InvalidateRow(_hover);
         _hover = hit;
         InvalidateRow(_hover);
+        var tip = hit >= 0 ? Items[hit].ToolTipText : "";
+        if (_tip.GetToolTip(this) != tip) _tip.SetToolTip(this, tip);
     }
 
     protected override void OnMouseLeave(EventArgs e)
@@ -164,6 +169,13 @@ internal sealed class ThemedListView : ListView
         base.OnMouseLeave(e);
         InvalidateRow(_hover);
         _hover = -1;
+        _tip.SetToolTip(this, "");
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _tip.Dispose();
+        base.Dispose(disposing);
     }
 
     protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
