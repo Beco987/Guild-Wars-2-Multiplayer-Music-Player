@@ -267,22 +267,6 @@ internal static class Theme
     /// <summary>Paints the area of <paramref name="c"/> the way its parent looks behind it (for rounded corners).</summary>
     public static void PaintParent(Control c, Graphics g) => g.Clear(c.Parent?.BackColor ?? Frost);
 
-    /// <summary>Uses the light Explorer scrollbars and list visuals instead of the classic ones.</summary>
-    public static void ExplorerTheme(Control c)
-    {
-        void Apply()
-        {
-            // Dark scrollbars and list visuals at dusk (Windows 10 1809 and later; older versions ignore the name).
-            try { _ = SetWindowTheme(c.Handle, Dusk ? "DarkMode_Explorer" : "Explorer", null); }
-            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
-        }
-        if (c.IsHandleCreated) Apply();
-        c.HandleCreated += (_, _) => Apply();
-    }
-
-    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
-    private static extern int SetWindowTheme(IntPtr hwnd, string? appName, string? idList);
-
     // ------------------------------------------------------------------ windows
 
     private static Icon? _appIcon;

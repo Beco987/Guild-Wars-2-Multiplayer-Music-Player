@@ -56,6 +56,7 @@ internal sealed class KeybindsForm : ThemedDialog
         var room = Screen.PrimaryScreen is { } screen ? screen.WorkingArea.Height - Theme.S(66 + 60 + 50 + 80) : int.MaxValue;
         card.Height = Math.Min(y + Theme.S(8), Math.Max(Theme.S(200), room));
         Body.Controls.Add(card);
+        ThemedScrollBar.Attach(card);
 
         _problem = new Label { AutoSize = true, Font = Theme.SmallBold, ForeColor = Theme.DangerText, Location = new Point(Theme.S(18), card.Bottom + Theme.S(8)) };
         Body.Controls.Add(_problem);

@@ -10,7 +10,7 @@ internal sealed class DataEditorForm : ThemedDialog
 {
     private readonly DataFileEditor _editor;
     private readonly Action _saved_;
-    private readonly DataGridView _grid;
+    private readonly ThemedGrid _grid;
     private readonly Label _count;
     private readonly FieldBox _search;
     private bool _saved;
@@ -48,7 +48,7 @@ internal sealed class DataEditorForm : ThemedDialog
         Body.Controls.Add(search);
 
         var card = new Card { Bounds = Theme.S(16, 54, 688, 300), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
-        _grid = new DataGridView
+        _grid = new ThemedGrid
         {
             Bounds = new Rectangle(Theme.S(2), Theme.S(4), card.Width - Theme.S(4), card.Height - Theme.S(8)),
             Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
@@ -72,7 +72,7 @@ internal sealed class DataEditorForm : ThemedDialog
         cells.SelectionForeColor = Theme.Title;
         cells.Padding = Theme.P(6, 0, 6, 0);
         _grid.AlternatingRowsDefaultCellStyle.BackColor = Theme.Stripe;
-        Theme.ExplorerTheme(_grid);
+        ThemedScrollBar.Attach(_grid);
         AddColumn("Name", 38);
         AddColumn("Players", 10);
         AddColumn("Tempo", 10);

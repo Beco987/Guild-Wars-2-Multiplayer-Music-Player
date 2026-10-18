@@ -26,7 +26,8 @@ internal sealed class ThemedListView : ListView
         HideSelection = false;
         // The row height follows the (invisible) image list.
         SmallImageList = new ImageList { ImageSize = new Size(1, Theme.S(24)) };
-        Theme.ExplorerTheme(this);
+        // No Explorer theme: its hover effect repaints part of a row behind the owner drawing's back.
+        ThemedScrollBar.Attach(this);
     }
 
     /// <summary>Per-row look (null = plain).</summary>
@@ -106,30 +107,38 @@ internal sealed class ThemedListView : ListView
         else if (e.ItemIndex == _hover) Theme.FillRound(g, pill, Theme.Sf(4), Theme.IceHover);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Default;
+
+        // The whole row is drawn here, cells included: Windows sometimes repaints a row without asking for its
+        // cells (hovering, for one), which used to leave the row without text.
+        var look = Look?.Invoke(e.Item) ?? default;
+        var x = e.Bounds.X;
+        foreach (var col in Columns.Cast<ColumnHeader>().OrderBy(c => c.DisplayIndex))
+        {
+            if (col.Index < e.Item.SubItems.Count)
+                DrawCell(g, e.Item, look, col, e.Item.SubItems[col.Index].Text, new Rectangle(x, e.Bounds.Y, col.Width, e.Bounds.Height));
+            x += col.Width;
+        }
     }
 
-    protected override void OnDrawSubItem(DrawListViewSubItemEventArgs e)
+    // Cells are drawn with their row (see OnDrawItem).
+    protected override void OnDrawSubItem(DrawListViewSubItemEventArgs e) { }
+
+    private void DrawCell(Graphics g, ListViewItem item, RowLook look, ColumnHeader col, string text, Rectangle bounds)
     {
-        if (e.Item is null || e.SubItem is null || e.Header is null) return;
-        var look = Look?.Invoke(e.Item) ?? default;
-        var col = e.Header;
-        var first = e.ColumnIndex == 0;
-        var pad = Theme.S(first ? 14 : 8);
-        var r = new Rectangle(e.Bounds.X + pad, e.Bounds.Y, e.Bounds.Width - 2 * pad, e.Bounds.Height);
-        // Column 0's bounds cover the whole row in some states; clip to its own width.
-        if (first) r.Width = Math.Min(r.Width, col.Width - 2 * pad);
+        var pad = Theme.S(col.Index == 0 ? 14 : 8);
+        var r = new Rectangle(bounds.X + pad, bounds.Y, bounds.Width - 2 * pad, bounds.Height);
         var nameColumn = col.Index == FillColumn;
         if (nameColumn && look.Glyph != Glyph.None)
         {
             var s = Theme.S(12);
-            Glyphs.Draw(e.Graphics, look.Glyph, new RectangleF(r.X, r.Y + (r.Height - s) / 2f, s, s), Theme.Azure);
+            Glyphs.Draw(g, look.Glyph, new RectangleF(r.X, r.Y + (r.Height - s) / 2f, s, s), Theme.Azure);
             r.X += s + Theme.S(6);
             r.Width -= s + Theme.S(6);
         }
-        var font = nameColumn && (look.Bold || e.Item.Selected) ? Theme.BodyBold : Theme.Body;
+        var font = nameColumn && (look.Bold || item.Selected) ? Theme.BodyBold : Theme.Body;
         var color = look.Dim ? Theme.Disabled
             : nameColumn && look.Color is { } c ? c
-            : nameColumn ? (e.Item.Selected ? Theme.Title : Theme.Ink)
+            : nameColumn ? (item.Selected ? Theme.Title : Theme.Ink)
             : Theme.Ink2;
         var flags = col.TextAlign switch
         {
@@ -137,7 +146,7 @@ internal sealed class ThemedListView : ListView
             HorizontalAlignment.Center => Theme.TextCenter,
             _ => Theme.TextLeft,
         };
-        Theme.Text(e.Graphics, e.SubItem.Text, font, r, color, flags);
+        Theme.Text(g, text, font, r, color, flags);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -187,7 +196,7 @@ internal sealed class ChatLog : RichTextBox
         ScrollBars = RichTextBoxScrollBars.Vertical;
         Cursor = Cursors.Arrow;
         TabStop = false;
-        Theme.ExplorerTheme(this);
+        ThemedScrollBar.Attach(this);
     }
 
     public void AppendLine(string line)

@@ -223,7 +223,7 @@ internal sealed class FieldBox : Panel
             BorderStyle = BorderStyle.None, Font = Theme.Body, ForeColor = Theme.Ink, Multiline = multiline,
             ScrollBars = multiline ? ScrollBars.Vertical : ScrollBars.None,
         };
-        if (multiline) Theme.ExplorerTheme(Box);
+        if (multiline) ThemedScrollBar.Attach(Box);
         Controls.Add(Box);
         Box.GotFocus += (_, _) => { UpdateColors(); Invalidate(); };
         Box.LostFocus += (_, _) => { UpdateColors(); Invalidate(); };

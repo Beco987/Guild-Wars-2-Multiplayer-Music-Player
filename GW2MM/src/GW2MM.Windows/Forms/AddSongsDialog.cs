@@ -21,7 +21,7 @@ internal sealed class AddSongsDialog : ThemedDialog
             DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = Theme.S(28), BorderStyle = BorderStyle.None, IntegralHeight = false,
             BackColor = Theme.Surface, Font = Theme.Body, Bounds = new Rectangle(Theme.S(2), Theme.S(4), card.Width - Theme.S(4), card.Height - Theme.S(8)),
         };
-        Theme.ExplorerTheme(_list);
+        ThemedScrollBar.Attach(_list);
         card.Controls.Add(_list);
         Body.Controls.Add(card);
         SetBodyHeight(366);
