@@ -873,7 +873,8 @@ internal sealed class MainForm : Form, IHostView
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         BeginInvokeSafe(() =>
         {
-            Dialogs.Show(this, text, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // Sync prompts: the player is usually in the game (maybe with this window minimized), so make sure they see it.
+            Dialogs.Show(this, text, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information, heading: "Sync", urgent: true);
             tcs.TrySetResult();
         });
         return tcs.Task;

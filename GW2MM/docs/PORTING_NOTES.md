@@ -155,6 +155,9 @@ reachable from any hotkey, button or message.
     box above the grid filters the rows by song name.
   * *Controls* is gone: its button is now **Pause** and **Stop** buttons (F2 / F3), and keys are listed in Keybinds.
   * The host's **Ping** button is gone; opening Port Mapping now measures each player's ping.
+* **Sync prompts reach the players.** The prompt comes to the front over the game with a sound (a box owned by a
+  minimized GW2MM window used to stay hidden with it), the chat says which players were asked, and a failure in the
+  host's own measurement (such as an audio device error) no longer ends Sync before the players are asked.
 * **Janthir Wilds redesign of every window.** One look throughout, built from the banner art: frost surfaces, the
   banner's navy lettering colour, icy azure and lavender accents, Segoe UI, rounded cards and vector icons (drawn in
   code, so they stay sharp at any scaling). Layout sizes are scaled from the system DPI.

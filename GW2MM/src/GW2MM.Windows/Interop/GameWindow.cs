@@ -37,14 +37,13 @@ internal static class GameWindow
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return false; }
     }
 
-    /// <summary>Restores and activates the window; true once it is the foreground window (waits up to 2 s).</summary>
-    public static bool Focus(IntPtr hWnd)
+    /// <summary>
+    /// Makes a window the foreground window even when another program (the game) has the focus. Windows only lets the
+    /// foreground process hand focus to another window; sharing the foreground window's input state makes this
+    /// process count as foreground for the call.
+    /// </summary>
+    public static void BringToFront(IntPtr hWnd)
     {
-        if (hWnd == IntPtr.Zero || !NativeMethods.IsWindow(hWnd)) return false;
-        if (NativeMethods.GetForegroundWindow() == hWnd) return true;
-        if (NativeMethods.IsIconic(hWnd)) NativeMethods.ShowWindow(hWnd, NativeMethods.SW_RESTORE);
-        // Windows only lets the foreground process hand focus to another window. Sharing the foreground window's
-        // input state makes this process count as foreground for the call.
         var foreground = NativeMethods.GetForegroundWindow();
         var foregroundThread = foreground == IntPtr.Zero ? 0 : NativeMethods.GetWindowThreadProcessId(foreground, out _);
         var thisThread = NativeMethods.GetCurrentThreadId();
@@ -58,6 +57,15 @@ internal static class GameWindow
         {
             if (attached) NativeMethods.AttachThreadInput(thisThread, foregroundThread, false);
         }
+    }
+
+    /// <summary>Restores and activates the window; true once it is the foreground window (waits up to 2 s).</summary>
+    public static bool Focus(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !NativeMethods.IsWindow(hWnd)) return false;
+        if (NativeMethods.GetForegroundWindow() == hWnd) return true;
+        if (NativeMethods.IsIconic(hWnd)) NativeMethods.ShowWindow(hWnd, NativeMethods.SW_RESTORE);
+        BringToFront(hWnd);
         var sw = Stopwatch.StartNew();
         while (sw.ElapsedMilliseconds < 2000)
         {

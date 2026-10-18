@@ -615,11 +615,18 @@ public sealed class HostSession : IDisposable
                     {
                         _view.ReportProblem(ex.Message + " The host's input delay was not changed.");
                     }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // Whatever goes wrong here (no audio device, ...), the players must still be asked below.
+                        _view.ReportProblem("Could not measure the host's input delay: " + ex.Message + " It was not changed.");
+                    }
                     value = mean?.ToString(CultureInfo.InvariantCulture) ?? InputDelayOf(1);
                 }
                 else
                 {
                     conn!.Send(new SyncInstrument());
+                    var name = PlayerOf(slot).Name;
+                    _view.AppendDialog($"Sync: asked {(string.IsNullOrWhiteSpace(name) ? "player " + slot : name)} to measure their input delay.");
                     value = "";
                 }
                 lock (_gate) _inputDelays[slot] = value;

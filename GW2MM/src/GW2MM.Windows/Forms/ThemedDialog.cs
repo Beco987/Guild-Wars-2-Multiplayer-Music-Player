@@ -166,17 +166,40 @@ internal static class Dialogs
     /// Shows a message. <paramref name="yes"/> / <paramref name="no"/> relabel the Yes and No buttons (e.g. "Delete",
     /// "Cancel"); <paramref name="danger"/> makes the Yes button red and gives the No button the initial focus.
     /// </summary>
+    /// <param name="urgent">
+    /// For prompts the user must see even while playing (Sync): the box stays on top, takes the foreground from the
+    /// game, flashes and plays the system sound. If the owner is minimized it is shown on its own (an owned window is
+    /// hidden with its minimized owner).
+    /// </param>
     public static DialogResult Show(IWin32Window? owner, string text, string caption, MessageBoxButtons buttons = MessageBoxButtons.OK,
-        MessageBoxIcon icon = MessageBoxIcon.None, string? heading = null, string? yes = null, string? no = null, bool danger = false)
+        MessageBoxIcon icon = MessageBoxIcon.None, string? heading = null, string? yes = null, string? no = null, bool danger = false,
+        bool urgent = false)
     {
         using var dlg = new MessageDialog(text, caption, buttons, icon, heading, yes, no, danger);
         var ownerForm = (owner as Control)?.FindForm();
+        if (urgent)
+        {
+            dlg.TopMost = true;
+            dlg.Shown += (_, _) =>
+            {
+                System.Media.SystemSounds.Asterisk.Play();
+                Interop.GameWindow.BringToFront(dlg.Handle);
+                var flash = new Interop.NativeMethods.FLASHWINFO
+                {
+                    cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<Interop.NativeMethods.FLASHWINFO>(), hwnd = dlg.Handle,
+                    dwFlags = Interop.NativeMethods.FLASHW_ALL | Interop.NativeMethods.FLASHW_TIMERNOFG,
+                };
+                Interop.NativeMethods.FlashWindowEx(ref flash);
+            };
+            if (ownerForm is { WindowState: FormWindowState.Minimized } or { Visible: false }) ownerForm = null;
+        }
         if (ownerForm is not null && !ownerForm.IsDisposed)
         {
-            dlg.TopMost = ownerForm.TopMost;
+            dlg.TopMost |= ownerForm.TopMost;
             return dlg.ShowDialog(ownerForm);
         }
         dlg.ShowInTaskbar = true;
+        dlg.StartPosition = FormStartPosition.CenterScreen;
         return dlg.ShowDialog();
     }
 

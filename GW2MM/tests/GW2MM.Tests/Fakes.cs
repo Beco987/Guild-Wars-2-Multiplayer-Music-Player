@@ -49,6 +49,13 @@ internal sealed class FakeMeter : IInputDelayMeter
     public Task<IReadOnlyList<double>> MeasureAsync(CancellationToken ct) => Task.FromResult(_samples);
 }
 
+/// <summary>A meter that fails the way a broken audio device would (not an InputDelayException).</summary>
+internal sealed class BrokenMeter : IInputDelayMeter
+{
+    public Task<IReadOnlyList<double>> MeasureAsync(CancellationToken ct) =>
+        Task.FromException<IReadOnlyList<double>>(new InvalidOperationException("No playback device."));
+}
+
 /// <summary>A meter whose test cannot run (Guild Wars 2 is not open).</summary>
 internal sealed class GameClosedMeter : IInputDelayMeter
 {

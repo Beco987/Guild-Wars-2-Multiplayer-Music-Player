@@ -48,6 +48,9 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 5. **Sync** needs Guild Wars 2 open on every machine. After you press OK on its prompt, GW2MM brings the game window
    (*Player1*, or else any Guild Wars 2 window) to the front, waits briefly, then plays the 10 test notes.
    A note is only sent while the game is in front. If the game isn't open, Sync says so and keeps the old value.
+   The host measures itself first; then each connected player gets the Sync prompt (the chat says who was asked).
+   The prompt comes to the front over the game, with a sound, even when GW2MM is minimized. If the host's own test
+   fails, the players are still asked.
 
 ### Adding songs
 

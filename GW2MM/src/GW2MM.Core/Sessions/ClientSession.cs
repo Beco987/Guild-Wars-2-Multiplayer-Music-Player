@@ -127,6 +127,7 @@ public sealed class ClientSession : IDisposable
                 break;
             case SyncInstrument:
                 _view.LogEvent("Sync_Instrument");
+                _view.AppendDialog("Sync: the host asked for your input delay.");
                 _ = SyncAsync();
                 break;
         }

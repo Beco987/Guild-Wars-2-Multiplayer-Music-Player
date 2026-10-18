@@ -321,6 +321,20 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task PlayersAreStillAskedToSyncWhenTheHostsMeasurementFails()
+    {
+        var (host, h) = StartHost(new PortMapping(), delays: new[] { "42", "0", "0", "0", "0" }, meter: new BrokenMeter());
+        var (_, c) = await StartClient(host, 0, meter: new FakeMeter(50, 60, 70));
+        await host.SyncAsync();
+        Assert.Equal("42", h.View.InputDelays[1]);
+        Assert.Contains(h.View.Problems, p => p.StartsWith("Could not measure the host's input delay: No playback device."));
+        Assert.Contains("Sync: asked bob to measure their input delay.", h.View.Dialog);
+        await Wait.Until(() => c.View.Messages.Any(m => m.StartsWith("Open Gw2, turn all ingame volumes to 0")), what: "client prompt");
+        Assert.Contains("Sync: the host asked for your input delay.", c.View.Dialog);
+        await Wait.Until(() => h.View.InputDelays.TryGetValue(2, out var v) && v == "60", what: "client input delay");
+    }
+
+    [Fact]
     public async Task SyncWithoutTheGameOpenKeepsTheOldValueAndSaysWhy()
     {
         var (host, h) = StartHost(new PortMapping(), delays: new[] { "42", "0", "0", "0", "0" }, meter: new GameClosedMeter());
