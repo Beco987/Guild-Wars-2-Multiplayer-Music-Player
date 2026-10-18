@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Assets\*.png" LogicalName="GW2MM.Assets.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets\*.ico" LogicalName="GW2MM.Assets.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

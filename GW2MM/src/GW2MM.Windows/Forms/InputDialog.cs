@@ -1,27 +1,30 @@
 namespace GW2MM.Windows.Forms;
 
-/// <summary>AutoHotkey InputBox replacement. Returns null when cancelled.</summary>
-internal sealed class InputDialog : Form
+/// <summary>Asks for one line of text (a playlist name). The OK button is labelled with the action ("Create", "Rename").</summary>
+internal sealed class InputDialog : ThemedDialog
 {
-    private readonly TextBox _text;
+    private readonly FieldBox _text;
 
-    private InputDialog(string title, string prompt, string defaultValue)
+    private InputDialog(string title, string prompt, string defaultValue, string verb) : base(title, 360)
     {
-        Ui.InitForm(this, title, 300, 110);
-        ForeColor = SystemColors.ControlText;
-        Ui.Label(this, prompt, 10, 10, 280, 20);
-        _text = Ui.Add(this, new TextBox { Text = defaultValue }, 10, 35, 280, 22);
-        var ok = Ui.Button(this, "OK", 130, 70, 75, 26, (_, _) => { DialogResult = DialogResult.OK; Close(); });
-        var cancel = Ui.Button(this, "Cancel", 215, 70, 75, 26, (_, _) => { DialogResult = DialogResult.Cancel; Close(); });
-        AcceptButton = ok;
-        CancelButton = cancel;
-        MinimizeBox = false;
+        var label = new Label { Text = prompt, Font = Theme.BodyBold, ForeColor = Theme.Ink, AutoSize = true, Location = Theme.S(20, 16, 0, 0).Location };
+        _text = new FieldBox { Bounds = Theme.S(20, 40, 320, 30) };
+        _text.Box.Text = defaultValue;
+        Body.Controls.Add(label);
+        Body.Controls.Add(_text);
+        SetBodyHeight(90);
+        AcceptButton = AddButton(verb, ButtonKind.Primary, DialogResult.OK);
+        CancelButton = AddButton("Cancel", ButtonKind.Secondary, DialogResult.Cancel);
+        ActiveControl = _text.Box;
+        _text.Box.SelectAll();
     }
 
-    public static (bool Ok, string Text) Ask(string title, string prompt, string defaultValue)
+    public static (bool Ok, string Text) Ask(IWin32Window? owner, string title, string prompt, string defaultValue, string verb = "OK")
     {
-        using var d = new InputDialog(title, prompt, defaultValue);
-        var ok = d.ShowDialog() == DialogResult.OK;
-        return (ok, d._text.Text);
+        using var d = new InputDialog(title, prompt, defaultValue, verb);
+        var ownerForm = (owner as Control)?.FindForm();
+        if (ownerForm is not null) d.TopMost = ownerForm.TopMost;
+        var ok = (ownerForm is null ? d.ShowDialog() : d.ShowDialog(ownerForm)) == DialogResult.OK;
+        return (ok, d._text.Box.Text);
     }
 }

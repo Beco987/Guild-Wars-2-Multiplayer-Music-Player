@@ -11,8 +11,9 @@ namespace GW2MM.Windows.Forms;
 public enum AppRole { Host, Client }
 
 /// <summary>
-/// The main window (same layout as the original GW2MM GUI): song list, New/Delete/Data Editor, Play, description,
-/// Controls, chat box and status line; the host also has the Port and Sync buttons.
+/// The main window: the Janthir Wilds banner with Settings and About, a Songs | Playlists switch with the song
+/// actions, the song list (or the playlist panel), the transport card (Play, the selected song, Pause, Stop), the
+/// chat card (host: Port mapping and Sync; client: Connect / Disconnect) and the status bar.
 /// </summary>
 internal sealed class MainForm : Form, IHostView
 {
@@ -32,23 +33,36 @@ internal sealed class MainForm : Form, IHostView
     private static readonly HttpClient RouterHttp = new() { Timeout = TimeSpan.FromSeconds(5) };
     private PortOpener? _portOpener;
 
-    private readonly ListView _songs;
-    private readonly TextBox _search;
+    private readonly ThemedToolTip _tips = new();
+    private readonly SegmentedControl _tabs;
+    private readonly Card _listCard;
+    private readonly Panel _songsPage;
+    private readonly FieldBox _search;
+    private readonly ThemedListView _songs;
     private List<SongEntry> _allSongs = new();
-    private readonly TabControl _tabs;
-    private readonly TabPage _playlistsPage;
     private readonly PlaylistPanel _playlists;
+    private readonly ThemedButton _newSong, _editData, _deleteSong, _reload;
+    private readonly RoundButton _play, _pause, _stop;
     private readonly Label _playLabel;
-    private readonly TextBox _description, _dialog, _input;
-    private readonly Button _send;
-    private readonly Label _status;
-    private readonly Button? _syncButton;
+    private readonly SongInfoPanel _songInfo;
+    private readonly ChatLog _chat;
+    private readonly FieldBox _input;
+    private readonly ThemedButton _send;
+    private readonly StatusBar _status;
+    private readonly ThemedButton? _syncButton;
+    private readonly ThemedButton? _connectButton;
     private PortMappingForm? _portForm;
     private NewSongForm? _newSongForm;
+    private SettingsForm? _settingsForm;
+    private InfoForm? _infoForm;
     private string _highlighted = "";
+    private string? _playlistSong;
+    private NowPlayingInfo? _nowPlaying;
     private bool _exiting;
 
     private readonly string[] _args;
+
+    private bool PlaylistsShowing => _tabs.SelectedIndex == 1;
 
     public MainForm(AppRole role, string dataDir, AppSettings settings, string[] args)
     {
@@ -58,88 +72,268 @@ internal sealed class MainForm : Form, IHostView
         _settings = settings;
         _library = new SongLibrary(dataDir, new RecycleBin());
 
-        Ui.InitForm(this, Texts.AppTitle, 400, 620);
+        Theme.InitWindow(this, Texts.AppTitle);
+        SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        MaximizeBox = false;
+        MinimizeBox = true;
+        StartPosition = FormStartPosition.CenterScreen;
+        ClientSize = Theme.S(420, 660);
         KeyPreview = true;
 
-        // Each original program had its own banner ("SERVER" / "CLIENT").
-        Ui.Picture(this, role == AppRole.Client ? "TitleClient.png" : "Title.png", 0, 0, 400, 75);
-        // Added after the title picture they sit on, so they must be raised above it (WinForms stacks later controls below).
-        Ui.Button(this, "?", 380, 0, 20, 20, (_, _) => new InfoForm().Show(this)).BringToFront();
-        Ui.Button(this, "⚙", 360, 0, 20, 20, (_, _) => new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds,
-            _client is null ? null : new SettingsForm.Connection(() => _client.IsConnected, ConnectToServer, () => _client.Disconnect())).Show(this)).BringToFront();
+        // Banner: each program has its own art ("SERVER" / "CLIENT"), with Settings and About in a frosted capsule.
+        var banner = Add(new Banner(Assets.Load(role == AppRole.Client ? "TitleClient.png" : "Title.png")), 0, 0, 420, 80);
+        banner.SettingsClicked += (_, _) => ShowSettings();
+        banner.AboutClicked += (_, _) => ShowInfo();
 
-        // Songs and Playlists share the list area as two tabs; Play plays whichever is showing.
-        _tabs = Ui.Add(this, new TabControl(), 10, 75, 290, 305);
-        var songsPage = new TabPage("Songs");
-        _playlistsPage = new TabPage("Playlists");
-        _tabs.TabPages.Add(songsPage);
-        _tabs.TabPages.Add(_playlistsPage);
-        _songs = new ListView
+        // Toolbar: Songs | Playlists, then the song actions.
+        _tabs = Add(new SegmentedControl("Songs", "Playlists"), 12, 89, 0, 30);
+        _tabs.Width = _tabs.PreferredWidth;
+        _reload = Add(new ThemedButton("", ButtonKind.Ghost, Glyph.Reload) { AccessibleName = "Reload the song list" }, 380, 90, 28, 28);
+        _reload.Click += (_, _) => ReloadSongs();
+        _deleteSong = Add(new ThemedButton("", ButtonKind.Ghost, Glyph.Trash) { AccessibleName = "Delete song" }, 338, 90, 28, 28);
+        _deleteSong.Click += (_, _) => DeleteSong();
+        _editData = Add(new ThemedButton("", ButtonKind.Ghost, Glyph.EditTable) { AccessibleName = "Data Editor" }, 306, 90, 28, 28);
+        _editData.Click += (_, _) => OpenDataEditor();
+        _newSong = new ThemedButton("New", ButtonKind.Tonal, Glyph.Plus) { AccessibleName = "New song", FixedHeight = Theme.S(28) };
+        _newSong.Size = _newSong.GetPreferredSize(Size.Empty);
+        _newSong.Location = new Point(Theme.S(300) - _newSong.Width, Theme.S(90));
+        Controls.Add(_newSong);
+        _newSong.Click += (_, _) => ShowNewSong();
+        _tips.SetToolTip(_newSong, "Add a song (.mid or .mscz)");
+        _tips.SetToolTip(_editData, "Data Editor: edit names, players, tempo and descriptions");
+        _tips.SetToolTip(_deleteSong, "Delete the selected song (Del)");
+        _tips.SetToolTip(_reload, "Reload the song list");
+
+        // The list card holds either the song list (with its search box) or the playlist panel.
+        _listCard = Add(new Card(), 12, 126, 396, 266);
+        _songsPage = new Panel { BackColor = Theme.Surface, Bounds = Theme.S(1, 1, 394, 264) };
+        _listCard.Controls.Add(_songsPage);
+        _search = new FieldBox(filled: true) { Glyph = Glyph.Search, ClearButton = true, Bounds = Theme.S(7, 7, 380, 30) };
+        _search.Box.PlaceholderText = "Search songs";
+        _search.Box.TextChanged += (_, _) => ShowSongs();
+        _search.Box.PreviewKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) e.IsInputKey = true; };
+        _search.Box.KeyDown += (_, e) =>
         {
-            View = View.Details, FullRowSelect = true, MultiSelect = false, HideSelection = false, ShowItemToolTips = true, Dock = DockStyle.Fill,
+            // Enter jumps to the list (instead of sending the chat message); Down does too.
+            if (e.KeyCode is Keys.Enter or Keys.Down && _songs!.Items.Count > 0)
+            {
+                if (_songs.SelectedItems.Count == 0) _songs.Items[0].Selected = true;
+                _songs.Focus();
+                e.Handled = e.SuppressKeyPress = true;
+            }
         };
-        _search = new TextBox { Dock = DockStyle.Top, PlaceholderText = "Search songs" };
-        _search.TextChanged += (_, _) => ShowSongs();
-        songsPage.Controls.Add(_search);
-        songsPage.Controls.Add(_songs);
-        _songs.BringToFront(); // fills the space below the search box
-        _songs.Columns.Add("Name", 162);
-        _songs.Columns.Add("Players", 54);
-        _songs.Columns.Add("Date", 62);
+        _songsPage.Controls.Add(_search);
+        _songs = new ThemedListView { MultiSelect = false, ShowItemToolTips = true, Bounds = Theme.S(3, 43, 388, 219), FillColumn = 0 };
+        _songs.Columns.Add("Name", Theme.S(200));
+        _songs.Columns.Add("Players", Theme.S(70), HorizontalAlignment.Center);
+        _songs.Columns.Add("Added", Theme.S(100), HorizontalAlignment.Right);
+        _songs.Look = item => _nowPlaying is { } np && item.Text == np.Song ? new RowLook(Bold: true, Color: Theme.AzureText, Glyph: Glyph.Equalizer) : default;
         _songs.ItemSelectionChanged += (_, e) => { if (e.IsSelected) SelectSong(e.Item!.Text); };
         _songs.ColumnClick += (_, e) => SortBy(e.Column);
+        _songs.DoubleClick += (_, _) => Play();
+        _songs.PreviewKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) e.IsInputKey = true; };
+        _songs.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter) { Play(); e.Handled = true; }
+            else if (e.KeyCode == Keys.Delete) { DeleteSong(); e.Handled = true; }
+        };
         _songs.ContextMenuStrip = SongMenu();
+        _songsPage.Controls.Add(_songs);
+        _songs.FitColumns();
 
         _playlists = new PlaylistPanel(_library.Playlists, settings, dataDir, () => _library.ListSongs(), ReportProblem,
-            () => { if (_host is not null) _host.NextSong(); else _solo?.NextSong(); }) { Dock = DockStyle.Fill };
-        _playlistsPage.Controls.Add(_playlists);
+            () => { if (_host is not null) _host.NextSong(); else _solo?.NextSong(); })
+        {
+            Bounds = Theme.S(1, 1, 394, 264), Visible = false,
+        };
+        _listCard.Controls.Add(_playlists);
         _playlists.PlayRequested += Play;
-        _playlists.SongSelected += name => { if (name is not null && _description is not null) _description.Text = _library.Description(name); };
+        _playlists.SongSelected += name => { _playlistSong = name; UpdateSongInfo(); };
+        _playlists.PlaylistsChanged += () => _tabs.SetCount(1, _playlists.PlaylistNames.Count);
+        _tabs.SelectedIndexChanged += (_, _) => ShowTab();
 
-        Ui.Button(this, "↻", 300, 365, 20, 20, (_, _) => ReloadSongs());
-        Ui.Picture(this, "Page.png", 310, 85, 80, 80, (_, _) => ShowNewSong());
-        Ui.Label(this, "New Song", 310, 165, 80, 15, ContentAlignment.TopCenter);
-        Ui.Picture(this, "Salvage Kit.png", 310, 185, 80, 80, (_, _) => DeleteSong());
-        Ui.Label(this, "Delete Song", 310, 265, 80, 15, ContentAlignment.TopCenter);
-        Ui.Picture(this, "Tool Kit.png", 310, 285, 80, 80, (_, _) => OpenDataEditor());
-        Ui.Label(this, "Data Editor", 320, 365, 72, 15);
+        // Transport: Play (the song, or the playlist on the Playlists tab), what will play, Pause and Stop.
+        var transport = Add(new Card(), 12, 400, 396, 72);
+        _play = new RoundButton(Glyph.Play, primary: true, "Play") { Bounds = Theme.S(16, 4, 50, 50) };
+        _play.Click += (_, _) => Play();
+        _playLabel = new Label
+        {
+            Text = "Play", Font = Theme.SmallBold, ForeColor = Theme.Navy, BackColor = Theme.Surface, TextAlign = ContentAlignment.TopCenter,
+            Bounds = Theme.S(0, 53, 82, 16), AutoEllipsis = true,
+        };
+        _songInfo = new SongInfoPanel { Bounds = Theme.S(84, 6, 214, 62) };
+        _pause = new RoundButton(Glyph.Pause, primary: false, "Pause") { Bounds = Theme.S(306, 9, 36, 36) };
+        _pause.Click += (_, _) => RunHotkey("PauseResume");
+        _stop = new RoundButton(Glyph.Stop, primary: false, "Stop") { Bounds = Theme.S(348, 9, 36, 36) };
+        _stop.Click += (_, _) => RunHotkey("StopSong");
+        transport.Controls.AddRange(new Control[] { _play, _playLabel, _songInfo, _pause, _stop, Caption("Pause", 300, 48), Caption("Stop", 342, 48) });
 
-        Ui.Picture(this, "Fa.png", 10, 390, 80, 80, (_, _) => Play());
-        _playLabel = Ui.Label(this, "Play", 0, 470, 100, 15, ContentAlignment.TopCenter);
-        _tabs.SelectedIndexChanged += (_, _) => _playLabel.Text = _tabs.SelectedTab == _playlistsPage ? "Play playlist" : "Play";
-        _description = Ui.Add(this, new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical }, 100, 390, 200, 80);
-        Ui.Label(this, "Song Description", 100, 470, 200, 15, ContentAlignment.TopCenter);
-        // Pause and Stop do what F2 and F3 do.
-        Ui.Picture(this, "Pause.png", 310, 410, 38, 38, (_, _) => RunHotkey("PauseResume"));
-        Ui.Label(this, "Pause", 302, 450, 54, 15, ContentAlignment.TopCenter);
-        Ui.Picture(this, "Stop.png", 352, 410, 38, 38, (_, _) => RunHotkey("StopSong"));
-        Ui.Label(this, "Stop", 344, 450, 54, 15, ContentAlignment.TopCenter);
-
-        _dialog = Ui.Add(this, new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical }, 50, 490, 300, 80);
-        _input = Ui.Add(this, new TextBox { ReadOnly = true, MaxLength = 65535 }, 50, 570, 300, 22);
-        _send = Ui.Button(this, "Send", 355, 570, 45, 22, (_, _) => SendChat());
-        _send.Enabled = false;
+        // Chat: header with the host tools (or the client's connection button), the log, the input and Send.
+        var chat = Add(new Card(), 12, 480, 396, 146);
+        var chatTitle = new ChatHeader { Bounds = Theme.S(10, 6, 120, 24) };
+        _chat = new ChatLog { Bounds = Theme.S(8, 6, 368, 54) };
+        var well = new InsetPanel { Bounds = Theme.S(8, 36, 380, 66) };
+        well.Controls.Add(_chat);
+        _input = new FieldBox { Bounds = Theme.S(8, 108, 300, 30) };
+        _input.Box.MaxLength = 65535;
+        _input.Box.ReadOnly = true;
+        _input.Box.PlaceholderText = role == AppRole.Host ? "Chat opens when a player joins" : "Connect to a server to chat";
+        _send = new ThemedButton("Send", ButtonKind.Primary, Glyph.Send) { Enabled = false, FixedHeight = Theme.S(30), Bounds = Theme.S(314, 108, 74, 30) };
+        _send.Click += (_, _) => SendChat();
         AcceptButton = _send;
-        _status = Ui.Label(this, "Not connected...", 0, 596, 400, 20, ContentAlignment.TopCenter);
+        chat.Controls.AddRange(new Control[] { chatTitle, well, _input, _send });
+
+        _status = Add(new StatusBar { Text = "Not connected..." }, 0, 634, 420, 26);
 
         if (role == AppRole.Host)
         {
             _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter(),
                 offsetMs: () => _settings.OffsetMs);
-            Ui.Button(this, "Port", 355, 490, 45, 20, (_, _) => ShowPortMapping());
-            _syncButton = Ui.Button(this, "Sync", 355, 510, 45, 20, async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token)));
+            _syncButton = Chip("Sync", Glyph.Metronome, 388);
+            _syncButton.Click += async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token));
+            var port = Chip("Port mapping", Glyph.Sliders, 388 - _syncButton.Width / Theme.Scale - 6);
+            port.Click += (_, _) => ShowPortMapping();
+            chat.Controls.AddRange(new Control[] { _syncButton, port });
+            _tips.SetToolTip(port, "Choose which tracks each player plays");
+            _tips.SetToolTip(_syncButton, "Measure each player's input delay");
+            _status.RightText = "Host";
         }
         else
         {
             _client = new ClientSession(this, _library, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
-            _input.TextChanged += (_, _) => _client.TypingChanged(_input.Text);
+            _input.Box.TextChanged += (_, _) => _client.TypingChanged(_input.Box.Text);
             _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys,
                 offsetMs: () => _settings.OffsetMs);
+            _connectButton = Chip("Connect…", Glyph.Plug, 388, ButtonKind.Tonal);
+            _connectButton.Click += (_, _) =>
+            {
+                if (_client.IsConnected) _client.Disconnect();
+                else ConnectToServer(this);
+                UpdateConnectionUi();
+            };
+            chat.Controls.Add(_connectButton);
+            UpdateConnectionUi();
         }
 
         ApplyDisplaySettings();
         RegisterHotkeys();
         ReloadSongs();
+        _tabs.SetCount(1, _playlists.PlaylistNames.Count);
+        UpdateSongInfo();
+        // Start in the song list (Ctrl+F jumps to the search box), so the search box shows its placeholder.
+        ActiveControl = _songs;
+
+        Label Caption(string text, float x, float y) => new()
+        {
+            Text = text, Font = Theme.Tiny, ForeColor = Theme.Muted, BackColor = Theme.Surface, TextAlign = ContentAlignment.TopCenter,
+            Bounds = Theme.S(x, y, 48, 16),
+        };
+        ThemedButton Chip(string text, Glyph glyph, float right, ButtonKind kind = ButtonKind.Secondary)
+        {
+            var b = new ThemedButton(text, kind, glyph) { Font = Theme.SmallBold, FixedHeight = Theme.S(26) };
+            b.Size = b.GetPreferredSize(Size.Empty);
+            b.Location = new Point(Theme.S(right) - b.Width, Theme.S(5));
+            return b;
+        }
+    }
+
+    private T Add<T>(T control, float x, float y, float w, float h) where T : Control
+    {
+        control.Bounds = Theme.S(x, y, w, h);
+        Controls.Add(control);
+        return control;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        Card.PaintShadows(this, e.Graphics);
+    }
+
+    /// <summary>Shows the Songs or the Playlists side; the song actions only apply to the Songs side.</summary>
+    private void ShowTab()
+    {
+        var playlists = PlaylistsShowing;
+        _songsPage.Visible = !playlists;
+        _playlists.Visible = playlists;
+        _newSong.Visible = _editData.Visible = _deleteSong.Visible = !playlists;
+        _playLabel.Text = playlists ? "Play playlist" : "Play";
+        UpdateSongInfo();
+        UpdateTooltips();
+    }
+
+    /// <summary>The transport card's text: what Play will play.</summary>
+    private void UpdateSongInfo()
+    {
+        if (PlaylistsShowing)
+        {
+            var name = _playlists.Current?.Name;
+            var song = _playlistSong;
+            _songInfo.Set(name is null ? "Playlist" : "Playlist · " + name,
+                song ?? name ?? "No playlist yet",
+                song is null ? null : PlayersOf(song),
+                song is not null ? _library.Description(song) : name is null ? "Create one with ⋯ → New playlist…" : "Plays from the selected song, or from the top.");
+            return;
+        }
+        if (_highlighted.Length == 0)
+        {
+            _songInfo.Set("Selected song", "No song selected", null, "Pick a song from the list, then press Play.");
+            return;
+        }
+        _songInfo.Set(_nowPlaying?.Song == _highlighted ? "Now playing" : "Selected song", _highlighted, PlayersOf(_highlighted), _library.Description(_highlighted));
+    }
+
+    private string? PlayersOf(string song)
+    {
+        var players = _allSongs.FirstOrDefault(s => s.Name == song)?.Players.Trim();
+        return string.IsNullOrEmpty(players) ? null : players == "1" ? "1 player" : players + " players";
+    }
+
+    /// <summary>Tooltips that name the keys currently bound to Play, Pause and Stop.</summary>
+    private void UpdateTooltips()
+    {
+        string Key(string id) => CurrentBindings().FirstOrDefault(b => b.Action.Id == id).Keys is { IsNone: false } k ? $" ({k})" : "";
+        var playId = _role == AppRole.Host ? "PlaySong" : "RequestSong";
+        _tips.SetToolTip(_play, (PlaylistsShowing ? "Play the playlist" : "Play the selected song") + Key(playId));
+        _tips.SetToolTip(_pause, "Pause / resume" + Key("PauseResume"));
+        _tips.SetToolTip(_stop, "Stop" + Key("StopSong"));
+    }
+
+    /// <summary>Client: the chat card's Connect / Disconnect button and the status bar's right-hand text.</summary>
+    private void UpdateConnectionUi()
+    {
+        if (_client is null || _connectButton is null) return;
+        var connected = _client.IsConnected;
+        _connectButton.Text = connected ? "Disconnect" : "Connect…";
+        _connectButton.Kind = connected ? ButtonKind.Secondary : ButtonKind.Tonal;
+        _connectButton.Size = _connectButton.GetPreferredSize(Size.Empty);
+        _connectButton.Left = Theme.S(388) - _connectButton.Width;
+        _tips.SetToolTip(_connectButton, connected ? "Leave the server" : "Connect to a host");
+        _status.RightText = connected ? "Playing as " + _settings.Name : "Solo: plays on this PC's windows";
+    }
+
+    private void ShowSettings()
+    {
+        if (_settingsForm is { IsDisposed: false })
+        {
+            _settingsForm.Activate();
+            return;
+        }
+        _settingsForm = new SettingsForm(_settings, _dataDir, _host is not null, SettingsSaved, ShowKeybinds,
+            _client is null ? null : new SettingsForm.Connection(() => _client.IsConnected, ConnectToServer, () => { _client.Disconnect(); UpdateConnectionUi(); }));
+        _settingsForm.Show(this);
+    }
+
+    private void ShowInfo()
+    {
+        if (_infoForm is { IsDisposed: false })
+        {
+            _infoForm.Activate();
+            return;
+        }
+        _infoForm = new InfoForm(_role);
+        _infoForm.Show(this);
     }
 
     // ------------------------------------------------------------------ start-up / shutdown
@@ -157,7 +351,8 @@ internal sealed class MainForm : Form, IHostView
             }
             catch (System.Net.Sockets.SocketException ex)
             {
-                MessageBox.Show(this, $"Could not listen for players on port {Core.Net.PeerConnection.DefaultPort}: {ex.Message}", Texts.AppTitle);
+                Dialogs.Show(this, $"Could not listen for players on port {Core.Net.PeerConnection.DefaultPort}: {ex.Message}", Texts.AppTitle,
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
             }
         }
@@ -232,6 +427,7 @@ internal sealed class MainForm : Form, IHostView
                 failed.Add(keys.ToString());
         if (failed.Count > 0)
             AppendDialog("Could not register hotkey(s) " + string.Join(", ", failed) + " (in use by another program).");
+        UpdateTooltips();
     }
 
     /// <summary>Opens the Keybinds window. Hotkeys are off while it is open so the keys can be pressed into it.</summary>
@@ -263,10 +459,18 @@ internal sealed class MainForm : Form, IHostView
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        // The original host window closed on Escape (GuiEscape); the client's did not.
-        if (e.KeyCode == Keys.Escape && ActiveControl == _search && _search.Text.Length > 0)
+        if (e.KeyData == (Keys.Control | Keys.F))
         {
-            _search.Clear();                     // Esc in the search box clears it
+            _tabs.SelectedIndex = 0;             // Ctrl+F: search the songs
+            _search.Box.Focus();
+            _search.Box.SelectAll();
+            e.Handled = e.SuppressKeyPress = true;
+            return;
+        }
+        // The original host window closed on Escape (GuiEscape); the client's did not.
+        if (e.KeyCode == Keys.Escape && _search.Box.Focused && _search.Box.TextLength > 0)
+        {
+            _search.Box.Clear();                 // Esc in the search box clears it
             e.Handled = e.SuppressKeyPress = true;
             return;
         }
@@ -312,11 +516,11 @@ internal sealed class MainForm : Form, IHostView
             var (status, detail) = await Task.Run(() => FirewallCheck.Check(exe, port));
             AppLog.Write("Firewall: " + detail);
             if (status is FirewallStatus.Allowed or FirewallStatus.Unknown || IsDisposed) return;
-            var answer = MessageBox.Show(this,
+            var answer = Dialogs.Show(this,
                 detail + Environment.NewLine + Environment.NewLine +
                 "Players on other computers can't connect until the host is allowed through Windows Firewall. " +
                 "Allow it now? Windows will ask for administrator permission.",
-                Texts.AppTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                Texts.AppTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Warning, heading: "Windows Firewall is blocking players", yes: "Allow", no: "Not now");
             if (answer != DialogResult.Yes)
             {
                 AppendDialog("Windows Firewall is blocking players from connecting. Restart the host to be asked again, or allow GW2MM-Host in Windows Firewall yourself.");
@@ -357,6 +561,7 @@ internal sealed class MainForm : Form, IHostView
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { AppLog.Write("Could not save Config.txt: " + ex.Message); }
         if (_client.IsConnected) _client.Disconnect();
         _ = _client.ConnectAsync(target.Address, target.Name);
+        UpdateConnectionUi();
     }
 
     private void SettingsSaved()
@@ -380,6 +585,7 @@ internal sealed class MainForm : Form, IHostView
         _closing.Cancel();
         ClosePort();
         _hotkeys.Dispose();
+        _tips.Dispose();
         _host?.Dispose();
         _client?.Dispose();
         _solo?.Dispose();
@@ -391,7 +597,7 @@ internal sealed class MainForm : Form, IHostView
     /// <summary>Play icon / F1: the selected song, or on the Playlists tab the playlist from the selected song.</summary>
     private void Play()
     {
-        if (_tabs.SelectedTab == _playlistsPage)
+        if (PlaylistsShowing)
         {
             PlayPlaylist();
             return;
@@ -409,7 +615,7 @@ internal sealed class MainForm : Form, IHostView
     {
         if (_playlists.Current is not { } playlist)
         {
-            ReportProblem("Create a playlist first (Playlist ▾ → New playlist…).");
+            ReportProblem("Create a playlist first (Playlists → ⋯ → New playlist…).");
             return;
         }
         if (playlist.Songs.Count == 0)
@@ -425,22 +631,27 @@ internal sealed class MainForm : Form, IHostView
             _ = RunLogged(() => _solo.PlayPlaylistAsync(playlist, _playlists.StartIndex, _playlists.Shuffle, _playlists.Repeat));
     }
 
-    /// <summary>The Songs tab's right-click menu: add the song to a playlist (or a new one).</summary>
+    /// <summary>The Songs list's right-click menu: play, add to a playlist (or a new one), edit or delete.</summary>
     private ContextMenuStrip SongMenu()
     {
-        var menu = new ContextMenuStrip();
-        var addTo = new ToolStripMenuItem("Add to playlist");
-        menu.Items.Add(addTo);
-        menu.Items.Add("Play", null, (_, _) => Play());
+        var menu = Menus.Create();
+        var play = menu.Item("Play", Glyph.Play, (_, _) => Play());
+        var addTo = menu.Item("Add to playlist", Glyph.Notes, null);
+        Menus.Style(addTo);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Item("Edit data…", Glyph.EditTable, (_, _) => OpenDataEditor());
+        menu.Item("Delete song…", Glyph.Trash, (_, _) => DeleteSong(), danger: true, keys: "Del");
         menu.Opening += (_, e) =>
         {
             if (_songs.SelectedItems.Count == 0) { e.Cancel = true; return; }
+            play.ShortcutKeyDisplayString = CurrentBindings().FirstOrDefault(b => b.Action.Id is "PlaySong" or "RequestSong").Keys is { IsNone: false } k
+                ? k.ToString() : null;
             var song = _songs.SelectedItems[0].Text;
             addTo.DropDownItems.Clear();
             foreach (var name in _playlists.PlaylistNames)
-                addTo.DropDownItems.Add(name, null, (_, _) => _playlists.AddTo(name, new[] { song }));
+                addTo.DropDownItems.Add(Menus.Item(name, Glyph.Notes, (_, _) => _playlists.AddTo(name, new[] { song })));
             if (addTo.DropDownItems.Count > 0) addTo.DropDownItems.Add(new ToolStripSeparator());
-            addTo.DropDownItems.Add("New playlist…", null, (_, _) => { _playlists.AddTo(null, new[] { song }); _tabs.SelectedTab = _playlistsPage; });
+            addTo.DropDownItems.Add(Menus.Item("New playlist…", Glyph.Plus, (_, _) => { _playlists.AddTo(null, new[] { song }); _tabs.SelectedIndex = 1; }));
         };
         return menu;
     }
@@ -449,7 +660,13 @@ internal sealed class MainForm : Form, IHostView
     {
         // Next works for the host's playlists and a client's solo playlist (a client cannot skip the host's songs).
         var canSkip = info?.Playlist is not null && (_host is not null || _solo?.IsPlaylistRunning == true);
-        BeginInvokeSafe(() => _playlists.SetNowPlaying(info, canSkip));
+        BeginInvokeSafe(() =>
+        {
+            _nowPlaying = info;
+            _playlists.SetNowPlaying(info, canSkip);
+            _songs.Invalidate();
+            UpdateSongInfo();
+        });
     }
 
     private void Rename(string title)
@@ -466,18 +683,18 @@ internal sealed class MainForm : Form, IHostView
 
     private void SendChat()
     {
-        var text = _input.Text;
+        var text = _input.Box.Text;
         if (text.Length == 0) return;
         if (_host is not null) _host.SendChat(text);
         else _client?.SendChat(text);
-        _input.Clear();
-        _input.Focus();
+        _input.Box.Clear();
+        _input.Box.Focus();
     }
 
     private void SelectSong(string name)
     {
         _highlighted = name;
-        _description.Text = _library.Description(name);
+        UpdateSongInfo();
     }
 
     private void ReloadSongs()
@@ -496,7 +713,7 @@ internal sealed class MainForm : Form, IHostView
     /// <summary>Lists the songs that match the search box (all of them when it is empty), keeping the selection.</summary>
     private void ShowSongs()
     {
-        var query = _search.Text;
+        var query = _search.Box.Text;
         _songs.BeginUpdate();
         _songs.Items.Clear();
         foreach (var s in _allSongs.Where(s => s.Matches(query)))
@@ -506,7 +723,9 @@ internal sealed class MainForm : Form, IHostView
             if (s.Name == _highlighted) item.Selected = true;
         }
         _songs.EndUpdate();
+        _songs.FitColumns();
         if (_songs.SelectedItems.Count > 0) _songs.SelectedItems[0].EnsureVisible();
+        _tabs.SetCount(0, _songs.Items.Count);
     }
 
     private int _sortColumn = -1;
@@ -516,7 +735,10 @@ internal sealed class MainForm : Form, IHostView
     {
         _sortDescending = column == _sortColumn && !_sortDescending;
         _sortColumn = column;
+        _songs.SortColumn = column;
+        _songs.SortDescending = _sortDescending;
         _songs.ListViewItemSorter = new ItemComparer(column, numeric: column == 1, _sortDescending);
+        _songs.Invalidate();
     }
 
     /// <summary>Name and Players sort as text/numbers; Date sorts by the full timestamp, so songs added on the same day keep their order.</summary>
@@ -553,21 +775,25 @@ internal sealed class MainForm : Form, IHostView
     private void DeleteSong()
     {
         if (_highlighted.Length == 0) return;
-        var answer = MessageBox.Show(this,
-            $"Are you sure you wish to delete the following song: {_highlighted}? (This will delete the csv, midi, and entry in the data file)",
-            "Confirm action", MessageBoxButtons.YesNo);
-        if (answer != DialogResult.Yes) return;
-        try { _library.Delete(_highlighted); }
+        if (!Dialogs.Confirm(this, $"Delete \u201C{_highlighted}\u201D?",
+                "Its CSV and MIDI files go to the Recycle Bin, and its line in Data.csv and its playlist entries are removed.", "Delete", "Delete song"))
+            return;
+        try
+        {
+            _library.Delete(_highlighted);
+            _highlighted = "";
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
             ReportProblem("Could not delete the song: " + ex.Message);
         }
         ReloadSongs();
+        UpdateSongInfo();
     }
 
     private void OpenDataEditor()
     {
-        try { new DataEditorForm(DataFileEditor.Open(_library)).Show(this); }
+        try { new DataEditorForm(DataFileEditor.Open(_library), ReloadSongs).Show(this); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             ReportProblem("Could not open Data.csv: " + ex.Message);
@@ -618,32 +844,35 @@ internal sealed class MainForm : Form, IHostView
         catch (InvalidOperationException) { }
     }
 
-    public void SetStatus(string text) => BeginInvokeSafe(() => _status.Text = text);
+    public void SetStatus(string text) => BeginInvokeSafe(() =>
+    {
+        _status.Text = text;
+        UpdateConnectionUi();
+    });
 
     public void LogEvent(string line) => AppLog.Write("Event: " + line);
 
-    public void AppendDialog(string line) => BeginInvokeSafe(() =>
-    {
-        _dialog.AppendText(line + Environment.NewLine);
-        if (_dialog.TextLength > 200_000) _dialog.Text = _dialog.Text[^100_000..];
-    });
+    public void AppendDialog(string line) => BeginInvokeSafe(() => _chat.AppendLine(line));
 
     public void SetChatEnabled(bool enabled) => BeginInvokeSafe(() =>
     {
         if (enabled) _solo?.Cancel(); // connected: the host takes over playback
         _send.Enabled = enabled;
-        _input.ReadOnly = !enabled;
-        if (enabled) _input.Focus(); else _input.Clear();
+        _input.Box.ReadOnly = !enabled;
+        _input.Box.PlaceholderText = enabled ? "Message everyone · \u201Cstop\u201D stops the song"
+            : _role == AppRole.Host ? "Chat opens when a player joins" : "Connect to a server to chat";
+        if (enabled) _input.Box.Focus(); else _input.Box.Clear();
+        UpdateConnectionUi();
     });
 
-    public void ShowMessage(string text) => BeginInvokeSafe(() => MessageBox.Show(this, text, Texts.AppTitle));
+    public void ShowMessage(string text) => BeginInvokeSafe(() => Dialogs.Show(this, text, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information));
 
     public Task ShowMessageAndWaitAsync(string text)
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         BeginInvokeSafe(() =>
         {
-            MessageBox.Show(this, text, Texts.AppTitle);
+            Dialogs.Show(this, text, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
             tcs.TrySetResult();
         });
         return tcs.Task;
@@ -681,4 +910,98 @@ internal sealed class MainForm : Form, IHostView
         Show();
         Activate();
     });
+}
+
+/// <summary>The transport card's text block: a small label, the song (with its player count) and its description.</summary>
+internal sealed class SongInfoPanel : Control
+{
+    private readonly ThemedToolTip _tip = new();
+    private string _eyebrow = "", _title = "", _description = "";
+    private string? _players;
+
+    public SongInfoPanel()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Theme.Surface;
+    }
+
+    public void Set(string eyebrow, string title, string? players, string description)
+    {
+        _eyebrow = eyebrow;
+        _title = title;
+        _players = players;
+        _description = description.Trim();
+        _tip.SetToolTip(this, _description.Length > 60 ? _description : "");
+        Invalidate();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.Clear(BackColor);
+        var playing = _eyebrow == "Now playing";
+        var x = 0;
+        if (playing)
+        {
+            Glyphs.Draw(g, Glyph.Equalizer, new RectangleF(0, Theme.Sf(1), Theme.Sf(11), Theme.Sf(11)), Theme.Azure);
+            x = Theme.S(15);
+        }
+        Theme.Text(g, _eyebrow.ToUpperInvariant(), Theme.Overline, new Rectangle(x, 0, Width - x, Theme.S(13)), playing ? Theme.AzureText : Theme.Muted);
+
+        var chipW = 0;
+        if (_players is not null) chipW = Theme.Measure(_players, Theme.SmallBold).Width + Theme.S(28);
+        var titleW = Math.Min(Theme.Measure(_title, Theme.SongTitle).Width + Theme.S(2), Width - chipW - Theme.S(6));
+        Theme.Text(g, _title, Theme.SongTitle, new Rectangle(0, Theme.S(13), Math.Max(0, titleW), Theme.S(22)), Theme.Title);
+        if (_players is not null)
+        {
+            Theme.Smooth(g);
+            var chip = new RectangleF(titleW + Theme.S(6), Theme.Sf(15.5f), chipW, Theme.Sf(18));
+            Theme.FillRound(g, chip, chip.Height / 2, Theme.LavenderTint);
+            Glyphs.Draw(g, Glyph.People, new RectangleF(chip.X + Theme.Sf(7), chip.Y + Theme.Sf(3), Theme.Sf(12), Theme.Sf(12)), Theme.LavenderText);
+            Theme.Text(g, _players, Theme.SmallBold, new Rectangle((int)chip.X + Theme.S(22), (int)chip.Y, chipW - Theme.S(24), (int)chip.Height), Theme.LavenderText);
+        }
+        TextRenderer.DrawText(g, _description, Theme.Small, new Rectangle(0, Theme.S(36), Width, Height - Theme.S(36)), Theme.Muted,
+            TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _tip.Dispose();
+        base.Dispose(disposing);
+    }
+}
+
+/// <summary>"CHAT" with its speech-bubble glyph.</summary>
+internal sealed class ChatHeader : Control
+{
+    public ChatHeader()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        BackColor = Theme.Surface;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.Clear(BackColor);
+        var s = Theme.Sf(14);
+        Glyphs.Draw(e.Graphics, Glyph.Chat, new RectangleF(0, (Height - s) / 2, s, s), Theme.Muted);
+        Theme.Text(e.Graphics, "CHAT", Theme.Overline, new Rectangle(Theme.S(20), 0, Width - Theme.S(20), Height), Theme.Muted);
+    }
+}
+
+/// <summary>A rounded "inset" well (the chat log sits in one).</summary>
+internal sealed class InsetPanel : Panel
+{
+    public InsetPanel()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Theme.Inset;
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        Theme.PaintParent(this, e.Graphics);
+        Theme.Smooth(e.Graphics);
+        Theme.FillRound(e.Graphics, new RectangleF(0, 0, Width, Height), Theme.Sf(6), BackColor);
+    }
 }

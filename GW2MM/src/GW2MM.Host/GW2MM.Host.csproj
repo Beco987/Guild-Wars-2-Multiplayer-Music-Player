@@ -10,6 +10,7 @@
     <AssemblyName>GW2MM-Host</AssemblyName>
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ApplicationIcon>..\GW2MM.Windows\Assets\AppIcon.ico</ApplicationIcon>
     <!-- dotnet publish -c Release -r win-x64 produces one self-contained GW2MM-Host.exe -->
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>

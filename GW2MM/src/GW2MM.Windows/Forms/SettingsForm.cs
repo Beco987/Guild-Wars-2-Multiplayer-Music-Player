@@ -6,76 +6,101 @@ namespace GW2MM.Windows.Forms;
 
 /// <summary>
 /// The Settings window, the same on host and client except that only the host has the UPnP option and only the
-/// client has Connect to server. Saving writes Config.txt and applies the values immediately (the original restarted
-/// the whole script, which also dropped every network connection).
+/// client has the server connection. Saving writes Config.txt and applies the values immediately (the original
+/// restarted the whole script, which also dropped every network connection). Cancel, Esc or closing discard edits.
 /// </summary>
-internal sealed class SettingsForm : Form
+internal sealed class SettingsForm : ThemedDialog
 {
-    private const int Width_ = 220;
+    private const int Width96 = 340;
 
     /// <summary>The client's link to a server: whether it is connected, and connecting (asks for name and IP) or disconnecting.</summary>
     public sealed record Connection(Func<bool> IsConnected, Action<IWin32Window> Connect, Action Disconnect);
 
-    /// <param name="connection">The client's server connection; null on the host (no Connect button).</param>
+    /// <param name="connection">The client's server connection; null on the host (no server section).</param>
     public SettingsForm(AppSettings settings, string dataDir, bool isHost, Action applied, Action<IWin32Window> showKeybinds,
-        Connection? connection = null)
+        Connection? connection = null) : base("Settings", Width96, "Settings")
     {
-        Ui.InitForm(this, "Settings", Width_, 330);
-        ShowInTaskbar = false;
+        var cardWidth = Theme.S(Width96 - 32);
+        var y = Theme.S(12);
+        RowCard? previous = null;
 
-        var y = 0;
-        TextBox Field(string label, string value, int width, bool enabled = true)
+        var playback = Section("Playback");
+        var delay = Number(settings.OctaveDelay);
+        var offset = Number(settings.OffsetMs.ToString(CultureInfo.InvariantCulture));
+        playback.AddRow("Octave delay", delay);
+        playback.AddRow("Offset", offset);
+
+        var window = Section("Window");
+        var onTop = new ToggleSwitch("Always on top") { Checked = settings.AlwaysOnTop };
+        var transparent = new ToggleSwitch("Transparent") { Checked = settings.IsTransparent };
+        window.AddRow("Always on top", onTop);
+        window.AddRow("Transparent", transparent);
+
+        var other = Section(isHost ? "Startup & network" : "Startup");
+        var updates = new ToggleSwitch("Check for updates on launch") { Checked = settings.CheckForUpdates };
+        other.AddRow("Check for updates on launch", updates);
+        ToggleSwitch? openPort = null;
+        if (isHost)
         {
-            Ui.Label(this, label, 0, y + 3, Width_ - width - 5, 20).Enabled = enabled;
-            var box = Ui.Add(this, new TextBox { Text = value, Enabled = enabled }, Width_ - width, y, width, 20);
-            y += 26;
-            return box;
-        }
-        CheckBox Check(string label, bool value, bool enabled = true)
-        {
-            var box = Ui.Add(this, new CheckBox { Text = label, Checked = value, Enabled = enabled }, 0, y, Width_, 20);
-            y += 22;
-            return box;
+            openPort = new ToggleSwitch("Open port automatically (UPnP)") { Checked = settings.OpenPortAutomatically };
+            other.AddRow("Open port automatically (UPnP)", openPort);
         }
 
-        var delay = Field("Octave delay (ms)", settings.OctaveDelay, 60);
-        var offset = Field("Offset (ms)", settings.OffsetMs.ToString(CultureInfo.InvariantCulture), 60);
-        y += 4;
-        var onTop = Check("Always on top", settings.AlwaysOnTop);
-        var transparent = Check("Transparent", settings.IsTransparent);
-        var updates = Check("Check for updates on launch", settings.CheckForUpdates);
-        var openPort = isHost ? Check("Open port automatically (UPnP)", settings.OpenPortAutomatically) : null;
-        y += 8;
-        // Client only: connect to a server (or leave it). The label follows the connection while the window is open.
+        // Client only: connect to a server (or leave it). The row follows the connection while the window is open.
         if (connection is not null)
         {
-            string ConnectText() => connection.IsConnected() ? "Disconnect from server" : "Connect to server…";
-            var connect = Ui.Button(this, ConnectText(), 0, y, Width_, 28, (_, _) =>
+            var server = Section("Server");
+            var button = new ThemedButton("Connect…", ButtonKind.Tonal, Glyph.Plug) { FixedHeight = Theme.S(30) };
+            var label = server.AddRow("Not connected", button);
+            void Refresh()
+            {
+                var on = connection.IsConnected();
+                label.Text = on ? "Connected" : "Not connected";
+                button.Text = on ? "Disconnect" : "Connect…";
+                button.Kind = on ? ButtonKind.Secondary : ButtonKind.Tonal;
+                button.Size = button.GetPreferredSize(Size.Empty);
+                button.Left = server.Width - Theme.S(16) - button.Width;
+            }
+            button.Click += (_, _) =>
             {
                 if (connection.IsConnected()) connection.Disconnect();
                 else connection.Connect(this);
-            });
+                Refresh();
+            };
+            Refresh();
             var refresh = new System.Windows.Forms.Timer { Interval = 300 };
-            refresh.Tick += (_, _) => connect.Text = ConnectText();
+            refresh.Tick += (_, _) => Refresh();
             refresh.Start();
             FormClosed += (_, _) => refresh.Dispose();
-            y += 34;
         }
-        Ui.Button(this, "Keybinds…", 0, y, Width_, 28, (_, _) => showKeybinds(this));
-        y += 34;
-        Ui.Button(this, "Save", 0, y, Width_, 36, (_, _) =>
+
+        var keys = Section(null);
+        var edit = new ThemedButton("Edit…", ButtonKind.Secondary, Glyph.Keyboard) { FixedHeight = Theme.S(30) };
+        edit.Size = edit.GetPreferredSize(Size.Empty);
+        edit.Click += (_, _) => showKeybinds(this);
+        keys.AddRow("Keybinds", edit);
+
+        SetBodyHeight((int)Math.Ceiling((keys.Bottom + Theme.S(16)) / Theme.Scale));
+        var save = AddButton("Save", ButtonKind.Primary);
+        var cancel = AddButton("Cancel", ButtonKind.Secondary);
+        cancel.Click += (_, _) => Close();     // a modeless window: Cancel (and Esc) just close it
+        AcceptButton = save;
+        CancelButton = cancel;
+        save.Click += (_, _) =>
         {
-            var delayText = delay.Text.Trim();
-            if (delayText.Length > 0 && (!AhkValue.TryNumber(delayText, out var d) || d < 0))
+            var delayText = delay.Box.Text.Trim();
+            delay.Invalid = delayText.Length > 0 && (!AhkValue.TryNumber(delayText, out var d) || d < 0);
+            if (delay.Invalid)
             {
-                MessageBox.Show(this, "Octave delay must be a number of ms.", Texts.AppTitle);
+                Dialogs.Show(this, "Octave delay must be a number of ms.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             double offsetValue = 0;
-            if (offset.Text.Trim().Length > 0
-                && (!AhkValue.TryNumber(offset.Text.Trim(), out offsetValue) || offsetValue < 0 || offsetValue > AppSettings.MaxOffsetMs))
+            offset.Invalid = offset.Box.Text.Trim().Length > 0
+                && (!AhkValue.TryNumber(offset.Box.Text.Trim(), out offsetValue) || offsetValue < 0 || offsetValue > AppSettings.MaxOffsetMs);
+            if (offset.Invalid)
             {
-                MessageBox.Show(this, $"Offset must be a number of ms from 0 to {AppSettings.MaxOffsetMs}.", Texts.AppTitle);
+                Dialogs.Show(this, $"Offset must be a number of ms from 0 to {AppSettings.MaxOffsetMs}.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             settings.OctaveDelay = delayText.Length > 0 ? delayText : AppSettings.DefaultOctaveDelay;
@@ -90,12 +115,35 @@ internal sealed class SettingsForm : Form
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                MessageBox.Show(this, "Could not save Config.txt: " + ex.Message, Texts.AppTitle);
+                Dialogs.Show(this, "Could not save Config.txt: " + ex.Message, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
             applied();
             Close();
-        });
-        ClientSize = new Size(Width_, y + 36);
+        };
+
+        RowCard Section(string? title)
+        {
+            // Each section starts below the previous card, which has grown by the rows added to it.
+            if (previous is not null) y = previous.Bottom + Theme.S(14);
+            if (title is not null)
+            {
+                Body.Controls.Add(new Overline(title) { Location = new Point(Theme.S(20), y) });
+                y += Theme.S(18);
+            }
+            var card = new RowCard(cardWidth) { Location = new Point(Theme.S(16), y) };
+            Body.Controls.Add(card);
+            previous = card;
+            return card;
+        }
+
+        FieldBox Number(string value)
+        {
+            var f = new FieldBox { Suffix = "ms", Size = Theme.S(100, 30) };
+            f.Box.Text = value;
+            f.Box.TextAlign = HorizontalAlignment.Right;
+            f.Box.TextChanged += (_, _) => f.Invalid = false;
+            return f;
+        }
     }
 }

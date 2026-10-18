@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using GW2MM.Core.Updates;
+using GW2MM.Windows.Forms;
 
 namespace GW2MM.Windows;
 
@@ -36,7 +37,8 @@ internal static class AppUpdater
         var question = canReplace
             ? $"GW2MM {latest.Version} is available (you have {current}).\n\nDownload and install it now? GW2MM will restart."
             : $"GW2MM {latest.Version} is available (you have {current}).\n\nOpen the download page?";
-        if (MessageBox.Show(owner, question, "Update available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) != DialogResult.Yes) return;
+        if (Dialogs.Show(owner, question, "Update available", MessageBoxButtons.YesNo, MessageBoxIcon.Information, heading: "A new version is available",
+                yes: "Update", no: "Not now") != DialogResult.Yes) return;
 
         if (!canReplace)
         {
@@ -58,7 +60,8 @@ internal static class AppUpdater
         {
             AppLog.Write("Update failed: " + ex);
             status("Update failed.");
-            MessageBox.Show(owner, "The update could not be installed: " + ex.Message + "\n\nYou can download it from the release page instead.", Texts.AppTitle);
+            Dialogs.Show(owner, "The update could not be installed: " + ex.Message + "\n\nYou can download it from the release page instead.", Texts.AppTitle,
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
             OpenPage(owner, latest.PageUrl);
         }
     }
@@ -85,6 +88,6 @@ internal static class AppUpdater
     {
         if (string.IsNullOrEmpty(url)) return;
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception ex) { MessageBox.Show(owner, ex.Message, Texts.AppTitle); }
+        catch (Exception ex) { Dialogs.Show(owner, ex.Message, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 }

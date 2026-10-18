@@ -6,75 +6,76 @@ namespace GW2MM.Windows.Forms;
 /// The Data Editor (originally CsvEditor.ahk): edit Data.csv entries in place. Save writes the file and renames the
 /// song's CSV/MIDI files when a name changed; Cancel (or closing) discards the edits.
 /// </summary>
-internal sealed class DataEditorForm : Form
+internal sealed class DataEditorForm : ThemedDialog
 {
     private readonly DataFileEditor _editor;
+    private readonly Action _saved_;
     private readonly DataGridView _grid;
     private readonly Label _count;
     private bool _saved;
 
-    public DataEditorForm(DataFileEditor editor)
+    /// <param name="saved">Called after a successful save (the main window reloads its song list).</param>
+    public DataEditorForm(DataFileEditor editor, Action saved)
+        : base("Data Editor", 720, "Song data", "Click a cell to edit it. Renaming a song also renames its files. Changes are written when you press Save.")
     {
         _editor = editor;
-        Modern.InitDialog(this, "Data Editor");
+        _saved_ = saved;
         FormBorderStyle = FormBorderStyle.Sizable;
         MinimizeBox = true;
         MaximizeBox = true;
         ShowInTaskbar = true;
-        AutoSize = false;
-        ClientSize = new Size(720, 460);
-        MinimumSize = new Size(520, 320);
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        Controls.Add(root);
-        root.Controls.Add(Modern.Heading("Song data"));
-        root.Controls.Add(Modern.Caption("Click a cell to edit it. Renaming a song also renames its files in the Csv and Midi folders. " +
-                                         "Commas are removed when saving. Changes are only written when you press Save.", 680));
         // Search: shows only the songs whose names contain every word typed (Esc clears it).
-        var search = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "Search songs", Margin = new Padding(0, 4, 0, 6) };
-        search.TextChanged += (_, _) => Filter(search.Text);
+        var search = new FieldBox(filled: true) { Glyph = Glyph.Search, ClearButton = true, Bounds = Theme.S(16, 12, 280, 30) };
+        search.Box.PlaceholderText = "Search songs";
+        search.Box.TextChanged += (_, _) => Filter(search.Box.Text);
         // Without this the form's Cancel button takes the Esc key before the box sees it.
-        search.PreviewKeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && search.Text.Length > 0) e.IsInputKey = true; };
-        search.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && search.Text.Length > 0) { search.Clear(); e.SuppressKeyPress = true; } };
-        root.Controls.Add(search);
+        search.Box.PreviewKeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && search.Box.TextLength > 0) e.IsInputKey = true; };
+        search.Box.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && search.Box.TextLength > 0) { search.Box.Clear(); e.SuppressKeyPress = true; } };
+        Body.Controls.Add(search);
 
+        var card = new Card { Bounds = Theme.S(16, 54, 688, 300), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
         _grid = new DataGridView
         {
-            Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false,
-            RowHeadersVisible = false, BackgroundColor = Modern.Surface, BorderStyle = BorderStyle.FixedSingle,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, SelectionMode = DataGridViewSelectionMode.CellSelect,
-            EditMode = DataGridViewEditMode.EditOnEnter, ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
-            EnableHeadersVisualStyles = false, GridColor = Modern.Border, Margin = new Padding(0, 0, 0, 4),
+            Bounds = new Rectangle(Theme.S(2), Theme.S(4), card.Width - Theme.S(4), card.Height - Theme.S(8)),
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+            AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false, RowHeadersVisible = false,
+            BackgroundColor = Theme.Surface, BorderStyle = BorderStyle.None, CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+            ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            SelectionMode = DataGridViewSelectionMode.CellSelect, EditMode = DataGridViewEditMode.EditOnEnter,
+            ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing, ColumnHeadersHeight = Theme.S(32),
+            EnableHeadersVisualStyles = false, GridColor = Theme.Divider, Font = Theme.Body,
         };
-        _grid.ColumnHeadersDefaultCellStyle.BackColor = Modern.Background;
-        _grid.ColumnHeadersDefaultCellStyle.Font = Modern.Bold;
-        _grid.ColumnHeadersDefaultCellStyle.ForeColor = Modern.Accent;
-        _grid.AlternatingRowsDefaultCellStyle.BackColor = Modern.Stripe;
-        _grid.DefaultCellStyle.SelectionBackColor = Modern.AccentHover;
+        _grid.RowTemplate.Height = Theme.S(28);
+        var header = _grid.ColumnHeadersDefaultCellStyle;
+        header.BackColor = header.SelectionBackColor = Theme.Surface;
+        header.ForeColor = header.SelectionForeColor = Theme.Muted;
+        header.Font = Theme.Overline;
+        header.Padding = Theme.P(6, 0, 6, 0);
+        var cells = _grid.DefaultCellStyle;
+        cells.ForeColor = Theme.Ink;
+        cells.SelectionBackColor = Theme.Ice;
+        cells.SelectionForeColor = Theme.Title;
+        cells.Padding = Theme.P(6, 0, 6, 0);
+        _grid.AlternatingRowsDefaultCellStyle.BackColor = Theme.Stripe;
+        Theme.ExplorerTheme(_grid);
         AddColumn("Name", 38);
         AddColumn("Players", 10);
         AddColumn("Tempo", 10);
         AddColumn("Description", 42);
         _grid.CellValueChanged += (_, _) => UpdateCount();
-        root.Controls.Add(_grid);
+        card.Controls.Add(_grid);
+        Body.Controls.Add(card);
 
-        var save = Modern.Primary("Save");
+        _count = new Label { AutoSize = true, Font = Theme.Small, ForeColor = Theme.Muted, BackColor = Theme.FooterBack };
+        SetFooterLeft(_count);
+        var save = AddButton("Save", ButtonKind.Primary);
         save.Click += (_, _) => Save();
-        var cancel = Modern.Secondary("Cancel");
+        var cancel = AddButton("Cancel", ButtonKind.Secondary);
         cancel.Click += (_, _) => Close();
-        _count = new Label { AutoSize = true, ForeColor = Modern.Muted, Anchor = AnchorStyles.Left, Margin = new Padding(0, 22, 0, 0) };
-        var bottom = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2 };
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        bottom.Controls.Add(_count);
-        bottom.Controls.Add(Modern.ButtonRow(save, cancel));
-        root.Controls.Add(bottom);
         CancelButton = cancel;
+        SetBodyHeight(368);
+        MinimumSize = new Size(Theme.S(520), Theme.S(340));
 
         foreach (var line in _editor.Lines)
         {
@@ -83,6 +84,7 @@ internal sealed class DataEditorForm : Form
             row.Tag = f;
         }
         UpdateCount();
+        ActiveControl = search.Box;
     }
 
     private void Filter(string query)
@@ -93,8 +95,9 @@ internal sealed class DataEditorForm : Form
             row.Visible = new Core.Library.SongEntry(Cell(row, 0), "", "").Matches(query);
     }
 
+    // Not sortable: Save maps grid row i to Data.csv line i.
     private void AddColumn(string header, float weight) =>
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = header, FillWeight = weight, SortMode = DataGridViewColumnSortMode.NotSortable });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = header.ToUpperInvariant(), FillWeight = weight, SortMode = DataGridViewColumnSortMode.NotSortable });
 
     private static string Cell(DataGridViewRow row, int i) => (row.Cells[i].Value as string ?? "").Trim();
 
@@ -105,6 +108,7 @@ internal sealed class DataEditorForm : Form
     {
         var changed = ChangedRows().Count();
         _count.Text = $"{_grid.Rows.Count} entries" + (changed > 0 ? $" · {changed} changed" : "");
+        _count.ForeColor = changed > 0 ? Theme.WarningText : Theme.Muted;
     }
 
     private void Save()
@@ -115,7 +119,7 @@ internal sealed class DataEditorForm : Form
             var r = _grid.Rows[i];
             if (Cell(r, 0).Replace(",", "").Length == 0)
             {
-                MessageBox.Show(this, $"Row {i + 1} has no name.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Dialogs.Show(this, $"Row {i + 1} has no name.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             _editor.EditLine(i, Cell(r, 0), Cell(r, 1), Cell(r, 2), Cell(r, 3));
@@ -124,11 +128,12 @@ internal sealed class DataEditorForm : Form
         {
             _editor.Save();
             _saved = true;
+            _saved_();
             Close();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(this, "Could not save: " + ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Dialogs.Show(this, "Could not save: " + ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -136,7 +141,8 @@ internal sealed class DataEditorForm : Form
     {
         _grid.EndEdit();
         if (!_saved && e.CloseReason == CloseReason.UserClosing && ChangedRows().Any()
-            && MessageBox.Show(this, "Discard your changes?", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            && Dialogs.Show(this, "Your edits have not been saved.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question,
+                heading: "Discard your changes?", yes: "Discard", no: "Keep editing", danger: true) != DialogResult.Yes)
             e.Cancel = true;
         base.OnFormClosing(e);
     }

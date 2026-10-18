@@ -8,87 +8,74 @@ namespace GW2MM.Windows.Forms;
 /// "New Song": imports a MIDI into the library (Midi\, Data.csv entry, Csv\ conversion). A MuseScore score (.mscz) is
 /// first exported to MIDI by MuseScore 4, which must be installed.
 /// </summary>
-internal sealed class NewSongForm : Form
+internal sealed class NewSongForm : ThemedDialog
 {
     private readonly SongLibrary _library;
     private readonly AppSettings _settings;
     private readonly string _dataDir;
     private readonly Action _added;
-    private readonly Button _add;
-    private readonly TextBox _file, _title, _description;
-    private readonly ToolTip _fileTip = new();
-    private string _path = ""; // the chosen file; the box shows only its name
-    private readonly NumericUpDown _players, _tempo;
+    private readonly ThemedButton _add;
+    private readonly FileDropZone _file;
+    private readonly FieldBox _title, _description;
+    private string _path = ""; // the chosen file
+    private readonly Stepper _players, _tempo;
     private readonly Label _tempoHint;
 
-    public NewSongForm(SongLibrary library, AppSettings settings, string dataDir, Action added)
+    public NewSongForm(SongLibrary library, AppSettings settings, string dataDir, Action added) : base("New Song", 440, "New song")
     {
         _library = library;
         _settings = settings;
         _dataDir = dataDir;
         _added = added;
-        Modern.InitDialog(this, "New Song");
         AllowDrop = true;
         DragEnter += (_, e) => e.Effect = DroppedFile(e) is null ? DragDropEffects.None : DragDropEffects.Copy;
         DragDrop += (_, e) => { if (DroppedFile(e) is { } f) UseFile(f); };
 
-        var root = Modern.Stack(this);
-
-        var grid = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Margin = new Padding(0) };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 340));
-        root.Controls.Add(grid);
-
-        _file = new TextBox { ReadOnly = true, Width = 226, PlaceholderText = "Choose or drop a .mid or .mscz file", Margin = new Padding(0, 4, 0, 0), Cursor = Cursors.Hand };
+        // The file: click to browse, or drop a .mid / .mscz on it (or anywhere on the window).
+        _file = new FileDropZone { Bounds = Theme.S(16, 14, 408, 64) };
         _file.Click += (_, _) => SelectFile();
-        // A file dropped on the box (not just around it) is taken too.
-        _file.AllowDrop = true;
-        _file.DragEnter += (_, e) => e.Effect = DroppedFile(e) is null ? DragDropEffects.None : DragDropEffects.Copy;
-        _file.DragDrop += (_, e) => { if (DroppedFile(e) is { } f) UseFile(f); };
-        var browse = Modern.Secondary("Browse…");
-        browse.Click += (_, _) => SelectFile();
-        var filePanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
-        filePanel.Controls.Add(_file);
-        filePanel.Controls.Add(browse);
-        AddRow(grid, "File", filePanel);
+        _file.DragEnter += (_, e) => { e.Effect = DroppedFile(e) is null ? DragDropEffects.None : DragDropEffects.Copy; _file.DragOver_ = e.Effect != DragDropEffects.None; };
+        _file.DragLeave += (_, _) => _file.DragOver_ = false;
+        _file.DragDrop += (_, e) => { _file.DragOver_ = false; if (DroppedFile(e) is { } f) UseFile(f); };
+        Body.Controls.Add(_file);
 
-        _title = new TextBox { Width = 334 };
-        AddRow(grid, "Title", _title);
-
-        _players = new NumericUpDown { Minimum = 1, Maximum = 8, Value = 1, Width = 70 };
-        AddRow(grid, "Players", _players);
-
-        _tempo = new NumericUpDown { Minimum = -10, Maximum = 10, Value = 0, Width = 70, Margin = new Padding(0) };
-        _tempoHint = new Label { AutoSize = true, ForeColor = Modern.Accent, Margin = new Padding(10, 3, 0, 0) };
+        _title = new FieldBox { Size = Theme.S(312, 30) };
+        Row("Title", _title, 92);
+        _players = new Stepper(1, 8, 1);
+        Row("Players", _players, 132);
+        _tempo = new Stepper(-10, 10, 0);
+        Row("Tempo", _tempo, 172);
+        _tempoHint = new Label { AutoSize = true, Font = Theme.SmallBold, ForeColor = Theme.Navy, BackColor = Theme.Ice, Padding = Theme.P(8, 3, 8, 3) };
+        _tempoHint.Location = new Point(_tempo.Right + Theme.S(10), _tempo.Top + (_tempo.Height - _tempoHint.PreferredHeight) / 2);
+        Body.Controls.Add(_tempoHint);
         _tempo.ValueChanged += (_, _) => UpdateTempoHint();
-        var tempoPanel = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
-        tempoPanel.Controls.Add(_tempo);
-        tempoPanel.Controls.Add(_tempoHint);
-        AddRow(grid, "Tempo", tempoPanel);
         UpdateTempoHint();
+        _description = new FieldBox(multiline: true) { Size = Theme.S(312, 72) };
+        Row("Description", _description, 212);
+        SetBodyHeight(300);
 
-        _description = new TextBox { Multiline = true, Height = 64, Width = 334, ScrollBars = ScrollBars.Vertical };
-        AddRow(grid, "Description", _description);
-
-        var add = _add = Modern.Primary("Add song");
+        var add = _add = AddButton("Add song", ButtonKind.Primary);
         add.Click += async (_, _) => await AddSong();
-        var cancel = Modern.Secondary("Cancel");
+        var cancel = AddButton("Cancel", ButtonKind.Secondary);
         cancel.Click += (_, _) => Hide();
-        root.Controls.Add(Modern.ButtonRow(add, cancel));
         AcceptButton = add;
         CancelButton = cancel;
-    }
 
-    private static void AddRow(TableLayoutPanel grid, string label, Control input)
-    {
-        grid.Controls.Add(Modern.FieldLabel(label));
-        input.Margin = new Padding(0, 3, 0, 8);
-        grid.Controls.Add(input);
+        void Row(string label, Control input, int y)
+        {
+            Body.Controls.Add(new Label
+            {
+                Text = label, Font = Theme.BodyBold, ForeColor = Theme.Ink, AutoSize = false, TextAlign = ContentAlignment.MiddleLeft,
+                Bounds = Theme.S(16, y, 96, 30),
+            });
+            input.Location = Theme.S(112, y, 0, 0).Location;
+            Body.Controls.Add(input);
+        }
     }
 
     private void UpdateTempoHint()
     {
-        var m = (int)_tempo.Value;
+        var m = _tempo.Value;
         _tempoHint.Text = m == 0 ? "Normal speed" : $"{Math.Abs(m) * 5}% {(m > 0 ? "faster" : "slower")}";
     }
 
@@ -99,12 +86,11 @@ internal sealed class NewSongForm : Form
     /// <summary>Shows the chosen file's name; the title follows the file unless it was typed in.</summary>
     private void UseFile(string path)
     {
-        var title = _title.Text.Trim();
+        var title = _title.Box.Text.Trim();
         if (title.Length == 0 || (_path.Length > 0 && title == Path.GetFileNameWithoutExtension(_path)))
-            _title.Text = Path.GetFileNameWithoutExtension(path);
+            _title.Box.Text = Path.GetFileNameWithoutExtension(path);
         _path = path;
-        _file.Text = Path.GetFileName(path);
-        _fileTip.SetToolTip(_file, path);
+        _file.SetFile(path);
     }
 
     private void SelectFile()
@@ -122,10 +108,9 @@ internal sealed class NewSongForm : Form
     private void Reset()
     {
         _path = "";
-        _file.Text = "";
-        _fileTip.SetToolTip(_file, null);
-        _title.Text = "";
-        _description.Text = "";
+        _file.SetFile(null);
+        _title.Box.Text = "";
+        _description.Box.Text = "";
         _players.Value = 1;
         _tempo.Value = 0;
     }
@@ -134,7 +119,7 @@ internal sealed class NewSongForm : Form
     {
         if (_path.Length == 0)
         {
-            MessageBox.Show(this, "Choose a .mid or .mscz file first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Dialogs.Show(this, "Choose a .mid or .mscz file first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         string? exported = null;
@@ -152,17 +137,17 @@ internal sealed class NewSongForm : Form
                 finally { EndConverting(); }
                 midi = exported;
             }
-            var r = _library.AddSong(new NewSongRequest(_title.Text, ((int)_players.Value).ToString(), ((int)_tempo.Value).ToString(), _description.Text, midi));
+            var r = _library.AddSong(new NewSongRequest(_title.Box.Text, _players.Value.ToString(), _tempo.Value.ToString(), _description.Box.Text, midi));
             if (r.ConversionError is not null)
-                MessageBox.Show(this, "The MIDI file could not be fully converted: " + r.ConversionError, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            MessageBox.Show(this, $"\"{r.Title}\" was added to your library.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Dialogs.Show(this, "The MIDI file could not be fully converted: " + r.ConversionError, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Dialogs.Show(this, $"\u201C{r.Title}\u201D was added to your library.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             Reset();
             Hide();
             _added();
         }
         catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
-            MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Dialogs.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
         {
@@ -181,7 +166,7 @@ internal sealed class NewSongForm : Form
     private string? FindMuseScore()
     {
         if (MuseScore.Find(_settings.MuseScorePath, MuseScore.DefaultLocations().Append(ScoreOpener() ?? "")) is { } found) return found;
-        MessageBox.Show(this, "MuseScore 4 is needed to import .mscz files, but it wasn't found. Please select MuseScore4.exe.",
+        Dialogs.Show(this, "MuseScore 4 is needed to import .mscz files, but it wasn't found. Please select MuseScore4.exe.",
             Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
         using var dlg = new OpenFileDialog { Title = "Select MuseScore4.exe", Filter = "MuseScore (MuseScore4.exe)|MuseScore*.exe|Programs (*.exe)|*.exe" };
         if (dlg.ShowDialog(this) != DialogResult.OK) return null;
@@ -217,5 +202,101 @@ internal sealed class NewSongForm : Form
             Hide();
         }
         base.OnFormClosing(e);
+    }
+}
+
+/// <summary>New Song's file area: a dashed drop target when empty, the chosen file (with Change…) once picked.</summary>
+internal sealed class FileDropZone : Control
+{
+    private readonly ThemedToolTip _tip = new();
+    private string? _path;
+    private bool _hover, _dragOver;
+
+    public FileDropZone()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
+        AllowDrop = true;
+        Cursor = Cursors.Hand;
+        TabStop = true;
+        AccessibleRole = AccessibleRole.PushButton;
+        AccessibleName = "Choose a .mid or .mscz file";
+    }
+
+    public bool DragOver_
+    {
+        get => _dragOver;
+        set { _dragOver = value; Invalidate(); }
+    }
+
+    public void SetFile(string? path)
+    {
+        _path = path;
+        AccessibleDescription = path;
+        _tip.SetToolTip(this, path ?? "");
+        Invalidate();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.KeyCode is Keys.Space) OnClick(EventArgs.Empty);
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
+    protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        Theme.PaintParent(this, g);
+        Theme.Smooth(g);
+        var r = new RectangleF(Theme.Sf(1), Theme.Sf(1), Width - Theme.Sf(2), Height - Theme.Sf(2));
+        var radius = Theme.Sf(8);
+        var empty = _path is null;
+        if (empty && !_dragOver)
+        {
+            Theme.FillRound(g, r, radius, _hover ? Theme.Ice : Theme.IceHover);
+            using var dash = new Pen(Theme.Azure, Theme.Sf(1.5f)) { DashPattern = new[] { 4f, 3f } };
+            using var path = Theme.Round(r, radius);
+            g.DrawPath(dash, path);
+        }
+        else
+        {
+            Theme.FillRound(g, r, radius, _dragOver ? Theme.Ice : _hover ? Theme.IceHover : Theme.Surface);
+            Theme.DrawRound(g, r, radius, _dragOver || Focused ? Theme.Azure : Theme.Border, _dragOver || Focused ? 1.5f : 1f);
+        }
+        if (Focused && empty && !_dragOver) Theme.DrawRound(g, r, radius, Theme.Azure, 1.5f);
+
+        var badge = new RectangleF(Theme.Sf(14), (Height - Theme.Sf(36)) / 2, Theme.Sf(36), Theme.Sf(36));
+        Theme.FillRound(g, badge, Theme.Sf(9), empty ? Theme.Surface : Theme.Navy);
+        if (empty) Theme.DrawRound(g, badge, Theme.Sf(9), Theme.Border);
+        var s = Theme.Sf(18);
+        Glyphs.Draw(g, Glyph.FileMusic, new RectangleF(badge.X + (badge.Width - s) / 2, badge.Y + (badge.Height - s) / 2, s, s), empty ? Theme.AzureText : Color.White);
+
+        var x = (int)badge.Right + Theme.S(12);
+        var change = empty ? "Browse…" : "Change…";
+        var changeW = Theme.Measure(change, Theme.BodyBold).Width;
+        var textW = Width - x - changeW - Theme.S(20);
+        if (empty)
+        {
+            Theme.Text(g, "Drop a .mid or .mscz file here", Theme.BodyBold, new Rectangle(x, Theme.S(13), textW, Theme.S(18)), Theme.Title);
+            Theme.Text(g, "or click to choose one", Theme.Small, new Rectangle(x, Theme.S(32), textW, Theme.S(16)), Theme.Muted);
+        }
+        else
+        {
+            Theme.Text(g, Path.GetFileName(_path!), Theme.BodyBold, new Rectangle(x, Theme.S(13), textW, Theme.S(18)), Theme.Title);
+            var kind = MuseScore.IsScore(_path!) ? "MuseScore score · exported when added" : "MIDI file";
+            var folder = Path.GetFileName(Path.GetDirectoryName(_path!) ?? "");
+            Theme.Text(g, folder.Length > 0 ? $"{kind} · in {folder}" : kind, Theme.Small, new Rectangle(x, Theme.S(32), textW, Theme.S(16)), Theme.Muted);
+        }
+        Theme.Text(g, change, Theme.BodyBold, new Rectangle(Width - Theme.S(14) - changeW, 0, changeW + Theme.S(2), Height), Theme.AzureText);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _tip.Dispose();
+        base.Dispose(disposing);
     }
 }
