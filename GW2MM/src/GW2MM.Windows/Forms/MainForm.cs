@@ -160,7 +160,7 @@ internal sealed class MainForm : Form, IHostView
         _playLabel = new Label
         {
             Text = "Play", Font = Theme.SmallBold, ForeColor = Theme.Navy, BackColor = Theme.Surface, TextAlign = ContentAlignment.TopCenter,
-            Bounds = Theme.S(0, 53, 82, 16), AutoEllipsis = true,
+            Bounds = Theme.S(3, 53, 78, 16), AutoEllipsis = true,
         };
         _songInfo = new SongInfoPanel { Bounds = Theme.S(84, 6, 214, 62) };
         _pause = new RoundButton(Glyph.Pause, primary: false, "Pause") { Bounds = Theme.S(306, 9, 36, 36) };
@@ -346,6 +346,7 @@ internal sealed class MainForm : Form, IHostView
             try
             {
                 _host.Start();
+                _status.RightText = $"Port {_host.Port}";
                 if (_settings.OpenPortAutomatically) _ = OpenPortAsync();
                 _ = CheckFirewallAsync();
             }

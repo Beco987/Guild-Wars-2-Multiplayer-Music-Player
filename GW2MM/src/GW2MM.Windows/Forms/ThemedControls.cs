@@ -484,9 +484,9 @@ internal sealed class ToggleSwitch : CheckBox
         {
             Theme.FillRound(g, track, h / 2, _hover ? Theme.IceHover : Theme.Surface);
             Theme.DrawRound(g, track, h / 2, Enabled ? Theme.Underline : Theme.Disabled);
-            var d = h - Theme.Sf(10);
-            using var knob = new SolidBrush(Enabled ? Theme.Ink2 : Theme.Disabled);
-            g.FillEllipse(knob, track.X + Theme.Sf(5), track.Y + Theme.Sf(5), d, d);
+            var d = h - Theme.Sf(8);
+            using var knob = new SolidBrush(Enabled ? Theme.Muted : Theme.Disabled);
+            g.FillEllipse(knob, track.X + Theme.Sf(4), track.Y + Theme.Sf(4), d, d);
         }
         if (Focused && ShowFocusCues) Theme.DrawRound(g, RectangleF.Inflate(track, Theme.Sf(1), Theme.Sf(1)), h / 2 + Theme.Sf(1), Theme.Azure, 1.5f);
     }
@@ -548,6 +548,7 @@ internal sealed class Overline : Label
     public Overline(string text)
     {
         Text = text.ToUpperInvariant();
+        UseMnemonic = false;
         Font = Theme.Overline;
         ForeColor = Theme.Muted;
         AutoSize = true;
@@ -647,7 +648,8 @@ internal sealed class RowCard : Card
         var l = new Label
         {
             Text = label, Font = Theme.Body, ForeColor = Theme.Ink, BackColor = Theme.Surface, AutoSize = false, AutoEllipsis = true,
-            TextAlign = ContentAlignment.MiddleLeft, Bounds = new Rectangle(Theme.S(16), _y, Width - Theme.S(32) - control.Width - Theme.S(8), h),
+            // Starts a pixel below the row's top so it does not cover the hairline above it.
+            TextAlign = ContentAlignment.MiddleLeft, Bounds = new Rectangle(Theme.S(16), _y + Math.Max(1, Theme.S(1)), Width - Theme.S(32) - control.Width - Theme.S(8), h - Math.Max(1, Theme.S(1))),
         };
         if (control is CheckBox box)
         {

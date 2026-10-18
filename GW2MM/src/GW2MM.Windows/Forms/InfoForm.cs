@@ -56,6 +56,7 @@ internal sealed class InfoForm : ThemedDialog
         var close = AddButton("Close", ButtonKind.Secondary);
         close.Click += (_, _) => Close();
         CancelButton = close;
+        ActiveControl = close;
 
         Control Centered(Control c, int y)
         {

@@ -10,7 +10,7 @@ deliberate differences are listed in [docs/PORTING_NOTES.md](docs/PORTING_NOTES.
 | Host ("server") | `Midi Player - Server\GW2MMConnect.ahk` | `GW2MM-Host.exe` |
 | Client | `Midi Player - Client\GW2MMConnect.ahk` | `GW2MM-Client.exe` |
 | MIDI → CSV | `Midicsv.exe` via a temporary `.bat` | built in (byte-identical output) |
-| Data Editor | `CsvEditor.ahk` | built in (Tool Kit button) |
+| Data Editor | `CsvEditor.ahk` | built in (the table button next to **New**) |
 
 No AutoHotkey, .NET runtime or other installation is required: each exe is self-contained (Windows 10/11, x64).
 
@@ -34,15 +34,15 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
 1. Start Guild Wars 2 (Gw2Launcher for several accounts). Focus each game window and press **Shift+F1 … Shift+F8**
    to rename it to *Player1…Player8*.
 2. Start `GW2MM-Host.exe`. It listens for clients straight away and reports in the chat box whether it opened the
-   port and which address players connect to. Each client starts `GW2MM-Client.exe` and opens **⚙ → Connect to
-   server…**, enters a user name and the host's IP address (both remembered in Config.txt and filled in next time),
-   and gets the next free player slot (Ip2–Ip5). The same button then reads **Disconnect from server**. A client that
-   isn't connected plays songs on its own windows.
-3. On the host, open **Port**. For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
+   port and which address players connect to. Each client starts `GW2MM-Client.exe` and presses **Connect…** (in the
+   chat card, or Settings → Server), enters a user name and the host's IP address (both remembered in Config.txt and
+   filled in next time), and gets the next free player slot (Ip2–Ip5). The same button then reads **Disconnect**.
+   A client that isn't connected plays songs on its own windows.
+3. On the host, open **Port mapping** (in the chat card). For each slot (Ip1 = the host computer) tick the MIDI tracks it plays, enter
    the input delays (or use **Sync**), then press **Save**.
    The host plays track *n* in its window Player*n*. A client plays its 1st ticked track in its Player1, its 2nd in
    Player2, and so on.
-4. Select a song and press **F1** (or the Play icon). Every machine starts together about 4 s later. **F3** stops
+4. Select a song and press **F1** (or the round Play button). Every machine starts together about 4 s later. **F3** stops
    everyone and resets the instruments' octaves. **F2** pauses/resumes the host's own playback.
    A client can press **F1** to have the host play the client's selected song, or **F3** (or type `stop` in the chat) to stop.
 5. **Sync** needs Guild Wars 2 open on every machine. After you press OK on its prompt, GW2MM brings the game window
@@ -85,7 +85,7 @@ the gap since the previous note allows. It stays at the gap's midpoint when ther
 after the previous note when the gap is shorter. A jump straight between the low and high octave gets two changes,
 OctaveDelay apart. Notes are never moved, so the rhythm and the sync between players are unchanged. The octave resets
 after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients. OctaveDelay
-is 100 ms unless set (⚙ → Octave delay). Set it to about twice your in-game ping.
+is 100 ms unless set (Settings → Octave delay). Set it to about twice your in-game ping.
 
 ### Playing solo (client, not connected)
 
@@ -93,44 +93,46 @@ When the client is not connected to a host (it could not connect, or the host we
 or playlist on this computer's own game windows instead of asking a host. The song's tracks that contain notes go,
 in order, to the open windows named Player1…Player8: the first track to the lowest-numbered window, and so on. This
 is the same arrangement a host gives a client assigned those tracks. If the song has more parts than windows are
-open, the extra parts are not played (the chat says so). **F3** stops and resets octaves, **F5** (or Next ►)
+open, the extra parts are not played (the chat says so). **F3** stops and resets octaves, **F5** (or **Next**)
 skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
 Once the client is connected, the host takes over again.
 
-**⚙ → Offset (ms)** (`Offset` in Config.txt, 0 = off) staggers the windows when you play alone (a client that is not
+**Settings → Offset** (`Offset` in Config.txt, 0 = off) staggers the windows when you play alone (a client that is not
 connected, or a host with no players connected) so no two press a key at the same instant. With *n* windows playing, each starts Offset ÷ *n* ms (rounded down) after the one
 before: Offset 50 with 3 windows puts Player2 16 ms and Player3 32 ms behind Player1. Each window keeps its own
 timing. One window, and playing with others, are never offset.
 
 ### Playlists
 
-The song list has two tabs, **Songs** and **Playlists**; the Play icon (F1) plays whatever the
-tab shows. The search box above the songs shows only the songs whose names contain every word typed (Esc clears it).
+The **Songs | Playlists** switch above the list chooses what Play (F1) plays. The search box above the songs (Ctrl+F)
+shows only the songs whose names contain every word typed (Esc clears it). Double-click or Enter plays a song; Delete
+deletes it (after asking).
 
-* **Make a playlist:** Playlists tab → **Playlist ▾ → New playlist…**, then **Add songs…** (tick songs, filter by
-  name). Or right-click a song on the Songs tab → **Add to playlist**.
-* **Arrange it:** select songs and use **▲ / ▼** (or Alt+Up / Alt+Down), drag them, or **Remove** (Delete key).
-  The same menu renames or deletes the playlist and turns **Shuffle** and **Repeat** on or off.
+* **Make a playlist:** Playlists → **⋯ → New playlist…** (or pick **New playlist…** in the playlist list), then
+  **Add songs…** (tick songs, filter by name). Or right-click a song on the Songs side → **Add to playlist**.
+* **Arrange it:** select songs and use the **↑ / ↓** buttons (or Alt+Up / Alt+Down), drag them, or the bin button
+  (Delete key). The **⋯** menu renames or deletes the playlist; **Shuffle** and **Repeat** are the two toggle buttons
+  beside the playlist name (also in the ⋯ menu).
 * **Play it:** select the song to start from (or none, to start at the top) and press Play, double-click a song, or
   press Enter. With Shuffle, the chosen song plays first and the rest in random order.
 * **While it plays:** everyone sees "♪ Now playing: … (2/5 in …)" in the chat and the current song is marked ♪.
   After each song (when every player's last note has rung out) all octaves are reset and the next song starts. The
-  host's **Next ►** button or **F5** skips ahead. **F3**, typing `stop` in the chat, or playing any other song or
+  host's **Next** button or **F5** skips ahead. **F3**, typing `stop` in the chat, or playing any other song or
   playlist ends it.
 * **From a client:** a client plays its own playlists the same way. Its songs are sent to the host, which plays them
   for everyone, exactly like a single song requested with F1.
 
-Playlists are plain text files in the `Playlists` folder next to the exe (one song name per line; **Playlist ▾ →
+Playlists are plain text files in the `Playlists` folder next to the exe (one song name per line; **⋯ →
 Open Playlists folder**), so they are easy to copy to another computer. Songs that are not in the song list are
 shown in grey and skipped. Deleting a song removes it from playlists, and renaming one in the Data Editor renames it
 there too.
 
 ### Hotkeys
 
-Defaults (change them in **⚙ → Keybinds…**; they are saved in Config.txt as
+Defaults (change them in **Settings → Keybinds → Edit…**; they are saved in Config.txt as
 `Key_<action>,<keys>` lines):
 
-Host and client have the same default keys. The **Pause** and **Stop** buttons (bottom right) do what F2 and F3 do.
+Host and client have the same default keys. The round **Pause** and **Stop** buttons beside the selected song do what F2 and F3 do.
 
 | Keys | Host | Client |
 |---|---|---|
@@ -178,12 +180,12 @@ computer. Testing your own public address from inside your network often fails e
 routers don't support it). `GW2MM.log` records the router, the forwarded address and the firewall result.
 
 The forward GW2MM added is removed when the host closes. If the host crashes, the forward is cleaned up the next time
-it closes normally. Turn this off in Settings (⚙) → *Open port automatically (UPnP)*, stored as `OpenPort,0` in
+it closes normally. Turn this off in Settings (the gear on the banner) → *Open port automatically (UPnP)*, stored as `OpenPort,0` in
 Config.txt. Clients never need an open port.
 
 ## Updates
 
-**Version numbers** come from CI (shown in the Info window, the ? button): each build is numbered after the newest
+**Version numbers** come from CI (shown in the About window, the ⓘ button on the banner): each build is numbered after the newest
 release, e.g. `2.0.6-pr.3` for pull request 3 while v2.0.5 is the latest. Merging a pull request into `main`
 publishes the next release (v2.0.6, v2.0.7, …) automatically. A release can also be made by hand: Actions →
 "GW2MM (.NET port)" → Run workflow, with a version such as `2.1.0` or `next`.
@@ -192,7 +194,7 @@ On launch the app checks the repository's latest GitHub release in the backgroun
 running version, it asks whether to install it. On "Yes" it downloads the executable for its role (checked against
 the release's size and SHA-256), replaces itself, and restarts with the same arguments. If the exe's folder is not
 writable, or the release has no matching file, it offers to open the release page instead. A failed check (offline,
-GitHub unreachable) is silent; the details go to `GW2MM.log`. Turn it off in Settings (⚙) → *Check for updates
+GitHub unreachable) is silent; the details go to `GW2MM.log`. Turn it off in Settings → *Check for updates
 on launch*, stored as `CheckForUpdates,0` in Config.txt. Drafts and pre-releases are never offered.
 
 **Publishing a release:** use any one of these. Each runs the tests, builds `GW2MM-Host.exe` and `GW2MM-Client.exe`

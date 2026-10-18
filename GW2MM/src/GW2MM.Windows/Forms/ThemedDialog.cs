@@ -43,7 +43,7 @@ internal class ThemedDialog : Form
         b.Size = b.GetPreferredSize(Size.Empty);
         Footer.Controls.Add(b);
         _footerRight.Add(b);
-        LayoutFooter();
+        UpdateSize();
         return b;
     }
 
@@ -52,16 +52,26 @@ internal class ThemedDialog : Form
     {
         _footerLeft = c;
         Footer.Controls.Add(c);
-        LayoutFooter();
+        UpdateSize();
     }
 
     /// <summary>Sets the body height (96-DPI px) and sizes the window around header, body and footer.</summary>
     public void SetBodyHeight(int height96)
     {
         Body.Height = Theme.S(height96);
+        UpdateSize();
+    }
+
+    // (Footer.Visible reads false until the window is shown, so whether there is a footer is worked out here.)
+    private bool HasFooter => _footerRight.Count > 0 || _footerLeft is not null;
+
+    /// <summary>Sizes the window around header, body and footer (buttons may be added before or after the body height is set).</summary>
+    private void UpdateSize()
+    {
         Footer.Location = new Point(0, HeaderHeight + Body.Height);
-        Footer.Visible = _footerRight.Count > 0 || _footerLeft is not null;
-        ClientSize = new Size(Body.Width, HeaderHeight + Body.Height + (Footer.Visible ? Footer.Height : 0));
+        Footer.Visible = HasFooter;
+        if (FormBorderStyle != FormBorderStyle.Sizable)
+            ClientSize = new Size(Body.Width, HeaderHeight + Body.Height + (HasFooter ? Footer.Height : 0));
         LayoutFooter();
     }
 
@@ -70,7 +80,7 @@ internal class ThemedDialog : Form
     {
         base.OnResize(e);
         if (Body is null || Footer is null || FormBorderStyle != FormBorderStyle.Sizable) return;
-        var footer = Footer.Visible ? Footer.Height : 0;
+        var footer = HasFooter ? Footer.Height : 0;
         Body.Bounds = new Rectangle(0, HeaderHeight, ClientSize.Width, Math.Max(0, ClientSize.Height - HeaderHeight - footer));
         Footer.Bounds = new Rectangle(0, ClientSize.Height - footer, ClientSize.Width, Footer.Height);
         LayoutFooter();

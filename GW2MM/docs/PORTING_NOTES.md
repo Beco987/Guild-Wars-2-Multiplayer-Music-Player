@@ -142,7 +142,7 @@ reachable from any hotkey, button or message.
   Keybinds…). Changes take effect immediately and are stored in Config.txt as `Key_<action>,<keys>`.
   The window-naming defaults changed on request from F5–F9 (host also Shift+F6–F8) to **Shift+F1–Shift+F8 for
   Player1–Player8**, now on the client too (it could only name Player1–5 before). The other defaults are unchanged.
-* **Redesigned dialogs** (New Song, Data Editor, Controls, Port Mapping). Same fields and the same effects on
+* **Redesigned dialogs** (New Song, Data Editor, Controls, Port Mapping; restyled again by the redesign below). Same fields and the same effects on
   files and playback, with a cleaner layout:
   * *Port Mapping* shows each slot's player: "You (host)", the name a client announced (live as players join and
     leave) or "Open slot". Save applies; **Cancel or closing now reverts** unsaved ticks/delays (the original kept
@@ -155,6 +155,22 @@ reachable from any hotkey, button or message.
     box above the grid filters the rows by song name.
   * *Controls* is gone: its button is now **Pause** and **Stop** buttons (F2 / F3), and keys are listed in Keybinds.
   * The host's **Ping** button is gone; opening Port Mapping now measures each player's ping.
+* **Janthir Wilds redesign of every window.** One look throughout, built from the banner art: frost surfaces, the
+  banner's navy lettering colour, icy azure and lavender accents, Segoe UI, rounded cards and vector icons (drawn in
+  code, so they stay sharp at any scaling). Layout sizes are scaled from the system DPI.
+  * *Main window:* the banner keeps its art, with Settings and About in a frosted capsule. A **Songs | Playlists**
+    switch (with counts) replaces the tabs; **New**, Data Editor, Delete and Reload sit beside it. The song list fills
+    the width (the sort column shows a caret; the song playing is marked). The transport card shows what Play will
+    play (song, players, description) with round Play, Pause and Stop buttons. The chat card colours names and
+    problems, and holds the host's **Port mapping** and **Sync** or the client's **Connect… / Disconnect**. A status
+    bar shows a coloured state dot.
+  * *Small fixes that came with it:* Ctrl+F jumps to the search box; double-click, Enter and Delete work on songs;
+    Enter in the playlist list plays (the window's Send button used to take it); Enter in the search box no longer
+    sends the chat message; only one Settings or About window opens at a time; Settings has Cancel (and Esc); the
+    song list reloads after the Data Editor saves; the playlist name box is a themed picker with Shuffle and Repeat
+    as toggle buttons.
+  * *Dialogs* share a shell (title band with pine art, frost body, footer buttons). Message boxes are themed too,
+    with the same owners, modality and answers; confirmations name the action ("Delete", "Allow").
 
 ## 4. Verification
 

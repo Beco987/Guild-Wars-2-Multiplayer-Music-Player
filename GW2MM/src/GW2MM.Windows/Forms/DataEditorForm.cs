@@ -12,6 +12,7 @@ internal sealed class DataEditorForm : ThemedDialog
     private readonly Action _saved_;
     private readonly DataGridView _grid;
     private readonly Label _count;
+    private readonly FieldBox _search;
     private bool _saved;
 
     /// <param name="saved">Called after a successful save (the main window reloads its song list).</param>
@@ -25,8 +26,20 @@ internal sealed class DataEditorForm : ThemedDialog
         MaximizeBox = true;
         ShowInTaskbar = true;
 
+        // Footer and size first: the grid card below is anchored to the body's final size.
+        _count = new Label { AutoSize = true, Font = Theme.Small, ForeColor = Theme.Muted, BackColor = Theme.FooterBack };
+        SetFooterLeft(_count);
+        var save = AddButton("Save", ButtonKind.Primary);
+        save.Click += (_, _) => Save();
+        var cancel = AddButton("Cancel", ButtonKind.Secondary);
+        cancel.Click += (_, _) => Close();
+        CancelButton = cancel;
+        SetBodyHeight(368);
+        ClientSize = new Size(Theme.S(720), HeaderHeight + Theme.S(368) + Footer.Height);
+        MinimumSize = new Size(Theme.S(520), Theme.S(340));
+
         // Search: shows only the songs whose names contain every word typed (Esc clears it).
-        var search = new FieldBox(filled: true) { Glyph = Glyph.Search, ClearButton = true, Bounds = Theme.S(16, 12, 280, 30) };
+        var search = _search = new FieldBox(filled: true) { Glyph = Glyph.Search, ClearButton = true, Bounds = Theme.S(16, 12, 280, 30) };
         search.Box.PlaceholderText = "Search songs";
         search.Box.TextChanged += (_, _) => Filter(search.Box.Text);
         // Without this the form's Cancel button takes the Esc key before the box sees it.
@@ -67,15 +80,6 @@ internal sealed class DataEditorForm : ThemedDialog
         card.Controls.Add(_grid);
         Body.Controls.Add(card);
 
-        _count = new Label { AutoSize = true, Font = Theme.Small, ForeColor = Theme.Muted, BackColor = Theme.FooterBack };
-        SetFooterLeft(_count);
-        var save = AddButton("Save", ButtonKind.Primary);
-        save.Click += (_, _) => Save();
-        var cancel = AddButton("Cancel", ButtonKind.Secondary);
-        cancel.Click += (_, _) => Close();
-        CancelButton = cancel;
-        SetBodyHeight(368);
-        MinimumSize = new Size(Theme.S(520), Theme.S(340));
 
         foreach (var line in _editor.Lines)
         {
@@ -135,6 +139,14 @@ internal sealed class DataEditorForm : ThemedDialog
         {
             Dialogs.Show(this, "Could not save: " + ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        // EditOnEnter would start editing the first cell (taking the focus) as soon as the window opens.
+        _grid.CurrentCell = null;
+        _search.Box.Focus();
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
