@@ -108,7 +108,8 @@ reachable from any hotkey, button or message.
 
 * **Playlists** (not in the original). A Playlists tab next to the song list creates, edits and plays playlists
   on host and client (a client's playlist is played by the host for everyone, like F11). The host plays the songs in
-  order (optionally shuffled or repeated), resets octaves between songs, and announces each song in the chat. Next
+  order (optionally shuffled or repeated), resets octaves between songs (Settings → *Reset octaves between songs*
+  turns that off for everyone; the stop message then carries `keepOctaves`), and announces each song in the chat. Next
   is F5 on the host. Stored as `Playlists\<name>.txt`. Single songs requested by a client are now announced by name too
   (`PlayRequest` carries the name).
 
@@ -125,13 +126,15 @@ reachable from any hotkey, button or message.
   playing, each starts Offset ÷ n ms (rounded down) after the one before, so no two windows press at the same instant.
   Used by a client that is not connected and a host with no players connected; never when playing with others.
 
-* **Working tempo keys when playing alone.** F10 / F11 make the rest of the current song 1% faster / slower (the
+* **Working tempo keys when playing alone.** F10 / F11 make the rest of the current song 1% slower / faster (the
   chat shows the tempo; each song starts at 100%), on a host with no players connected or a client that is not
   connected. With players they do nothing (and say so), since every part must follow the host's timing.
 
 * **Same keys and Settings on host and client.** The client's default keys are now the host's (F1 play, F2 pause, F3
   stop, F5 next, F10/F11 tempo; it used F11 / Ctrl+F3 / Ctrl+F5 so both could run on one PC). A connected client's F3
-  stops the song for everyone, like typing `stop`. The Settings window is the same on both; options only the other one
+  stops the song for everyone, like typing `stop`. Keybinds saved since this change carry `KeysVersion,2`; before
+  that, a saved set equal to the old defaults (client F11 / Ctrl+F3 / Ctrl+F5, tempo F10 up / F11 down) follows the
+  new ones, while any other binding, such as a client Stop on Ctrl+F3 with Play on F1, is kept. The Settings window is the same on both; options only the other one
   uses (UPnP on the host, Connect to server on the client) only appear there. OctaveDelay is 100 ms when Config.txt has none.
 
 * **Connecting from Settings (client).** The original client asked for a name and the host's IP address at every

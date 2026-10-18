@@ -158,10 +158,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
     }
@@ -175,6 +175,29 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.SaveDisplaySettings(_dir);
         Assert.Contains("Theme,Dusk\n", File.ReadAllText(P("Config.txt")));
         Assert.True(AppSettings.Load(_dir).DuskTheme);
+    }
+
+    [Fact]
+    public void OctaveResetsBetweenSongsCanBeTurnedOff()
+    {
+        Assert.True(AppSettings.Load(_dir).ResetOctavesBetweenSongs);
+        var s = AppSettings.Load(_dir);
+        s.ResetOctavesBetweenSongs = false;
+        s.SaveDisplaySettings(_dir);
+        Assert.Contains("OctaveResetBetweenSongs,0\n", File.ReadAllText(P("Config.txt")));
+        Assert.False(AppSettings.Load(_dir).ResetOctavesBetweenSongs);
+    }
+
+    [Fact]
+    public void SavedKeybindsRecordTheirDefaultsVersion()
+    {
+        Assert.Equal(0, AppSettings.Load(_dir).KeysVersion);
+        var s = AppSettings.Load(_dir);
+        s.SaveHotkeys(_dir, new Dictionary<string, Hotkey> { ["StopSong"] = Hotkey.Parse("Ctrl+F3") });
+        Assert.Equal(AppSettings.CurrentKeysVersion, s.KeysVersion);
+        var again = AppSettings.Load(_dir);
+        Assert.Equal(AppSettings.CurrentKeysVersion, again.KeysVersion);
+        Assert.Equal(Hotkey.Parse("Ctrl+F3"), again.HotkeyFor("StopSong", "F3"));
     }
 
     [Fact]

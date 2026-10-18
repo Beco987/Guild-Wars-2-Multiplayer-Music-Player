@@ -100,9 +100,10 @@ public sealed class ClientSession : IDisposable
                 _view.LogEvent($"Note_1 ({s.Notes.Length} notes)");
                 StartPart(s);
                 break;
-            case StopPlayback:
+            case StopPlayback stop:
                 _view.LogEvent("Stop");
-                _ = StopAsync();
+                if (stop.KeepOctaves) StopPlaying();
+                else _ = StopAsync();
                 break;
             case Chat c:
                 // Display only: chat text never triggers anything on a client.
@@ -149,12 +150,18 @@ public sealed class ClientSession : IDisposable
     /// <summary>"Stop" from the host: stop playing and reset octaves, waiting OctaveDelay ms before each of 9, 9, 0.</summary>
     public Task StopAsync()
     {
+        StopPlaying();
+        return ResetOctavesAsync();
+    }
+
+    /// <summary>Stops the part that is playing, leaving the octaves as they are.</summary>
+    public void StopPlaying()
+    {
         lock (_gate)
         {
             _loop?.Stop();
             _loop = null;
         }
-        return ResetOctavesAsync();
     }
 
     public Task ResetOctavesAsync() => _keys.ResetOctavesAsync(_octaveDelayMs());

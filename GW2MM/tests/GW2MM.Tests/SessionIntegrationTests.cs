@@ -40,11 +40,15 @@ public sealed class SessionIntegrationTests : IDisposable
         return new Machine { Clock = clock, Keys = new RecordingKeys(clock), View = new FakeView() };
     }
 
-    private (HostSession Session, Machine M) StartHost(PortMapping mapping, string[]? delays = null, double offset = 0, IInputDelayMeter? meter = null)
+    private (HostSession Session, Machine M) StartHost(PortMapping mapping, string[]? delays = null, double offset = 0, IInputDelayMeter? meter = null,
+        bool resetOctavesBetweenSongs = true)
     {
         var m = NewMachine(offset);
         var lib = new SongLibrary(Path.Combine(_dir, "host"));
-        var host = new HostSession(m.View, lib, () => "130", m.Clock, m.Keys, meter ?? new FakeMeter(), FastTimings);
+        var host = new HostSession(m.View, lib, () => "130", m.Clock, m.Keys, meter ?? new FakeMeter(), FastTimings)
+        {
+            ResetOctavesBetweenSongs = () => resetOctavesBetweenSongs,
+        };
         host.CommitPortMapping(mapping, delays ?? new[] { "0", "0", "0", "0", "0" });
         host.Start(0);
         _disposables.Add(host);
@@ -151,7 +155,7 @@ public sealed class SessionIntegrationTests : IDisposable
         var (host, h) = StartHost(PortMapping.Parse("12"));
         var (client, _) = await StartClient(host, 0);
         var slow = Song.Replace(", 200,", ", 5000,");
-        await host.PlayAsync(slow, 1.0);
+        await host.PlayAsync(slow, 1.0, "Slow");
         await Wait.Until(() => h.Keys.Presses.Count >= 1);
 
         // Text that merely contains "stop" is ordinary chat.
@@ -164,6 +168,7 @@ public sealed class SessionIntegrationTests : IDisposable
         client.SendChat("  STOP ");
         await Wait.Until(() => h.View.ShownMainWindow == 1, what: "stop");
         Assert.False(host.IsPlaying);
+        Assert.Null(h.View.NowPlaying.Last());
     }
 
     [Fact]
@@ -393,6 +398,26 @@ public sealed class SessionIntegrationTests : IDisposable
         Assert.Contains("♪ Now playing: B (2/2 in Set)", h.View.Dialog);
         Assert.Contains("♪ Playlist Set finished.", h.View.Dialog);
         Assert.False(host.IsPlaylistRunning);
+    }
+
+    [Fact]
+    public async Task PlaylistCanKeepEveryonesOctavesBetweenSongs()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12,23"), resetOctavesBetweenSongs: false);
+        var (_, c) = await StartClient(host, 0);
+        await host.PlayPlaylistAsync("Set", new[] { Q("A"), Q("B") }, 0, repeat: false);
+        await Wait.Until(() => c.View.Events.Count(e => e == "Stop") == 2, what: "client stops");
+        await Task.Delay(300);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, h.Keys.All.Select(p => p.Key));
+        // The client's part has octave changes of its own; a reset is the only thing that presses windows 3-5.
+        Assert.Contains(c.Keys.All, p => p.Window == 1);
+        Assert.DoesNotContain(c.Keys.All, p => p.Window >= 3);
+
+        // Stop still resets everyone.
+        await host.Stop();
+        await Wait.Until(() => c.View.Events.Count(e => e == "Stop") == 3, what: "client stop");
+        await Wait.Until(() => c.Keys.All.Count(p => p.Window >= 3) == 9, what: "client reset");
+        Assert.Equal(15, h.Keys.All.Count(p => ResetKeys.Contains(p.Key)));
     }
 
     [Fact]

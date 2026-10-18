@@ -39,8 +39,9 @@ public sealed record Chat(string Text, string? From = null) : Message;
 public sealed record ClockRequest(int Id) : Message;
 /// <summary>The client's part: key strings and the client-clock times ("Note_1"/"Rest_1").</summary>
 public sealed record SongPart(string[] Notes, double?[] Rests) : Message;
-/// <summary>Stop playing and reset octaves ("Stop").</summary>
-public sealed record StopPlayback : Message;
+/// <summary>Stop playing and reset octaves ("Stop"); between playlist songs the host may ask to keep the octaves.</summary>
+public sealed record StopPlayback(
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool KeepOctaves = false) : Message;
 /// <summary>Measure the input delay ("Sync_Instrument").</summary>
 public sealed record SyncInstrument : Message;
 /// <summary>Round-trip probe ("Ping_Server").</summary>

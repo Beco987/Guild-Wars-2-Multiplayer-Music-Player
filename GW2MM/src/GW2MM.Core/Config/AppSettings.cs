@@ -29,9 +29,19 @@ public sealed class AppSettings
     /// <summary>Stores the hotkeys (one "Key_&lt;action&gt;,&lt;keys&gt;" line each) and keeps them in memory.</summary>
     public void SaveHotkeys(string dataDir, IReadOnlyDictionary<string, Hotkey> bindings)
     {
-        LegacyConfig.Save(Path.Combine(dataDir, FileName), bindings.Select(b => (HotkeyPrefix + b.Key, b.Value.ToString())).ToList());
+        var lines = bindings.Select(b => (HotkeyPrefix + b.Key, b.Value.ToString())).ToList();
+        lines.Add(("KeysVersion", CurrentKeysVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        LegacyConfig.Save(Path.Combine(dataDir, FileName), lines);
         foreach (var (id, h) in bindings) Hotkeys[id] = h.ToString();
+        KeysVersion = CurrentKeysVersion;
     }
+
+    /// <summary>
+    /// Which defaults the stored hotkeys were saved under (Config.txt "KeysVersion"; 0 = before it was written).
+    /// Bindings saved under older defaults that still equal those defaults follow the current ones.
+    /// </summary>
+    public int KeysVersion { get; private set; }
+    public const int CurrentKeysVersion = 2;
 
     /// <summary>Client only: the user name announced to the host.</summary>
     public string Name { get; set; } = "";
@@ -68,6 +78,12 @@ public sealed class AppSettings
     /// <summary>Where MuseScore4.exe is, when the user had to point to it (Config.txt "MuseScore"; blank = look in the usual places).</summary>
     public string MuseScorePath { get; set; } = "";
 
+    /// <summary>
+    /// Reset the instruments' octaves (9, 9, 0) between playlist songs (Config.txt "OctaveResetBetweenSongs"; on unless 0).
+    /// The host's setting covers its players too.
+    /// </summary>
+    public bool ResetOctavesBetweenSongs { get; set; } = true;
+
     /// <summary>The dusk (dark) look instead of the light one (Config.txt "Theme,Dusk"); used from the next start.</summary>
     public bool DuskTheme { get; set; }
 
@@ -94,6 +110,8 @@ public sealed class AppSettings
             LastPlaylist = c.Get("LastPlaylist") ?? "",
             CheckForUpdates = c.Get("CheckForUpdates") is not { } u || LegacyConfig.IsTrue(u),
             OpenPortAutomatically = c.Get("OpenPort") is not { } o || LegacyConfig.IsTrue(o),
+            ResetOctavesBetweenSongs = c.Get("OctaveResetBetweenSongs") is not { } r || LegacyConfig.IsTrue(r),
+            KeysVersion = Ahk.AhkValue.Number(c.Get("KeysVersion") ?? "") is { } kv ? (int)kv : 0,
             Hotkeys = c.WithPrefix(HotkeyPrefix).ToDictionary(kv => kv.Key[HotkeyPrefix.Length..], kv => kv.Value, StringComparer.Ordinal),
         };
     }
@@ -105,6 +123,7 @@ public sealed class AppSettings
             ("OctaveDelay", OctaveDelay), ("AlwaysOnTop", AlwaysOnTop ? "1" : "0"), ("IsTransparent", IsTransparent ? "1" : "0"),
             ("CheckForUpdates", CheckForUpdates ? "1" : "0"), ("OpenPort", OpenPortAutomatically ? "1" : "0"),
             ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)), ("Theme", DuskTheme ? "Dusk" : "Light"),
+            ("OctaveResetBetweenSongs", ResetOctavesBetweenSongs ? "1" : "0"),
         });
 
     /// <summary>Client start-up: the original rewrote all four values after asking for the user name.</summary>

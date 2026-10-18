@@ -93,6 +93,10 @@ so the rhythm and the sync between players are unchanged. The octave resets
 after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients. OctaveDelay
 is 100 ms unless set (Settings → Octave delay). Set it to about twice your in-game ping.
 
+**Settings → Reset octaves between songs** (on by default; `OctaveResetBetweenSongs,0` in Config.txt turns it off)
+skips the 9, 9, 0 between playlist songs. The host's setting applies to its players too. Songs assume the instrument
+starts in the middle octave, so with it off a song that ends in another octave starts the next one there.
+
 ### Playing solo (client, not connected)
 
 When the client is not connected to a host (it could not connect, or the host went away), Play / F1 plays the song
@@ -100,7 +104,7 @@ or playlist on this computer's own game windows instead of asking a host. The so
 in order, to the open windows named Player1…Player8: the first track to the lowest-numbered window, and so on. This
 is the same arrangement a host gives a client assigned those tracks. If the song has more parts than windows are
 open, the extra parts are not played (the chat says so). **F3** stops and resets octaves, **F5** (or **Next**)
-skips to the next playlist song. These defaults differ from the host's F3 / F5 so both programs can run on one PC.
+skips to the next playlist song.
 Once the client is connected, the host takes over again.
 
 **Settings → Offset** (`Offset` in Config.txt, 0 = off) staggers the windows when you play alone (a client that is not
@@ -148,7 +152,7 @@ Host and client have the same default keys. The round **Pause** and **Stop** but
 | F4 | Reset octaves, exit | Reset octaves, exit |
 | F5 | Skip to the next song of the playlist | Same (not connected) |
 | Shift+F1 … Shift+F8 | Rename the active Guild Wars 2 window to Player1 … Player8 | Same |
-| F10 / F11 | Tempo +1 % / −1 % for the song playing, while no players are connected | Same, while not connected |
+| F10 / F11 | Tempo −1 % / +1 % for the song playing, while no players are connected | Same, while not connected |
 | Esc | Close (main window) | – |
 
 The tempo keys speed up or slow down the rest of the current song (the chat shows the new tempo); each new song

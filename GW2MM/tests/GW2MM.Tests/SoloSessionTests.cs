@@ -94,6 +94,20 @@ public sealed class SoloSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task SoloPlaylistsCanKeepTheOctavesBetweenSongs()
+    {
+        _windows = new() { 1 };
+        using var solo = new SoloSession(_view, new SongLibrary(_dir), () => _windows, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50)
+        {
+            ResetOctavesBetweenSongs = () => false,
+        };
+        await solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Duet", "Other" }), 0, shuffle: false, repeat: false)
+            .WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, KeysIn(1));
+        Assert.DoesNotContain(_keys.All, p => p.Key is "9" or "0");
+    }
+
+    [Fact]
     public async Task StopEndsSoloPlaybackAndResetsOctaves()
     {
         _windows = new() { 1 };

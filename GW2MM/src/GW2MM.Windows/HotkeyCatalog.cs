@@ -1,3 +1,4 @@
+using GW2MM.Core.Config;
 using GW2MM.Windows.Forms;
 
 namespace GW2MM.Windows;
@@ -20,24 +21,28 @@ internal static class HotkeyCatalog
             new HotkeyAction("NextSong", "Next song", "F5"),
         }.Concat(Windows()).Concat(new[]
         {
-            new HotkeyAction("TempoUp", "Tempo up", "F10"),
-            new HotkeyAction("TempoDown", "Tempo down", "F11"),
+            new HotkeyAction("TempoDown", "Tempo down", "F10"),
+            new HotkeyAction("TempoUp", "Tempo up", "F11"),
         }).ToList();
 
     /// <summary>
-    /// The client's earlier defaults. Config.txt keeps every binding once the Keybinds window is saved, so a stored
-    /// binding equal to its old default is treated as "default" and follows the new one.
+    /// Earlier defaults. Config.txt keeps every binding once the Keybinds window is saved, so bindings saved before
+    /// KeysVersion 2 that still equal a whole set of old defaults are treated as "default" and follow the new ones.
+    /// A binding chosen on purpose (any set that differs, or anything saved since) is kept as it is.
     /// </summary>
-    private static readonly Dictionary<string, string> OldClientDefaults = new()
+    private static readonly (AppRole? Role, Dictionary<string, string> Keys)[] OldDefaults =
     {
-        ["RequestSong"] = "F11", ["StopSong"] = "Ctrl+F3", ["NextSong"] = "Ctrl+F5",
+        (AppRole.Client, new() { ["RequestSong"] = "F11", ["StopSong"] = "Ctrl+F3", ["NextSong"] = "Ctrl+F5" }),
+        (null, new() { ["TempoUp"] = "F10", ["TempoDown"] = "F11" }),
     };
 
     /// <summary>The keys for an action: the stored binding, else its default.</summary>
-    public static GW2MM.Core.Config.Hotkey KeysFor(AppRole role, GW2MM.Core.Config.AppSettings settings, HotkeyAction action) =>
-        role != AppRole.Host && settings.Hotkeys.TryGetValue(action.Id, out var stored)
-            && OldClientDefaults.TryGetValue(action.Id, out var old)
-            && GW2MM.Core.Config.Hotkey.TryParse(stored, out var keys) && keys.ToString() == GW2MM.Core.Config.Hotkey.Parse(old).ToString()
-            ? GW2MM.Core.Config.Hotkey.Parse(action.Default)
+    public static Hotkey KeysFor(AppRole role, AppSettings settings, HotkeyAction action) =>
+        settings.KeysVersion < AppSettings.CurrentKeysVersion
+            && OldDefaults.Any(old => (old.Role is null || old.Role == role) && old.Keys.ContainsKey(action.Id) && old.Keys.All(k => Stored(settings, k.Key, k.Value)))
+            ? Hotkey.Parse(action.Default)
             : settings.HotkeyFor(action.Id, action.Default);
+
+    private static bool Stored(AppSettings settings, string id, string keys) =>
+        settings.Hotkeys.TryGetValue(id, out var stored) && Hotkey.TryParse(stored, out var h) && h.ToString() == Hotkey.Parse(keys).ToString();
 }

@@ -189,7 +189,7 @@ internal sealed class MainForm : Form, IHostView
         if (role == AppRole.Host)
         {
             _host = new HostSession(this, _library, () => _settings.OctaveDelay, PrecisionClock.Instance, _keys, new AudioInputDelayMeter(),
-                offsetMs: () => _settings.OffsetMs);
+                offsetMs: () => _settings.OffsetMs) { ResetOctavesBetweenSongs = () => _settings.ResetOctavesBetweenSongs };
             _syncButton = Chip("Sync", Glyph.Metronome, 388);
             _syncButton.Click += async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token));
             var port = Chip("Port mapping", Glyph.Sliders, 388 - _syncButton.Width / Theme.Scale - 6);
@@ -204,7 +204,7 @@ internal sealed class MainForm : Form, IHostView
             _client = new ClientSession(this, _library, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
             _input.Box.TextChanged += (_, _) => _client.TypingChanged(_input.Box.Text);
             _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys,
-                offsetMs: () => _settings.OffsetMs);
+                offsetMs: () => _settings.OffsetMs) { ResetOctavesBetweenSongs = () => _settings.ResetOctavesBetweenSongs };
             _connectButton = Chip("Connect…", Glyph.Plug, 388, ButtonKind.Tonal);
             _connectButton.Click += (_, _) =>
             {

@@ -96,7 +96,7 @@ public sealed class SoloSession : IDisposable
             if (_loop is { Completion.IsCompleted: false } loop) loop.SetPaused(!loop.IsPaused);
     }
 
-    /// <summary>F10 / F11: plays the rest of the current song <paramref name="percent"/> % faster (or slower).</summary>
+    /// <summary>F11 / F10: plays the rest of the current song <paramref name="percent"/> % faster (or slower).</summary>
     public void ChangeTempo(int percent)
     {
         lock (_gate)
@@ -203,6 +203,9 @@ public sealed class SoloSession : IDisposable
     /// <summary>The arrangement for a client slot sends its k-th track to window k.</summary>
     private const int SoloSlot = 2;
 
+    /// <summary>Settings → Reset octaves between songs: false keeps the octaves between playlist songs.</summary>
+    public Func<bool> ResetOctavesBetweenSongs { get; init; } = () => true;
+
     private Task EndSongAsync()
     {
         lock (_gate)
@@ -210,7 +213,7 @@ public sealed class SoloSession : IDisposable
             _loop?.Stop();
             _loop = null;
         }
-        return _keys.ResetOctavesAsync(_octaveDelayMs());
+        return ResetOctavesBetweenSongs() ? _keys.ResetOctavesAsync(_octaveDelayMs()) : Task.CompletedTask;
     }
 
     public void Dispose() => Cancel();

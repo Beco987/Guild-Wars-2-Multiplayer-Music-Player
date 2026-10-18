@@ -29,6 +29,8 @@ internal sealed class SettingsForm : ThemedDialog
         var offset = Number(settings.OffsetMs.ToString(CultureInfo.InvariantCulture));
         playback.AddRow("Octave delay", delay);
         playback.AddRow("Offset", offset);
+        var octaveReset = new ToggleSwitch("Reset octaves between songs") { Checked = settings.ResetOctavesBetweenSongs };
+        playback.AddRow("Reset octaves between songs", octaveReset);
 
         var window = Section("Window");
         var onTop = new ToggleSwitch("Always on top") { Checked = settings.AlwaysOnTop };
@@ -107,6 +109,7 @@ internal sealed class SettingsForm : ThemedDialog
             }
             settings.OctaveDelay = delayText.Length > 0 ? delayText : AppSettings.DefaultOctaveDelay;
             settings.OffsetMs = (int)Math.Floor(offsetValue);
+            settings.ResetOctavesBetweenSongs = octaveReset.Checked;
             settings.AlwaysOnTop = onTop.Checked;
             settings.IsTransparent = transparent.Checked;
             settings.CheckForUpdates = updates.Checked;

@@ -16,7 +16,7 @@ public class ProtocolAndParserTests
         {
             new Welcome(3), new Welcome(null), new Chat("hi \"there\"\n"), new ClockRequest(7),
             new SongPart(new[] { "", "Àľ", "x" }, new double?[] { 1.5, null, 1e12 }),
-            new StopPlayback(), new SyncInstrument(), new Ping(1), new Hello("Bob"), new Typing(true),
+            new StopPlayback(), new StopPlayback(KeepOctaves: true), new SyncInstrument(), new Ping(1), new Hello("Bob"), new Typing(true),
             new ClockReply(7, 123.25), new Pong(1), new InputDelayReport(null), new InputDelayReport(80),
             new PlayRequest("1, 0, Note_on_c, 0, 60, 90\n", "1.050000"),
         };
@@ -27,6 +27,10 @@ public class ProtocolAndParserTests
             Assert.Equal(MessageCodec.Serialize(m), MessageCodec.Serialize(back!));
         }
         Assert.Null(MessageCodec.Deserialize("{\"type\":\"unknown\"}"));
+        // A plain stop (as older hosts send it) resets octaves; the flag is only written when set.
+        Assert.Equal(new StopPlayback(), MessageCodec.Deserialize("{\"type\":\"stop\"}"));
+        Assert.DoesNotContain("keep", MessageCodec.Serialize(new StopPlayback()), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(new StopPlayback(KeepOctaves: true), MessageCodec.Deserialize(MessageCodec.Serialize(new StopPlayback(KeepOctaves: true))));
         Assert.Null(MessageCodec.Deserialize("not json"));
     }
 

@@ -54,6 +54,8 @@ public sealed class HostSession : IDisposable
     public SongLibrary Library { get; }
     public HostTimings Timings { get; }
     public Func<string> OctaveDelay { get; }
+    /// <summary>Settings → Reset octaves between songs: false keeps everyone's octaves between playlist songs.</summary>
+    public Func<bool> ResetOctavesBetweenSongs { get; init; } = () => true;
 
     /// <summary>
     /// The tempo factor of the last song started (the song's Data.csv tempo).
@@ -61,7 +63,7 @@ public sealed class HostSession : IDisposable
     public double DefaultTempo { get; private set; } = 1;
 
     /// <summary>
-    /// F10 / F11 (not in the original, whose tempo keys had no audible effect): plays the rest of the current song
+    /// F11 / F10 (not in the original, whose tempo keys had no audible effect): plays the rest of the current song
     /// <paramref name="percent"/> % of its tempo faster (or slower). Only while no player is connected: players on
     /// other computers follow the host's timing. Each new song starts at 100%.
     /// </summary>
@@ -473,7 +475,10 @@ public sealed class HostSession : IDisposable
     /// <summary>Next (hotkey / button): ends the current playlist song now and moves on. False when no playlist is playing.</summary>
     public bool NextSong() => _runner?.Next() ?? false;
 
-    /// <summary>A playlist song is over (or skipped): stop whatever is left of it everywhere and reset everyone's octaves.</summary>
+    /// <summary>
+    /// A playlist song is over (or skipped): stop whatever is left of it everywhere and reset everyone's octaves
+    /// (unless <see cref="ResetOctavesBetweenSongs"/> is off).
+    /// </summary>
     private Task EndSongAsync(SongRun run)
     {
         List<PeerConnection> clients;
@@ -486,13 +491,21 @@ public sealed class HostSession : IDisposable
             }
             clients = _slots.Where(c => c is not null).Select(c => c!).ToList();
         }
-        foreach (var c in clients) c.Send(new StopPlayback());
-        return ResetOctavesAsync();
+        var reset = ResetOctavesBetweenSongs();
+        foreach (var c in clients) c.Send(new StopPlayback(KeepOctaves: !reset));
+        return reset ? ResetOctavesAsync() : Task.CompletedTask;
     }
 
-    private void CancelPlaylist()
+    /// <summary>Ends a running playlist (clearing "Now playing" everywhere); false when none was running.</summary>
+    private bool CancelPlaylist()
     {
-        if (_runner?.Cancel() != true) return;
+        if (_runner?.Cancel() != true) return false;
+        ClearNowPlaying();
+        return true;
+    }
+
+    private void ClearNowPlaying()
+    {
         _view.OnNowPlaying(null);
         Broadcast(new NowPlaying(null, null, 0, 0), except: null);
     }
@@ -522,7 +535,7 @@ public sealed class HostSession : IDisposable
     /// <summary>F3 (and "Stop" in a client's chat): stops everyone and resets the instruments' octaves.</summary>
     public Task Stop()
     {
-        CancelPlaylist();
+        if (!CancelPlaylist()) ClearNowPlaying();
         List<PeerConnection> clients;
         lock (_gate)
         {
