@@ -114,7 +114,8 @@ reachable from any hotkey, button or message.
   (`PlayRequest` carries the name).
 
 * **Solo play on a client** (not in the original). While the client is not connected, Play / F11 plays songs and
-  playlists on its own Player windows, each track with notes on the next open window. F3 stops, F5 skips.
+  playlists on its own Player windows: the k-th track with notes on Player*k*, whichever windows are open (keys for
+  a closed window are skipped, as on the host). F3 stops, F5 skips.
 
 * **One-player songs on one instrument.** A song with Players = 1 plays all its tracks on one instrument
   (`Arrangement/SingleInstrument`). A chord spanning octaves is played octave by octave, with OctaveDelay after each

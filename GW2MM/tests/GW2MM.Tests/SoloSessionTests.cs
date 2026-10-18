@@ -17,7 +17,6 @@ public sealed class SoloSessionTests : IDisposable
     private readonly OffsetClock _clock = new(0);
     private readonly RecordingKeys _keys;
     private readonly FakeView _view = new();
-    private List<int> _windows = new() { 1, 2 };
     private readonly SoloSession _solo;
 
     public SoloSessionTests()
@@ -27,7 +26,7 @@ public sealed class SoloSessionTests : IDisposable
         File.WriteAllText(Path.Combine(_dir, "Csv", "Other.csv"), Song);
         File.WriteAllText(Path.Combine(_dir, "Data.csv"), "Duet, 2, 0, x\nOther, 2, 0, y\n");
         _keys = new RecordingKeys(_clock);
-        _solo = new SoloSession(_view, new SongLibrary(_dir), () => _windows, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50);
+        _solo = new SoloSession(_view, new SongLibrary(_dir), () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50);
     }
 
     public void Dispose()
@@ -39,54 +38,30 @@ public sealed class SoloSessionTests : IDisposable
     private List<string> KeysIn(int window) => _keys.All.Where(p => p.Window == window).Select(p => p.Key).ToList();
 
     [Fact]
-    public void EachTrackPlaysOnTheNextOpenWindowWithTheSongsTiming()
+    public void EachTrackPlaysOnItsOwnWindowWithTheSongsTiming()
     {
-        _windows = new() { 1, 3 }; // Player2 is not open
+        // Which game windows are open plays no part: every part is played, track by track on Player1, Player2, …
         _solo.PlaySong("Duet");
         Assert.Contains("♪ Now playing: Duet", _view.Dialog);
-        Assert.Contains("Not connected: playing on Player1, Player3.", _view.Dialog);
+        Assert.Contains("Not connected: playing on Player1, Player2.", _view.Dialog);
         SpinWait.SpinUntil(() => _keys.Presses.Count >= 10, 5000);
         Assert.Equal(new[] { "1", "2", "3", "4", "5" }, KeysIn(1));       // track 2
-        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, KeysIn(3));       // track 3
+        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, KeysIn(2));       // track 3
         var p1 = _keys.All.Where(p => p.Window == 1).ToList();
         for (var k = 1; k < p1.Count; k++) Assert.InRange(p1[k].Time - p1[k - 1].Time, 200 - 15, 200 + 15);
-        var first = _keys.All.Min(p => p.Time);
-        Assert.Empty(_keys.All.Where(p => p.Window == 2));
-        Assert.True(first > 0);
-    }
-
-    [Fact]
-    public void ExtraTracksAreSkippedWhenThereAreTooFewWindows()
-    {
-        _windows = new() { 1 };
-        _solo.PlaySong("Duet");
-        SpinWait.SpinUntil(() => _keys.Presses.Count >= 5, 5000);
-        Thread.Sleep(300);
-        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, KeysIn(1));
-        Assert.Equal(5, _keys.All.Count);
-        Assert.Contains(_view.Dialog, l => l == "This song has 2 parts but only 1 game window is open, so only the first part is played.");
-    }
-
-    [Fact]
-    public void NoGameWindowsMeansNothingPlays()
-    {
-        _windows = new();
-        _solo.PlaySong("Duet");
-        Thread.Sleep(200);
-        Assert.Empty(_keys.All);
-        Assert.Contains(_view.Problems, p => p.StartsWith("No Guild Wars 2 windows are named Player1"));
-        Assert.False(_solo.IsPlaying);
+        Assert.True(_keys.All.Min(p => p.Time) > 0);
+        Assert.DoesNotContain(_view.Dialog, l => l.StartsWith("This song has"));
+        Assert.Empty(_view.Problems);
     }
 
     [Fact]
     public async Task PlaylistsPlaySoloWithOctaveResetsBetweenSongs()
     {
-        _windows = new() { 1 };
         await _solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Duet", "Missing", "Other" }), 0, shuffle: false, repeat: false)
             .WaitAsync(TimeSpan.FromSeconds(10));
         var notes = _keys.All.Where(p => p.Window == 1 && p.Key != "9" && p.Key != "0").Select(p => p.Key).ToList();
         Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, notes);
-        Assert.Equal(2 * 3 * 5, _keys.All.Count(p => p.Key is "9" or "0")); // 9, 9, 0 to Player1..5 after each song
+        Assert.Equal(2 * 3, _keys.All.Count(p => p.Window == 5)); // 9, 9, 0 to Player1..5 after each song
         Assert.Contains(_view.Problems, p => p.Contains("Missing"));
         Assert.Contains("♪ Now playing: Other (2/2 in Set)", _view.Dialog);
         Assert.Contains("♪ Playlist Set finished.", _view.Dialog);
@@ -96,21 +71,19 @@ public sealed class SoloSessionTests : IDisposable
     [Fact]
     public async Task SoloPlaylistsCanKeepTheOctavesBetweenSongs()
     {
-        _windows = new() { 1 };
-        using var solo = new SoloSession(_view, new SongLibrary(_dir), () => _windows, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50)
+        using var solo = new SoloSession(_view, new SongLibrary(_dir), () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50)
         {
             ResetOctavesBetweenSongs = () => false,
         };
         await solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Duet", "Other" }), 0, shuffle: false, repeat: false)
             .WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, KeysIn(1));
-        Assert.DoesNotContain(_keys.All, p => p.Key is "9" or "0");
+        Assert.DoesNotContain(_keys.All, p => p.Window >= 3);   // a reset is the only thing that presses Player3..5
     }
 
     [Fact]
     public async Task StopEndsSoloPlaybackAndResetsOctaves()
     {
-        _windows = new() { 1 };
         File.WriteAllText(Path.Combine(_dir, "Csv", "Slow.csv"), Song.Replace(", 200,", ", 5000,"));
         File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Slow, 1, 0, z\n");
         var playing = _solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Slow", "Other" }), 0, false, false);
@@ -128,11 +101,10 @@ public sealed class SoloSessionTests : IDisposable
     {
         File.WriteAllText(Path.Combine(_dir, "Csv", "Solo.csv"), Song);
         File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Solo, 1, 0, merged\n");
-        _windows = new() { 2 };
         _solo.PlaySong("Solo");
         SpinWait.SpinUntil(() => _keys.Presses.Count(p => p.Key is not "9" and not "0") >= 9, 5000);
         Thread.Sleep(200);
-        Assert.All(_keys.All, p => Assert.Equal(2, p.Window));                      // one instrument, on the open window
+        Assert.All(_keys.All, p => Assert.Equal(1, p.Window));                      // one instrument, on Player1
         Assert.Equal(9, _keys.All.Count(p => p.Key is not "9" and not "0"));      // 5 + 4 notes from both tracks
         Assert.DoesNotContain(_view.Dialog, l => l.StartsWith("This song has"));
     }
@@ -140,12 +112,11 @@ public sealed class SoloSessionTests : IDisposable
     [Fact]
     public void OffsetStaggersTheWindowsWhilePlayingSolo()
     {
-        _windows = new() { 1, 3 };
-        using var solo = new SoloSession(_view, _solo.Library, () => _windows, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50, offsetMs: () => 60);
+        using var solo = new SoloSession(_view, _solo.Library, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50, offsetMs: () => 60);
         solo.PlaySong("Duet");
         SpinWait.SpinUntil(() => _keys.Presses.Count >= 10, 5000);
         var w1 = _keys.All.Where(p => p.Window == 1).ToList();
-        var w3 = _keys.All.Where(p => p.Window == 3).ToList();
+        var w3 = _keys.All.Where(p => p.Window == 2).ToList();
         Assert.Equal(new[] { "1", "2", "3", "4", "5" }, w1.Select(p => p.Key));
         Assert.Equal(new[] { "8", "0", "2", "3", "4" }, w3.Select(p => p.Key));
         // Track 3 starts 100 ms after track 2 in the song; Offset 60 over 2 windows adds 30 ms to the second window.
@@ -156,13 +127,12 @@ public sealed class SoloSessionTests : IDisposable
     [Fact]
     public void TempoKeysChangeTheSongPlayingSolo()
     {
-        _windows = new() { 1 };
         _solo.PlaySong("Duet");
         SpinWait.SpinUntil(() => _keys.Presses.Count >= 1, 5000);
         for (var i = 0; i < 25; i++) _solo.ChangeTempo(-1);   // 75%: 200 ms apart becomes about 267
         Assert.Contains("Tempo 75%", _view.Dialog);
-        SpinWait.SpinUntil(() => _keys.Presses.Count >= 5, 5000);
-        var p = _keys.All;
+        SpinWait.SpinUntil(() => KeysIn(1).Count >= 5, 5000);
+        var p = _keys.All.Where(x => x.Window == 1).ToList();
         Assert.InRange(p[4].Time - p[3].Time, 267 - 20, 267 + 20);
     }
 }

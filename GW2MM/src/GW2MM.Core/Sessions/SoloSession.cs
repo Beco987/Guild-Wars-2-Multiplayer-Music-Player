@@ -7,10 +7,9 @@ namespace GW2MM.Core.Sessions;
 
 /// <summary>
 /// A client playing on its own while it is not connected to a host (not in the original): songs and playlists from
-/// its library play on the Guild Wars 2 windows open on this computer. The song's tracks that contain notes are given,
-/// in order, to the open Player windows (lowest number first): the 1st track to the 1st open window, and so on. This is
-/// the same arrangement a host gives a client that is assigned those tracks. Tracks beyond the number of open windows
-/// are not played.
+/// its library play on this computer's Guild Wars 2 windows. The song's tracks that contain notes go, in order, to
+/// Player1, Player2, …: the same arrangement a host gives a client that is assigned all of them. Which windows are
+/// open does not matter: keys for a window that is not open are skipped, as for the host and players.
 /// </summary>
 public sealed class SoloSession : IDisposable
 {
@@ -21,7 +20,6 @@ public sealed class SoloSession : IDisposable
     private readonly ISessionView _view;
     private readonly IClock _clock;
     private readonly IKeyOutput _keys;
-    private readonly Func<IReadOnlyList<int>> _openWindows;
     private readonly Func<string> _octaveDelay;
     private readonly Func<int> _octaveDelayMs;
     private readonly PlaylistRunner _runner;
@@ -29,17 +27,15 @@ public sealed class SoloSession : IDisposable
     private PlaybackLoop? _loop;
     private string? _lastWhere;
 
-    /// <param name="openWindows">The numbers n of the open game windows titled "Player&lt;n&gt;", ascending.</param>
     /// <param name="octaveDelay">OctaveDelay text for the arrangement (as the host uses it).</param>
     /// <param name="octaveDelayMs">Pause between octave-reset presses (as the client uses it after a Stop).</param>
     /// <param name="offsetMs">Settings → Offset: spread the windows' starts over this many ms (see <see cref="Schedule.Stagger"/>).</param>
-    public SoloSession(ISessionView view, SongLibrary library, Func<IReadOnlyList<int>> openWindows, Func<string> octaveDelay,
+    public SoloSession(ISessionView view, SongLibrary library, Func<string> octaveDelay,
         Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, int tailMs = 1500, int gapMs = 1500, Func<int>? offsetMs = null)
     {
         _offsetMs = offsetMs ?? (() => 0);
         _view = view;
         Library = library;
-        _openWindows = openWindows;
         _octaveDelay = octaveDelay;
         _octaveDelayMs = octaveDelayMs;
         _clock = clock;
@@ -144,31 +140,22 @@ public sealed class SoloSession : IDisposable
             _loop?.Stop();
             _loop = null;
         }
-        var windows = _openWindows();
-        if (windows.Count == 0)
-        {
-            _view.ReportProblem("No Guild Wars 2 windows are named Player1…Player8. Focus each game window and press Shift+F1, Shift+F2, … to name it.");
-            return null;
-        }
-
         SlotPlan part;
         var liveTimer = false;
+        var parts = 0;
         try
         {
             var song = CsvSong.Parse(LegacyText.Lines(csvText));
-            // A one-player song: every track on one instrument, in the first open window.
+            // A one-player song: every track on one instrument, in Player1.
             var tracks = singleInstrument ? new List<int> { 1 } : Enumerable.Range(1, PortMapping.Tracks).Where(t => song.TrackNotes[t].Count > 0).ToList();
             if (tracks.Count == 0)
             {
                 _view.ReportProblem("The song has no notes to play.");
                 return null;
             }
-            if (tracks.Count > windows.Count)
-                _view.AppendDialog(windows.Count == 1
-                    ? $"This song has {tracks.Count} parts but only 1 game window is open, so only the first part is played."
-                    : $"This song has {tracks.Count} parts but only {windows.Count} game windows are open, so only the first {windows.Count} parts are played.");
             var mapping = new PortMapping();
-            foreach (var t in tracks.Take(windows.Count)) mapping[SoloSlot, t] = true;
+            foreach (var t in tracks) mapping[SoloSlot, t] = true;
+            parts = singleInstrument ? 1 : tracks.Count;
             liveTimer = LiveOctaveTimer() && !singleInstrument;
             part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor,
                 liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Original, singleInstrument)[SoloSlot];
@@ -184,8 +171,8 @@ public sealed class SoloSession : IDisposable
             return null;
         }
 
-        var where = "Not connected: playing on " + string.Join(", ", windows.Select(KeyMap.WindowTitle)) + ".";
-        if (where != _lastWhere) _view.AppendDialog(where); // once, and again when the open windows change
+        var where = "Not connected: playing on " + string.Join(", ", Enumerable.Range(1, parts).Select(KeyMap.WindowTitle)) + ".";
+        if (where != _lastWhere) _view.AppendDialog(where); // once, and again when a song has a different number of parts
         _lastWhere = where;
         // Anchored like a client's part: the first element plays at once, then each at its time. Offset staggers the
         // windows (solo play only: players on other computers always follow the host's timing).
@@ -193,7 +180,7 @@ public sealed class SoloSession : IDisposable
         var times = Schedule.AbsoluteTimes(part, now + LeadMs - Schedule.StartDelayMs, 0);
         var events = Schedule.Stagger(Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList()), _offsetMs(), now);
         if (events.Count > 0 && events[^1].DueMs is { } last) times = times.Append(last).ToList();
-        var loop = new PlaybackLoop(events, _clock, new WindowRemap(_keys, windows), octaveTimerMs: liveTimer ? _octaveDelayMs() : null);
+        var loop = new PlaybackLoop(events, _clock, _keys, octaveTimerMs: liveTimer ? _octaveDelayMs() : null);
         loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
         lock (_gate)
         {
@@ -223,13 +210,4 @@ public sealed class SoloSession : IDisposable
     }
 
     public void Dispose() => Cancel();
-
-    /// <summary>Sends the k-th part's keys to the k-th open window (so Player1 + Player3 open plays parts 1 and 2 there).</summary>
-    private sealed class WindowRemap(IKeyOutput inner, IReadOnlyList<int> windows) : IKeyOutput
-    {
-        public void Press(int window, string key)
-        {
-            if (window >= 1 && window <= windows.Count) inner.Press(windows[window - 1], key);
-        }
-    }
 }

@@ -73,7 +73,7 @@ Joins appear as "bob joined as player 2." Internal network messages are written 
 
 A song whose **Players** value is 1 is played on one instrument with the notes of every track. The players with any
 track ticked in Port Mapping play it in their Player1 window; if nobody has a track ticked, the host does. Solo play
-uses the first open window. Keys are the same as in multiplayer: 1–8 for naturals, F1–F5 for sharps, 9 / 0 for
+uses Player1 too. Keys are the same as in multiplayer: 1–8 for naturals, F1–F5 for sharps, 9 / 0 for
 octave changes.
 
 A chord whose notes lie in more than one octave is played octave by octave. Its notes in one octave are pressed
@@ -108,9 +108,9 @@ starts in the middle octave, so with it off a song that ends in another octave s
 
 When the client is not connected to a host (it could not connect, or the host went away), Play / F1 plays the song
 or playlist on this computer's own game windows instead of asking a host. The song's tracks that contain notes go,
-in order, to the open windows named Player1…Player8: the first track to the lowest-numbered window, and so on. This
-is the same arrangement a host gives a client assigned those tracks. If the song has more parts than windows are
-open, the extra parts are not played (the chat says so). **F3** stops and resets octaves, **F5** (or **Next**)
+in order, to the windows named Player1…Player8: the first track to Player1, the second to Player2, and so on. This
+is the same arrangement a host gives a client assigned all of them. Every part is played whichever windows are open;
+keys for a window that isn't open are simply not sent. **F3** stops and resets octaves, **F5** (or **Next**)
 skips to the next playlist song.
 Once the client is connected, the host takes over again.
 

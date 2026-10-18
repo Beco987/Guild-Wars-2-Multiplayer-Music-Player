@@ -26,7 +26,6 @@ internal sealed class MainForm : Form, IHostView
     private readonly ClientSession? _client;
     /// <summary>Client only: plays on this computer's game windows while not connected to a host.</summary>
     private readonly SoloSession? _solo;
-    private readonly WindowFinder _windowFinder = new();
     private readonly HotkeyWindow _hotkeys = new();
     private readonly HashSet<string> _renaming = new();
     private readonly CancellationTokenSource _closing = new();
@@ -207,7 +206,7 @@ internal sealed class MainForm : Form, IHostView
         {
             _client = new ClientSession(this, _library, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys, new AudioInputDelayMeter());
             _input.Box.TextChanged += (_, _) => _client.TypingChanged(_input.Box.Text);
-            _solo = new SoloSession(this, _library, OpenGameWindows, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys,
+            _solo = new SoloSession(this, _library, () => _settings.OctaveDelay, () => _settings.OctaveDelayMs, PrecisionClock.Instance, _keys,
                 offsetMs: () => _settings.OffsetMs)
             {
                 ResetOctavesBetweenSongs = () => _settings.ResetOctavesBetweenSongs,
@@ -615,10 +614,6 @@ internal sealed class MainForm : Form, IHostView
         else if (_client is { IsConnected: true }) _client.RequestPlay(_highlighted);
         else _solo?.PlaySong(_highlighted);
     }
-
-    /// <summary>The open game windows named Player1..Player8, by number.</summary>
-    private IReadOnlyList<int> OpenGameWindows() =>
-        Enumerable.Range(1, Core.Arrangement.KeyMap.WindowCount).Where(n => _windowFinder.Find(Core.Arrangement.KeyMap.WindowTitle(n)) != IntPtr.Zero).ToList();
 
     private void PlayPlaylist()
     {
