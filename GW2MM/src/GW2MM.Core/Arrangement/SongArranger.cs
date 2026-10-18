@@ -25,7 +25,7 @@ public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
 public static class SongArranger
 {
     public static SongPlan Arrange(CsvSong song, PortMapping mapping, string octaveDelay, double? tempoFactor,
-        OctaveSwapMode octaveSwaps = OctaveSwapMode.Improved, bool singleInstrument = false)
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Original, bool singleInstrument = false)
     {
         if (singleInstrument)
         {

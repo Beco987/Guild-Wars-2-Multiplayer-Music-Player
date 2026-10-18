@@ -31,7 +31,13 @@ public class PipelineGoldenTests
             ? GW2MM.Core.Ahk.AhkValue.Number(spec["clienttempo"])
             : SongLibrary.TempoFactorFromFields(new[] { "Some Other Song", " 2", " 3", " desc", spec["song"], " 3", " " + spec["tempomod"], " generated" }, spec["song"]);
 
-        var plan = SongArranger.Arrange(CsvSong.Parse(lines, allTempoChanges: false), PortMapping.Parse(spec["ip"]), spec["octavedelay"], tempo, OctaveSwapMode.Original);
+        // No swap mode given: the default is what the player uses, so this checks the player's octave swaps.
+        var plan = SongArranger.Arrange(CsvSong.Parse(lines, allTempoChanges: false), PortMapping.Parse(spec["ip"]), spec["octavedelay"], tempo);
+        // The player also keeps every tempo change (a deliberate fix to timing), which only adds empty tempo elements.
+        // Octave swaps are worked out in MIDI ticks, so the keys pressed, swaps included, must come out the same.
+        var played = SongArranger.Arrange(CsvSong.Parse(lines), PortMapping.Parse(spec["ip"]), spec["octavedelay"], tempo);
+        for (var slot = 1; slot <= 5; slot++)
+            Assert.Equal(plan[slot].Notes.Where(n => n.Length > 0), played[slot].Notes.Where(n => n.Length > 0));
 
         var gw2 = spec["gw2"].Split(',').Select(double.Parse).ToArray();
         var ticks = spec["ticks"].Split(',').Select(double.Parse).ToArray();

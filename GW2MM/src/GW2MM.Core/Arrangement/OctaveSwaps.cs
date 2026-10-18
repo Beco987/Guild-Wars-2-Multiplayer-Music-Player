@@ -6,7 +6,7 @@ namespace GW2MM.Core.Arrangement;
 public enum OctaveSwapMode
 {
     /// <summary>
-    /// The default. Like <see cref="Original"/>, plus these fixes:
+    /// Not used by the player (kept for comparison in the tests). Like <see cref="Original"/>, plus these changes:
     /// <list type="bullet">
     /// <item>A jump straight between the low and high octave gets two octave changes. The original added none
     /// and silently dropped the notes.</item>
@@ -19,12 +19,18 @@ public enum OctaveSwapMode
     /// </summary>
     Improved,
 
-    /// <summary>Exactly the original scripts' <c>AddSwaps</c> / <c>OpportunisticSwaps</c> (kept for the oracle tests).</summary>
+    /// <summary>
+    /// What the player uses: exactly the original scripts' <c>AddSwaps</c> / <c>OpportunisticSwaps</c>. A chord that
+    /// starts with an octave change gets the change as its own event at the midpoint of the gap since the previous
+    /// chord when that gap (in MIDI ticks) is at least OctaveDelay; otherwise the change is pressed with the chord.
+    /// The oracle tests check it against the AutoHotkey scripts byte for byte.
+    /// </summary>
     Original,
 }
 
 /// <summary>
-/// Octave handling for a part (see <see cref="OctaveSwapMode.Improved"/>). Guild Wars 2 instruments play one octave
+/// The alternative octave handling (see <see cref="OctaveSwapMode.Improved"/>; the player uses the original's,
+/// <see cref="SongFunctions.AddSwaps"/> and <see cref="SongFunctions.OpportunisticSwaps"/>). Guild Wars 2 instruments play one octave
 /// at a time; "9" moves down an octave and "0" up. The game applies an octave change only after a round trip to
 /// the server, so a note pressed too soon after it still sounds in the old octave. OctaveDelay is that time.
 /// </summary>

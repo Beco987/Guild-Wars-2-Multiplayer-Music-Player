@@ -78,18 +78,19 @@ public sealed class SessionIntegrationTests : IDisposable
         // Host: track 2 -> window Player2; client (its first mapped track) -> window Player1.
         Assert.Equal(new[] { "1", "2", "3", "4", "5" }, hp.Select(p => p.Key));
         Assert.All(hp, p => Assert.Equal(2, p.Window));
-        // High C alone in the middle octave plays as "8"; the next note needs the high octave. The "0" swap is pressed
-        // on its own, OctaveDelay (130 ms) before that note (the original put it at the midpoint, only 100 ms ahead).
+        // High C alone in the middle octave plays as "8"; the next note needs the high octave. As in the original
+        // (OpportunisticSwaps), the "0" swap is pressed on its own at the midpoint of the 200-tick gap, since the gap
+        // is at least OctaveDelay (130).
         Assert.Equal(new[] { "8", "0", "2", "3", "4" }, cp.Select(p => p.Key));
         Assert.All(cp, p => Assert.Equal(1, p.Window));
 
-        // One timeline: host note k at 200k ms; client presses at 100 ("8"), 170 ("0", 130 ms ahead), 300, 500, 700 ms,
+        // One timeline: host note k at 200k ms; client presses at 100 ("8"), 200 ("0", the midpoint), 300, 500, 700 ms,
         // each 40 ms early (the client's input delay). A press can be late but never early, so the song's start is
         // estimated from the least-late host press rather than from the first one.
         var hostStart = Enumerable.Range(0, 5).Min(k => h.Clock.ToReal(hp[k].Time) - 200 * k);
         for (var k = 0; k < 5; k++)
             Assert.InRange(h.Clock.ToReal(hp[k].Time) - hostStart, 200 * k - 2, 200 * k + 15);
-        var clientExpected = new[] { 100, 170, 300, 500, 700 };
+        var clientExpected = new[] { 100, 200, 300, 500, 700 };
         for (var k = 0; k < 5; k++)
             Assert.InRange(c.Clock.ToReal(cp[k].Time) - hostStart, clientExpected[k] - 40 - 10, clientExpected[k] - 40 + 15);
     }

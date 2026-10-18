@@ -45,15 +45,14 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
    plus the tempo events (only the first one before the first note).
 2. For each slot 1–5 (`TrackWriter`) and each track ticked in the port mapping:
    simultaneous notes are merged (`Combine`); octave changes are added as key `9`/`0`, and Cs as `8`
-   (`OctaveSwaps.AddSwaps`, which also gives a low ↔ high jump its two changes); the changes that lead a chord move
-   into the preceding gap (`OctaveSwaps.Place`): evenly through it when there is room, but never closer than
-   *OctaveDelay* ms (at the song's tempo) to the next press, and as early as possible when the gap is shorter.
+   exactly as the original scripts did (`SongFunctions.AddSwaps`); a change that leads a chord moves to the middle
+   of the preceding gap when that gap is at least *OctaveDelay* MIDI ticks (`SongFunctions.OpportunisticSwaps`),
+   otherwise it is pressed with the chord. (`OctaveSwaps` holds an alternative that nothing uses.)
    Letters are encoded as one character per *(window, instrument key)* (`KeyMap`). A one-player song skips this
    and is scheduled by `SingleInstrument.Arrange`. From the raw MIDI pitches of all tracks it builds the chords, and
    `Route` splits each chord into octave groups with the fewest octave changes. Every press after a change waits
    OctaveDelay; changes before a chord go into the preceding gap; later notes are delayed only when the song leaves
-   no room. The result is one window-1 part, given to every slot with a track ticked (`SingleInstrument.Players`). The original scripts' versions
-   (`SongFunctions.AddSwaps` / `OpportunisticSwaps`) are kept as `OctaveSwapMode.Original` for the oracle tests.
+   no room. The result is one window-1 part, given to every slot with a track ticked (`SingleInstrument.Players`).
    The slot's tracks are then merged.
 3. `AddFiller` gives every active slot an element (blank if silent) at every time any slot plays. All parts
    therefore walk the same timeline.

@@ -80,10 +80,10 @@ octaves into range.
 ### Octave changes and OctaveDelay
 
 The game applies an octave change only after a round trip to the server. A note played sooner sounds in the old
-octave. Every song (any number of players) presses each octave change at least *OctaveDelay* ms before its note when
-the gap since the previous note allows. It stays at the gap's midpoint when there is plenty of room, and goes right
-after the previous note when the gap is shorter. A jump straight between the low and high octave gets two changes,
-OctaveDelay apart. Notes are never moved, so the rhythm and the sync between players are unchanged. The octave resets
+octave. Octave changes are placed exactly as the original scripts did (`AddSwaps` / `OpportunisticSwaps`): when a
+note needs another octave and the gap since the previous note (in MIDI ticks) is at least *OctaveDelay*, the change is
+pressed on its own at the middle of that gap; otherwise it is pressed together with the note. Notes are never moved,
+so the rhythm and the sync between players are unchanged. The octave resets
 after a stop and between playlist songs (9, 9, 0) also wait OctaveDelay between presses, on host and clients. OctaveDelay
 is 100 ms unless set (Settings → Octave delay). Set it to about twice your in-game ping.
 
