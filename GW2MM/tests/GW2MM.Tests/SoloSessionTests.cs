@@ -61,7 +61,7 @@ public sealed class SoloSessionTests : IDisposable
             .WaitAsync(TimeSpan.FromSeconds(10));
         var notes = _keys.All.Where(p => p.Window == 1 && p.Key != "9" && p.Key != "0").Select(p => p.Key).ToList();
         Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, notes);
-        Assert.Equal(2 * 3, _keys.All.Count(p => p.Window == 5)); // 9, 9, 0 to Player1..5 after each song
+        Assert.Equal(2 * 3, _keys.All.Count(p => p.Window == 5)); // 9, 9, 0 to Player1..8 after each song
         Assert.Contains(_view.Problems, p => p.Contains("Missing"));
         Assert.Contains("♪ Now playing: Other (2/2 in Set)", _view.Dialog);
         Assert.Contains("♪ Playlist Set finished.", _view.Dialog);

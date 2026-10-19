@@ -578,7 +578,7 @@ public sealed class HostSession : IDisposable
         }
     }
 
-    /// <summary>The original RefreshPlayers (9, 9, 0 to Player1..5), with OctaveDelay ms before each round
+    /// <summary>The original RefreshPlayers (9, 9, 0, now to Player1..8), with OctaveDelay ms before each round
     /// (the original always waited 150 ms).</summary>
     /// <remarks>Octave reset on the host's windows, OctaveDelay ms between rounds.</remarks>
     public Task ResetOctavesAsync() => _keys.ResetOctavesAsync(Timings.OctaveResetDelayMs ?? Config.AppSettings.OctaveResetDelay(OctaveDelay()));

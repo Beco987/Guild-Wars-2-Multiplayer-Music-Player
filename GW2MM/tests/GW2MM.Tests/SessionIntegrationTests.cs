@@ -127,11 +127,11 @@ public sealed class SessionIntegrationTests : IDisposable
         await Task.Delay(300);
         Assert.Equal(1, h.View.ShownMainWindow);
         var hostReset = h.Keys.All.Skip(1).ToList();
-        Assert.Equal(15, hostReset.Count);
-        Assert.Equal(Enumerable.Repeat("9", 10).Concat(Enumerable.Repeat("0", 5)), hostReset.Select(p => p.Key));
-        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, hostReset.Take(5).Select(p => p.Window));
+        Assert.Equal(24, hostReset.Count);                         // 9, 9, 0 to Player1..8
+        Assert.Equal(Enumerable.Repeat("9", 16).Concat(Enumerable.Repeat("0", 8)), hostReset.Select(p => p.Key));
+        Assert.Equal(Enumerable.Range(1, 8), hostReset.Take(8).Select(p => p.Window));
         var clientPresses = c.Keys.All;
-        Assert.Equal(15, clientPresses.Count(p => p.Key is "9" or "0"));
+        Assert.Equal(24, clientPresses.Count(p => p.Key is "9" or "0"));
         Assert.DoesNotContain(clientPresses, p => p.Key is "2" or "3" or "4");
         Assert.False(host.IsPlaying);
     }
@@ -425,7 +425,7 @@ public sealed class SessionIntegrationTests : IDisposable
         var songs = SongsPlayed(h.Keys.All);
         Assert.Equal(2, songs.Count);
         Assert.All(songs, s => Assert.Equal(new[] { "1", "2", "3", "4", "5" }, s));
-        Assert.Equal(2 * 3 * 5, h.Keys.All.Count(p => ResetKeys.Contains(p.Key))); // 9, 9, 0 to Player1..5 after each song
+        Assert.Equal(2 * 3 * 8, h.Keys.All.Count(p => ResetKeys.Contains(p.Key))); // 9, 9, 0 to Player1..8 after each song
         Assert.Equal(new NowPlayingInfo?[] { new("A", "Set", 1, 2), new("B", "Set", 2, 2), null }, h.View.NowPlaying);
         Assert.Contains("♪ Now playing: B (2/2 in Set)", h.View.Dialog);
         Assert.Contains("♪ Playlist Set finished.", h.View.Dialog);
@@ -448,8 +448,8 @@ public sealed class SessionIntegrationTests : IDisposable
         // Stop still resets everyone.
         await host.Stop();
         await Wait.Until(() => c.View.Events.Count(e => e == "Stop") == 3, what: "client stop");
-        await Wait.Until(() => c.Keys.All.Count(p => p.Window >= 3) == 9, what: "client reset");
-        Assert.Equal(15, h.Keys.All.Count(p => ResetKeys.Contains(p.Key)));
+        await Wait.Until(() => c.Keys.All.Count(p => p.Window >= 3) == 18, what: "client reset");
+        Assert.Equal(24, h.Keys.All.Count(p => ResetKeys.Contains(p.Key)));
     }
 
     [Fact]

@@ -45,7 +45,9 @@ internal sealed class KeybindsForm : ThemedDialog
                 card.Controls.Add(new Label
                 {
                     Text = action.Label == "Exit" ? "Exit (resets octaves)" : action.Label, Font = Theme.Body, ForeColor = Theme.Ink, BackColor = Theme.Surface,
-                    AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Bounds = new Rectangle(Theme.S(16), y, Theme.S(180), Theme.S(34)),
+                    AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft,
+                    // Ends before the key box: a label over its left edge hid part of the box's focus outline.
+                    Bounds = new Rectangle(Theme.S(16), y, card.Width - Theme.S(28) - box.Width - Theme.S(8) - Theme.S(16), Theme.S(34)),
                 });
                 box.Location = new Point(card.Width - Theme.S(28) - box.Width, y + Theme.S(3));
                 card.Controls.Add(box);

@@ -22,7 +22,7 @@ public static class KeyOutputExtensions
     }
 
     /// <summary>
-    /// The original <c>RefreshPlayers</c>: returns the instruments in windows Player1..Player5 to the middle octave by
+    /// The original <c>RefreshPlayers</c>: returns the instruments in windows Player1..Player8 to the middle octave by
     /// pressing 9, 9, 0, waiting <paramref name="delayMs"/> before each round.
     /// </summary>
     public static async Task ResetOctavesAsync(this IKeyOutput output, int delayMs, CancellationToken ct = default)
@@ -30,7 +30,8 @@ public static class KeyOutputExtensions
         foreach (var key in new[] { "9", "9", "0" })
         {
             await Task.Delay(Math.Max(0, delayMs), ct).ConfigureAwait(false);
-            for (var w = 1; w <= 5; w++) output.Press(w, key);
+            // Every window a part can play on (the original stopped at Player5, so Player6..8 kept their octave).
+            for (var w = 1; w <= KeyMap.WindowCount; w++) output.Press(w, key);
         }
     }
 }
