@@ -154,7 +154,7 @@ Host and client have the same default keys. The round **Pause** and **Stop** but
 | Keys | Host | Client |
 |---|---|---|
 | F1 | Play the selected song (on the Playlists tab: the playlist) | Same; when connected, asks the host to play it for everyone |
-| F2 | Pause/resume this computer's playback | Pause/resume (not connected) |
+| F2 | Pause/resume this computer's playback (alone: resumes where it paused; with players: catches up to them) | Pause/resume (not connected): resumes where it paused |
 | F3 | Stop everyone, reset octaves | Stop, reset octaves; when connected, stops the song for everyone (like typing `stop`) |
 | F4 | Reset octaves, exit | Reset octaves, exit |
 | F5 | Skip to the next song of the playlist | Same (not connected) |

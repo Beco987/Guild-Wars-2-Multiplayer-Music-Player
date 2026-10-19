@@ -367,6 +367,23 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task APausedHostPlayingAloneCarriesOnWhereItWas()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12,13"));   // two accounts: tracks 2 and 3 on Player2 and Player3
+        var playing = host.PlayPlaylistAsync("Set", new[] { Q("A") }, 0, repeat: false);
+        await Wait.Until(() => h.Keys.Presses.Count(p => p.Window == 2) >= 2, timeoutMs: 8000, what: "two notes");
+        Assert.True(host.TogglePause());
+        await Task.Delay(400);
+        Assert.False(host.TogglePause());
+        await playing.WaitAsync(TimeSpan.FromSeconds(10));
+        var notes = h.Keys.All.Where(p => p.Window == 2 && !ResetKeys.Contains(p.Key)).ToList();
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, notes.Select(p => p.Key));   // the song was not cut short
+        var gaps = Enumerable.Range(1, notes.Count - 1).Select(k => notes[k].Time - notes[k - 1].Time).ToList();
+        Assert.All(gaps, g => Assert.True(g > 150, $"no burst after resuming (gap {g:0} ms)"));
+        Assert.Contains(gaps, g => g > 450);
+    }
+
+    [Fact]
     public async Task PauseHoldsTheHostWhileClientsContinue()
     {
         var (host, h) = StartHost(PortMapping.Parse("12,22"));

@@ -8,7 +8,9 @@ namespace GW2MM.Core.Playback;
 /// <list type="bullet">
 /// <item>Events whose time has already passed fire immediately, in order, at least <see cref="MinGapMs"/> apart -
 /// the original timer pressed at most one element per tick and caught up the same way.</item>
-/// <item>While paused nothing is pressed; on resume overdue events are caught up (as the original's paused timers did).</item>
+/// <item>While paused nothing is pressed. On resume the song carries on from where it was paused: everything still to
+/// come moves later by the length of the pause. With <see cref="CatchUp"/> (a host whose players keep playing through
+/// its pause) the missed events are caught up instead, as the original's paused timers did.</item>
 /// <item><see cref="Stop"/> takes effect before the next key press. The loop never restarts or repeats on its own.</item>
 /// <item><see cref="SetSpeed"/> (not in the original) re-times the events still to come around the current moment, so
 /// the song continues faster or slower from where it is.</item>
@@ -33,6 +35,7 @@ public sealed class PlaybackLoop
     private readonly IKeyOutput _output;
     private readonly CancellationTokenSource _cts = new();
     private readonly ManualResetEventSlim _running = new(true);
+    private double? _pausedAt;
     private readonly TaskCompletionSource<PlaybackOutcome> _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _started;
 
@@ -47,7 +50,11 @@ public sealed class PlaybackLoop
         _due = events.Select(e => e.DueMs).ToArray();
         _clock = clock;
         _output = output;
-        if (startPaused) _running.Reset();
+        if (startPaused)
+        {
+            _running.Reset();
+            _pausedAt = clock.NowMs;
+        }
     }
 
     /// <summary>Raised on the playback thread when a key press throws; playback continues with the next event.</summary>
@@ -70,7 +77,24 @@ public sealed class PlaybackLoop
     public double Speed { get { lock (_timing) return _speed; } }
 
     /// <summary>When the last event is now due (after any speed change); null when nothing is scheduled.</summary>
-    public double? LastDueMs { get { lock (_timing) return _due.Where(d => d is not null).DefaultIfEmpty().Max(); } }
+    public double? LastDueMs
+    {
+        get
+        {
+            lock (_timing)
+            {
+                var last = _due.Where(d => d is not null).DefaultIfEmpty().Max();
+                // Paused: the rest of the song moves later for as long as the pause lasts.
+                return last is { } l && _pausedAt is { } at && !CatchUp && l > at ? l + (_clock.NowMs - at) : last;
+            }
+        }
+    }
+
+    /// <summary>
+    /// On resume, catch up the events missed during the pause instead of moving the rest of the song later (the
+    /// original's behaviour; used by a host whose players keep playing through its pause).
+    /// </summary>
+    public bool CatchUp { get; set; }
 
     /// <summary>
     /// Plays the rest of the song at <paramref name="speed"/> times the scheduled tempo (1.1 = 10% faster): every event
@@ -95,7 +119,24 @@ public sealed class PlaybackLoop
 
     public void SetPaused(bool paused)
     {
-        if (paused) _running.Reset(); else _running.Set();
+        CancellationTokenSource? old = null;
+        lock (_timing)
+        {
+            if (paused == IsPaused) return;
+            var now = _clock.NowMs;
+            if (paused) _pausedAt = now;
+            else if (_pausedAt is { } at)
+            {
+                if (!CatchUp)
+                    for (var i = Position; i < _due.Length; i++)
+                        if (_due[i] is { } d) _due[i] = d + (now - at);
+                _pausedAt = null;
+                old = _retimed;
+                _retimed = new CancellationTokenSource();
+            }
+            if (paused) _running.Reset(); else _running.Set();
+        }
+        old?.Cancel(); // wakes the loop so it waits for the new times
     }
 
     private void Run()
@@ -141,6 +182,8 @@ public sealed class PlaybackLoop
                 {
                     try { _running.Wait(_cts.Token); }
                     catch (OperationCanceledException) { outcome = PlaybackOutcome.Stopped; break; }
+                    i--; // resumed: wait for this event again, at its new time
+                    continue;
                 }
                 if (_cts.IsCancellationRequested) { outcome = PlaybackOutcome.Stopped; break; }
                 var keys = _keys[i];

@@ -125,6 +125,27 @@ public sealed class SoloSessionTests : IDisposable
     }
 
     [Fact]
+    public void PausingSoloCarriesOnWhereItWasOnEveryWindow()
+    {
+        _solo.PlaySong("Duet");
+        SpinWait.SpinUntil(() => KeysIn(1).Count >= 2, 5000);
+        _solo.TogglePause();
+        Thread.Sleep(400);
+        _solo.TogglePause();
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 10, 5000);
+        Thread.Sleep(100);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, KeysIn(1));
+        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, KeysIn(2));
+        foreach (var w in new[] { 1, 2 })
+        {
+            var p = _keys.All.Where(x => x.Window == w).ToList();
+            var gaps = Enumerable.Range(1, p.Count - 1).Select(k => p[k].Time - p[k - 1].Time).ToList();
+            Assert.All(gaps, g => Assert.True(g > 85, $"no burst after resuming (gap {g:0} ms on Player{w})"));
+        }
+        Assert.Contains(Enumerable.Range(1, 4).Select(k => _keys.All.Where(x => x.Window == 1).ElementAt(k).Time - _keys.All.Where(x => x.Window == 1).ElementAt(k - 1).Time), g => g > 450);
+    }
+
+    [Fact]
     public void TempoKeysChangeTheSongPlayingSolo()
     {
         _solo.PlaySong("Duet");

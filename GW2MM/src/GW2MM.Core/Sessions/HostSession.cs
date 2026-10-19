@@ -413,6 +413,7 @@ public sealed class HostSession : IDisposable
             var loop = new PlaybackLoop(hostEvents, _clock, _keys, _paused,
                 liveTimer ? Config.AppSettings.OctaveResetDelay(OctaveDelay()) : null);
             loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
+            loop.CatchUp = _connections.Count > 0;
             run.Loop = loop;
             loop.Start();
             _ = loop.Completion.ContinueWith(_ => { lock (_gate) if (_current == run) _current = null; }, TaskScheduler.Default);
@@ -451,7 +452,8 @@ public sealed class HostSession : IDisposable
         report: _view.ReportProblem)
     {
         TailMs = Timings.SongTailMs,
-        CurrentEnd = () => { lock (_gate) return _playlistRun?.EndMs; },
+        // A pause (playing alone) or the tempo keys move the host's last note.
+        CurrentEnd = () => { lock (_gate) return _playlistRun is { } r ? Math.Max(r.EndMs, r.Loop?.LastDueMs ?? double.NegativeInfinity) : null; },
         GapMs = Timings.PlaylistGapMs,
     };
 
@@ -558,13 +560,20 @@ public sealed class HostSession : IDisposable
         return ResetOctavesAsync();
     }
 
-    /// <summary>F2: pauses/resumes the host's own playback (clients keep playing; on resume the host catches up).</summary>
+    /// <summary>
+    /// F2: pauses/resumes the host's own playback. Alone, the song carries on from where it was paused. With players
+    /// (who keep playing) the host catches up on resume, as in the original.
+    /// </summary>
     public bool TogglePause()
     {
         lock (_gate)
         {
             _paused = !_paused;
-            _current?.Loop?.SetPaused(_paused);
+            if (_current?.Loop is { } loop)
+            {
+                loop.CatchUp = _connections.Count > 0;
+                loop.SetPaused(_paused);
+            }
             return _paused;
         }
     }

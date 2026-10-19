@@ -34,7 +34,9 @@ they are covered by the golden tests against the original code.
 * 4 s lead time, 2 s clock-collection wait, start-time formula, and latency = slot delay − host delay.
 * Stop: the host resets octaves (9, 9, 0 to Player1–5, 150 ms apart) and shows its window; a client resets with
   *OctaveDelay* ms pauses. F4 resets octaves and exits. A song ending naturally does not reset octaves.
-* F2 pauses only the host; on resume it catches up overdue notes in a burst, as the paused AHK timer did.
+* F2 pauses only the host; with players connected it catches up overdue notes in a burst on resume, as the paused
+  AHK timer did. (Changed:) playing alone (a host with no players, or a client's solo play) it resumes where it
+  paused instead: every window's remaining notes move later by the length of the pause.
 * (Changed, see section 3: F10/F11 now change the tempo when playing alone. In the original they changed a value
   that was recalculated at the next Play, so they had no audible effect.)
 * A client can stop the song by typing "stop" in the chat (it has no stop hotkey). The whole message must be "stop"

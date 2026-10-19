@@ -68,13 +68,31 @@ public class PlaybackLoopTests
     }
 
     [Fact]
-    public void PauseHoldsPressesAndResumeCatchesUp()
+    public void ResumeCarriesOnFromWherePlaybackWasPaused()
+    {
+        var clock = new VirtualClock();
+        var keys = new RecordingKeys(clock);
+        var events = Enumerable.Range(0, 5).Select(i => new PlaybackEvent(10 + i * 10, K(1, 0))).ToList();
+        var loop = new PlaybackLoop(events, clock, keys, startPaused: true);   // paused at 0
+        loop.Start();
+        Thread.Sleep(100);
+        clock.Advance(500);
+        Assert.Empty(keys.Presses);
+        var resumed = clock.NowMs;
+        loop.SetPaused(false);
+        Assert.Equal(PlaybackOutcome.Completed, loop.Completion.Result);
+        // Every note keeps its place in the song: no burst of missed notes.
+        Assert.Equal(new[] { 10, 20, 30, 40, 50 }.Select(t => resumed + t), keys.All.Select(p => p.Time));
+    }
+
+    [Fact]
+    public void WithCatchUpResumeCatchesUpTheMissedEvents()
     {
         var clock = PrecisionClock.Instance;
         var keys = new RecordingKeys(clock);
         var now = clock.NowMs;
         var events = Enumerable.Range(0, 5).Select(i => new PlaybackEvent(now + 10 + i * 10, K(1, 0))).ToList();
-        var loop = new PlaybackLoop(events, clock, keys, startPaused: true);
+        var loop = new PlaybackLoop(events, clock, keys, startPaused: true) { CatchUp = true };
         loop.Start();
         Thread.Sleep(150);
         Assert.Empty(keys.Presses);
@@ -85,6 +103,50 @@ public class PlaybackLoopTests
         Assert.Equal(5, presses.Count);
         Assert.All(presses, p => Assert.True(p.Time >= resumed));
         Assert.True(presses[^1].Time - resumed < 50, "caught up quickly");
+    }
+
+    [Fact]
+    public void PausingMidSongMovesTheRestOfItForEveryWindow()
+    {
+        // Several accounts playing alone: two windows, paused at 150 ms (between notes) and resumed at 500.
+        var clock = new VirtualClock();
+        var keys = new RecordingKeys(clock);
+        var events = new[]
+        {
+            new PlaybackEvent(100, K(1, 0)), new PlaybackEvent(100, K(2, 4)), new PlaybackEvent(200, K(1, 2)),
+            new PlaybackEvent(200, K(2, 5)), new PlaybackEvent(300, K(1, 4)), new PlaybackEvent(300, K(2, 7)),
+        };
+        var pausedAt150 = new PauseAt(clock, 150);
+        var loop = new PlaybackLoop(events, pausedAt150, keys);
+        pausedAt150.Loop = loop;
+        loop.Start();
+        Assert.True(pausedAt150.Paused.Wait(5000));
+        Thread.Sleep(100);
+        Assert.Equal(2, keys.All.Count);
+        clock.Advance(500 - clock.NowMs);
+        loop.SetPaused(false);
+        Assert.True(loop.Completion.Wait(5000));
+        // The rest of the song keeps its spacing, 350 ms (the pause) later: no burst of missed notes.
+        Assert.Equal(new double[] { 100, 101, 550, 551, 650, 651 }, keys.All.Select(p => p.Time));
+        Assert.Equal(new[] { 1, 2, 1, 2, 1, 2 }, keys.All.Select(p => p.Window));
+    }
+
+    /// <summary>A virtual clock that pauses the loop the first time it waits past <c>at</c> ms.</summary>
+    private sealed class PauseAt(VirtualClock inner, double at) : IClock
+    {
+        public PlaybackLoop? Loop;
+        public readonly ManualResetEventSlim Paused = new();
+        public double NowMs => inner.NowMs;
+        public bool WaitUntil(double dueMs, CancellationToken ct)
+        {
+            if (dueMs > at && !Paused.IsSet)
+            {
+                inner.WaitUntil(at, ct);
+                Loop!.SetPaused(true);
+                Paused.Set();
+            }
+            return inner.WaitUntil(dueMs, ct);
+        }
     }
 
     [Fact]
