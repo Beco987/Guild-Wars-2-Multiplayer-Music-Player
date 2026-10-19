@@ -113,7 +113,7 @@ public sealed class SessionIntegrationTests : IDisposable
         var (_, c) = await StartClient(host, 0);
         await host.PlayAsync(Song, 1.0);
         await Wait.Until(() => c.Keys.Presses.Count >= 5, timeoutMs: 8000, what: "client presses");
-        var cp = c.Keys.All;
+        var cp = c.Keys.All.Take(5).ToList();   // a reset (one 9) follows when the part ends
         Assert.Equal(new[] { "8", "0", "2", "3", "4" }, cp.Select(p => p.Key));
         // The "0" goes at the first 10 ms step after the high C (the original put it at the midpoint, 100 ms later).
         Assert.InRange(cp[1].Time - cp[0].Time, 1, 25);
