@@ -47,7 +47,7 @@ public sealed class HostSession : IDisposable
         Library = library;
         OctaveDelay = octaveDelay;
         _clock = clock;
-        _keys = keys;
+        _keys = OctaveTracker.Of(keys); // shared with whatever else plays on these windows
         _meter = meter;
     }
 
@@ -397,7 +397,7 @@ public sealed class HostSession : IDisposable
                     continue;
                 }
                 var times = Schedule.AbsoluteTimes(part, tick, DelayNumber(_inputDelays[slot]) - hostDelay);
-                conn.Send(new SongPart(part.Notes.ToArray(), times.Select(x => (double?)x).ToArray(), liveTimer));
+                conn.Send(new SongPart(part.Notes.ToArray(), times.Select(x => (double?)x).ToArray(), liveTimer, KeepOctaves: !ResetOctavesBetweenSongs()));
                 end = Math.Max(end, LastTime(Schedule.AbsoluteTimes(part, hostTick, 0)));
             }
 
@@ -416,7 +416,12 @@ public sealed class HostSession : IDisposable
             loop.CatchUp = _connections.Count > 0;
             run.Loop = loop;
             loop.Start();
-            _ = loop.Completion.ContinueWith(_ => { lock (_gate) if (_current == run) _current = null; }, TaskScheduler.Default);
+            _ = loop.Completion.ContinueWith(t =>
+            {
+                lock (_gate) if (_current == run) _current = null;
+                // Played to its end: back to the middle octave (a stopped song is reset by the Stop).
+                return t.Result == PlaybackOutcome.Completed && ResetOctavesBetweenSongs() ? ResetOctavesAsync() : Task.CompletedTask;
+            }, TaskScheduler.Default).Unwrap();
             return run;
         }
 

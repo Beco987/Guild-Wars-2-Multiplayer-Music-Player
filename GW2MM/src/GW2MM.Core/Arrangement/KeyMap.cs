@@ -4,12 +4,17 @@ namespace GW2MM.Core.Arrangement;
 /// The key encoding shared by host and clients. After arrangement every key press is a single character:
 /// track-window <c>n</c> (1..8) owns the 15 characters <c>Chr(192 + 16*(n-1) + offset)</c>, offset 0..14,
 /// which stand for the Guild Wars 2 instrument keys below, sent to the window titled "Player<i>n</i>".
+/// <para>The 9 / 0 keys written by MIDI notes 96 / 97 (notes of the song, not octave changes the arrangement added)
+/// use their own characters after the window ranges, <c>Chr(320 + 2*(n-1))</c> for 9 and the next one for 0, so the
+/// octave tracker (<see cref="Playback.OctaveTracker"/>) can leave them out. They press the same keys.</para>
 /// </summary>
 public static class KeyMap
 {
     public const int WindowCount = 8;
     private const int FirstChar = 192;
     private const int CharsPerWindow = 16;
+    private const int FirstNoteSwapChar = FirstChar + CharsPerWindow * WindowCount;
+    private const int Down = 13, Up = 14; // offsets of keys 9 and 0
 
     /// <summary>Instrument keys in offset order (1..8 = notes, F1..F5 = sharps, 9 = octave down, 0 = octave up).</summary>
     public static readonly IReadOnlyList<string> Keys = new[] { "1", "F1", "2", "F2", "3", "4", "F3", "5", "F4", "6", "F5", "7", "8", "9", "0" };
@@ -38,9 +43,25 @@ public static class KeyMap
         return LetterOffsets.Select(p => (p.Letter, ((char)(baseChar + p.Offset)).ToString())).ToArray();
     }
 
+    /// <summary>The character for a 9 / 0 key from MIDI note 96 / 97 in <paramref name="window"/> (see the class remarks).</summary>
+    public static char NoteSwap(int window, bool up) => (char)(FirstNoteSwapChar + 2 * (window - 1) + (up ? 1 : 0));
+
+    /// <summary>
+    /// The window and direction (+1 up, -1 down) of an octave change the arrangement added; null for anything else,
+    /// including the 9 / 0 keys of MIDI notes 96 / 97.
+    /// </summary>
+    public static (int Window, int Step)? ArrangedSwap(char c)
+    {
+        var rel = c - FirstChar;
+        if (rel < 0 || rel >= CharsPerWindow * WindowCount) return null;
+        return (rel % CharsPerWindow) switch { Down => (rel / CharsPerWindow + 1, -1), Up => (rel / CharsPerWindow + 1, 1), _ => null };
+    }
+
     /// <summary>Decodes one key character into (window number 1..8, instrument key name); null for anything else.</summary>
     public static (int Window, string Key)? Decode(char c)
     {
+        var note = c - FirstNoteSwapChar;
+        if (note >= 0 && note < 2 * WindowCount) return (note / 2 + 1, note % 2 == 0 ? "9" : "0");
         var rel = c - FirstChar;
         if (rel < 0) return null;
         var window = rel / CharsPerWindow + 1;

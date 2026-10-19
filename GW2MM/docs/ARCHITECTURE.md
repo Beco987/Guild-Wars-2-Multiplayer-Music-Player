@@ -91,7 +91,8 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
 ### 4. Stop
 
 The host cancels the current run, sends `StopPlayback` to every slot, brings its window forward and resets octaves
-(9, 9, 0 to Player1–8, OctaveDelay apart). A client stops its loop and resets octaves with *OctaveDelay* ms pauses.
+(`OctaveTracker`: each window not in the middle octave gets the one 9 / 0 that brings it back, *OctaveDelay* after the
+last key). A client stops its loop and resets the same way. Every machine also resets when its part finishes.
 
 ### 5. Playlists (`PlaylistRunner`, used by `HostSession` and `SoloSession`)
 

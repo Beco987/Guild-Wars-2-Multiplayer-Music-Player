@@ -61,7 +61,9 @@ public sealed class SoloSessionTests : IDisposable
             .WaitAsync(TimeSpan.FromSeconds(10));
         var notes = _keys.All.Where(p => p.Window == 1 && p.Key != "9" && p.Key != "0").Select(p => p.Key).ToList();
         Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, notes);
-        Assert.Equal(2 * 3, _keys.All.Count(p => p.Window == 5)); // 9, 9, 0 to Player1..8 after each song
+        // Each song ends with Player2 (track 3) in the high octave: one 9 after each, and nothing for the others.
+        Assert.Equal(new[] { "8", "0", "2", "3", "4", "9", "8", "0", "2", "3", "4", "9" }, KeysIn(2));
+        Assert.DoesNotContain(_keys.All, p => p.Window >= 3);
         Assert.Contains(_view.Problems, p => p.Contains("Missing"));
         Assert.Contains("♪ Now playing: Other (2/2 in Set)", _view.Dialog);
         Assert.Contains("♪ Playlist Set finished.", _view.Dialog);
@@ -84,15 +86,17 @@ public sealed class SoloSessionTests : IDisposable
     [Fact]
     public async Task StopEndsSoloPlaybackAndResetsOctaves()
     {
-        File.WriteAllText(Path.Combine(_dir, "Csv", "Slow.csv"), Song.Replace(", 200,", ", 5000,"));
-        File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Slow, 1, 0, z\n");
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Slow.csv"), Song.Replace(", 200,", ", 5000,").Replace("3, 300,", "3, 3000,"));
+        File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Slow, 2, 0, z\n");
         var playing = _solo.PlayPlaylistAsync(new Playlist("Set", new[] { "Slow", "Other" }), 0, false, false);
-        SpinWait.SpinUntil(() => _keys.Presses.Count >= 1, 5000);
+        SpinWait.SpinUntil(() => KeysIn(2).Contains("0"), 5000);   // Player2 has gone up to the high octave
         await _solo.StopAsync();
         await playing.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(_solo.IsPlaying);
         Assert.False(_solo.IsPlaylistRunning);
-        Assert.Equal(new[] { "9", "9", "0" }, _keys.All.Where(p => p.Window == 1).Skip(1).Select(p => p.Key));
+        // The reset presses only what each window needs: one 9 for Player2, nothing for Player1 (still middle).
+        Assert.Equal(new[] { "8", "0", "9" }, KeysIn(2));
+        Assert.Equal(new[] { "1" }, KeysIn(1));
         Assert.DoesNotContain(_view.Dialog, l => l.Contains("(2/2 in Set)"));
     }
 
@@ -135,10 +139,10 @@ public sealed class SoloSessionTests : IDisposable
         SpinWait.SpinUntil(() => _keys.Presses.Count >= 10, 5000);
         Thread.Sleep(100);
         Assert.Equal(new[] { "1", "2", "3", "4", "5" }, KeysIn(1));
-        Assert.Equal(new[] { "8", "0", "2", "3", "4" }, KeysIn(2));
+        Assert.Equal(new[] { "8", "0", "2", "3", "4", "9" }, KeysIn(2));      // ends with the reset to the middle octave
         foreach (var w in new[] { 1, 2 })
         {
-            var p = _keys.All.Where(x => x.Window == w).ToList();
+            var p = _keys.All.Where(x => x.Window == w).Take(5).ToList();
             var gaps = Enumerable.Range(1, p.Count - 1).Select(k => p[k].Time - p[k - 1].Time).ToList();
             Assert.All(gaps, g => Assert.True(g > 85, $"no burst after resuming (gap {g:0} ms on Player{w})"));
         }

@@ -76,7 +76,11 @@ public class ProtocolAndParserTests
         Assert.Equal((8, "0"), KeyMap.Decode((char)318));
         Assert.Null(KeyMap.Decode((char)207)); // 16th code of a window is unused
         Assert.Null(KeyMap.Decode('a'));
-        Assert.Null(KeyMap.Decode((char)320));
+        Assert.Equal((1, "9"), KeyMap.Decode((char)320));   // 9 / 0 keys of MIDI notes 96 / 97, after the window ranges
+        Assert.Equal((8, "0"), KeyMap.Decode((char)335));
+        Assert.Null(KeyMap.Decode((char)336));
+        Assert.Null(KeyMap.ArrangedSwap((char)320));
+        Assert.Equal((8, 1), KeyMap.ArrangedSwap((char)318));
     }
 
     [Fact]

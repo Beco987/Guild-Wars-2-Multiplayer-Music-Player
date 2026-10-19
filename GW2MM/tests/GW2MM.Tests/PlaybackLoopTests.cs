@@ -406,6 +406,18 @@ public class PlaybackLoopTests
     }
 
     [Fact]
+    public void OctaveChangesPressedEarlyAreTracked()
+    {
+        var clock = new VirtualClock();
+        var tracker = new OctaveTracker(new RecordingKeys(clock));
+        var loop = new PlaybackLoop(new[] { new PlaybackEvent(0, K(1, 0)), new PlaybackEvent(500, K(1, Up) + K(1, 4) + KeyMap.NoteSwap(1, up: false)) },
+            clock, tracker, octaveTimerMs: 100);
+        loop.Start();
+        Assert.True(loop.Completion.Wait(5000));
+        Assert.Equal(2, tracker.OctaveOf(1));   // the early "0" counts; the 9 of MIDI note 96 does not
+    }
+
+    [Fact]
     public void WithoutTheOctaveTimerChangesArePressedWithTheirChords()
     {
         var presses = RunToEnd(new[] { new PlaybackEvent(0, K(1, 0)), new PlaybackEvent(500, K(1, Down) + K(1, 4)) }, new VirtualClock(), out _);

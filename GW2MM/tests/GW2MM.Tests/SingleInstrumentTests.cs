@@ -149,17 +149,28 @@ public sealed class OctaveResetTests
     [InlineData("abc", 150)]
     public void ResetDelayIsOctaveDelayOr150(string setting, int expected) => Assert.Equal(expected, AppSettings.OctaveResetDelay(setting));
 
-    /// <summary>The host's octave reset waits OctaveDelay between rounds (the original always waited 150 ms).</summary>
+    /// <summary>A reset waits OctaveDelay, then presses only what each window needs to get back to the middle octave.</summary>
     [Fact]
-    public async Task HostResetWaitsOctaveDelayBetweenOctaveChanges()
+    public async Task HostResetWaitsOctaveDelayThenReturnsEachWindowToTheMiddleOctave()
     {
         var clock = new OffsetClock(0);
         var keys = new RecordingKeys(clock);
-        using var host = new HostSession(new FakeView(), new SongLibrary(Path.GetTempPath()), () => "60", clock, keys, new FakeMeter());
+        var tracker = new OctaveTracker(keys);
+        using var host = new HostSession(new FakeView(), new SongLibrary(Path.GetTempPath()), () => "60", clock, tracker, new FakeMeter());
+        tracker.PressKeys(Key(1, 14) + Key(2, 13) + Key(2, 13) + Key(2, 13) + KeyMap.NoteSwap(3, up: false));
+        Assert.Equal((2, 0, 1), (tracker.OctaveOf(1), tracker.OctaveOf(2), tracker.OctaveOf(3)));  // kept within 0..2; note 96 not counted
+        var before = clock.NowMs;
+        keys.Presses.Clear();
         await host.ResetOctavesAsync();
-        var rounds = keys.All.Where(p => p.Window == 1).ToList();
-        Assert.Equal(new[] { "9", "9", "0" }, rounds.Select(p => p.Key));
-        Assert.InRange(rounds[1].Time - rounds[0].Time, 60 - 5, 60 + 40);
-        Assert.InRange(rounds[2].Time - rounds[1].Time, 60 - 5, 60 + 40);
+        Assert.Equal(new[] { (1, "9"), (2, "0") }, keys.All.Select(p => (p.Window, p.Key)));
+        Assert.InRange(keys.All[0].Time - before, 60 - 5, 60 + 40);
+        Assert.All(Enumerable.Range(1, 8), w => Assert.Equal(1, tracker.OctaveOf(w)));
+
+        // In the middle octave already: nothing to press and no wait.
+        keys.Presses.Clear();
+        await host.ResetOctavesAsync().WaitAsync(TimeSpan.FromMilliseconds(30));
+        Assert.Empty(keys.All);
     }
+
+    private static string Key(int window, int offset) => ((char)(192 + 16 * (window - 1) + offset)).ToString();
 }

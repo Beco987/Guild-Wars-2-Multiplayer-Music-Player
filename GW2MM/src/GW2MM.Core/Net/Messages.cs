@@ -40,9 +40,12 @@ public sealed record ClockRequest(int Id) : Message;
 /// <summary>
 /// The client's part: key strings and the client-clock times ("Note_1"/"Rest_1"). <c>OctaveTimer</c>: the host
 /// uses the live octave timer, so the client presses octave changes early with its own (see PlaybackLoop).
+/// <c>KeepOctaves</c>: the host's "Reset octaves between songs" is off, so the octaves stay as they are when the
+/// part ends.
 /// </summary>
 public sealed record SongPart(string[] Notes, double?[] Rests,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool OctaveTimer = false) : Message;
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool OctaveTimer = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool KeepOctaves = false) : Message;
 /// <summary>Stop playing and reset octaves ("Stop"); between playlist songs the host may ask to keep the octaves.</summary>
 public sealed record StopPlayback(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool KeepOctaves = false) : Message;

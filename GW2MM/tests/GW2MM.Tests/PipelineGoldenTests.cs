@@ -46,7 +46,9 @@ public class PipelineGoldenTests
         for (var slot = 1; slot <= 5; slot++)
         {
             var p = plan[slot];
-            Assert.Equal(Golden.DecodeNotes(expected["notes" + slot]), p.Notes);
+            // MIDI notes 96 / 97 press 9 / 0 under their own characters (so the octave tracker leaves them out);
+            // the keys pressed are the original's.
+            Assert.Equal(Golden.DecodeNotes(expected["notes" + slot]), p.Notes.Select(AsOriginal));
             // A slot with 1-3 keyed elements keeps unused raw (unscaled) gaps in the original's DelayToPlay; it is never
             // scheduled, so only the delays of slots that reach DelayToClock are compared.
             if (p.HasKeys)
@@ -60,6 +62,24 @@ public class PipelineGoldenTests
         }
         var expectedSlots = sends.Where(s => s[2].StartsWith("Note_1")).Select(s => int.Parse(s[1]) - 99).ToList();
         Assert.Equal(expectedSlots, sentSlots);
+    }
+
+    /// <summary>The original encoding of a key string: a 9 / 0 from MIDI note 96 / 97 as the window's 9 / 0 key.</summary>
+    private static string AsOriginal(string keys) => string.Concat(keys.Select(c =>
+        c >= 320 && KeyMap.Decode(c) is { } k ? KeyMap.Replacements(k.Window).First(r => r.From == k.Key).To[0] : c));
+
+    [Fact]
+    public void OnlyTheArrangedOctaveChangesAreTracked()
+    {
+        // Middle C, then MIDI 96 (a "9" key) with it, then high D: one arranged change up, and the 9 key of note 96.
+        var song = CsvSong.Parse(LegacyText.Lines("0, 0, Header, 1, 2, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
+            "2, 0, Start_track\n2, 0, Note_on_c, 0, 60, 90\n2, 500, Note_on_c, 0, 62, 90\n2, 500, Note_on_c, 0, 96, 90\n2, 1000, Note_on_c, 0, 74, 90\n2, 1000, End_track\n0, 0, End_of_file\n"));
+        var keys = string.Concat(SongArranger.Arrange(song, PortMapping.Parse("22"), "130", 1.0)[2].Notes);
+        Assert.Equal("1", Decoded(KeyMap.NoteSwap(1, up: false)));
+        Assert.Contains(KeyMap.NoteSwap(1, up: false), keys);                                         // note 96: pressed, not tracked
+        Assert.Single(keys.Where(c => KeyMap.ArrangedSwap(c) is { Step: 1 }));                         // the change up to high D
+        Assert.DoesNotContain(keys, c => KeyMap.ArrangedSwap(c) is { Step: -1 });
+        static string Decoded(char c) => KeyMap.Decode(c)!.Value.Window.ToString(CultureInfo.InvariantCulture);
     }
 
     // latency = client's input delay minus the host's (the original's Ip<n>GW2 - Pings[1], with Pings[1] = host delay after Sync).

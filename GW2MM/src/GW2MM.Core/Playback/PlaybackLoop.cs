@@ -163,9 +163,10 @@ public sealed class PlaybackLoop
                        && early.Time < (_keys[i].Length > 0 ? Math.Max(due, lastPress + MinGapMs) : due))
                 {
                     if (!_clock.WaitUntil(early.Time, wait.Token) || !_running.IsSet || _cts.IsCancellationRequested) break;
-                    var (window, key) = KeyMap.Decode(_keys[early.Index][early.Position])!.Value;
+                    var swapKey = _keys[early.Index][early.Position];
+                    var window = KeyMap.Decode(swapKey)!.Value.Window;
                     _keys[early.Index] = _keys[early.Index].Remove(early.Position, 1);
-                    try { _output.Press(window, key); }
+                    try { _output.PressKeys(swapKey.ToString()); }
                     catch (Exception ex) { KeyError?.Invoke(ex); }
                     lastPress = _clock.NowMs;
                     timer.Swapped(window, lastPress);

@@ -79,7 +79,7 @@ public sealed class SessionIntegrationTests : IDisposable
         await Wait.Until(() => h.Keys.Presses.Count >= 5 && c.Keys.Presses.Count >= 5, timeoutMs: 8000, what: "presses");
 
         var hp = h.Keys.All;
-        var cp = c.Keys.All;
+        var cp = c.Keys.All.Take(5).ToList();
         // Host: track 2 -> window Player2; client (its first mapped track) -> window Player1.
         Assert.Equal(new[] { "1", "2", "3", "4", "5" }, hp.Select(p => p.Key));
         Assert.All(hp, p => Assert.Equal(2, p.Window));
@@ -98,6 +98,12 @@ public sealed class SessionIntegrationTests : IDisposable
         var clientExpected = new[] { 100, 200, 300, 500, 700 };
         for (var k = 0; k < 5; k++)
             Assert.InRange(c.Clock.ToReal(cp[k].Time) - hostStart, clientExpected[k] - 40 - 10, clientExpected[k] - 40 + 15);
+
+        // The client's part ends in the high octave, so it resets with one 9; the host's never left the middle one.
+        await Wait.Until(() => c.Keys.All.Count == 6, what: "client reset");
+        Assert.Equal(("9", 1), (c.Keys.All[5].Key, c.Keys.All[5].Window));
+        await Task.Delay(200);
+        Assert.Equal(5, h.Keys.All.Count);
     }
 
     [Fact]
@@ -119,20 +125,19 @@ public sealed class SessionIntegrationTests : IDisposable
     {
         var (host, h) = StartHost(PortMapping.Parse("12,23"));
         var (_, c) = await StartClient(host, 5000);
-        var slowSong = Song.Replace(", 200,", ", 2000,").Replace(", 400,", ", 4000,").Replace(", 600,", ", 6000,").Replace(", 800,", ", 8000,");
+        var slowSong = Song.Replace(", 200,", ", 2000,").Replace(", 400,", ", 4000,").Replace(", 600,", ", 6000,").Replace(", 800,", ", 8000,")
+            .Replace("3, 300,", "3, 3000,");
         await host.PlayAsync(slowSong, 1.0);
-        await Wait.Until(() => h.Keys.Presses.Count >= 1, what: "first note");
+        await Wait.Until(() => c.Keys.Presses.Any(p => p.Key == "0"), timeoutMs: 8000, what: "client goes up an octave");
         await host.Stop();
         await Wait.Until(() => c.View.Events.Contains("Stop"), what: "client stop");
         await Task.Delay(300);
         Assert.Equal(1, h.View.ShownMainWindow);
-        var hostReset = h.Keys.All.Skip(1).ToList();
-        Assert.Equal(24, hostReset.Count);                         // 9, 9, 0 to Player1..8
-        Assert.Equal(Enumerable.Repeat("9", 16).Concat(Enumerable.Repeat("0", 8)), hostReset.Select(p => p.Key));
-        Assert.Equal(Enumerable.Range(1, 8), hostReset.Take(8).Select(p => p.Window));
+        // Only what each window needs: the host's part never left the middle octave; the client's is one up.
+        Assert.Equal(new[] { "1" }, h.Keys.All.Select(p => p.Key));
         var clientPresses = c.Keys.All;
-        Assert.Equal(24, clientPresses.Count(p => p.Key is "9" or "0"));
-        Assert.DoesNotContain(clientPresses, p => p.Key is "2" or "3" or "4");
+        Assert.Equal(new[] { "8", "0", "9" }, clientPresses.Select(p => p.Key));
+        Assert.All(clientPresses, p => Assert.Equal(1, p.Window));
         Assert.False(host.IsPlaying);
     }
 
@@ -402,16 +407,18 @@ public sealed class SessionIntegrationTests : IDisposable
 
     private static readonly string[] ResetKeys = { "9", "0" };
 
-    /// <summary>Notes (not octave-reset presses) between resets: one group per song played.</summary>
+    /// <summary>The keys pressed per song: each song starts about 4 s after the one before ends, its notes are closer.</summary>
     private static List<List<string>> SongsPlayed(IEnumerable<Press> presses)
     {
-        var groups = new List<List<string>> { new() };
-        foreach (var p in presses)
+        var groups = new List<List<string>>();
+        double? last = null;
+        foreach (var p in presses.OrderBy(p => p.Time))
         {
-            if (ResetKeys.Contains(p.Key)) { if (groups[^1].Count > 0) groups.Add(new List<string>()); }
-            else groups[^1].Add(p.Key);
+            if (last is null || p.Time - last > 1500) groups.Add(new List<string>());
+            groups[^1].Add(p.Key);
+            last = p.Time;
         }
-        return groups.Where(g => g.Count > 0).ToList();
+        return groups;
     }
 
     private static QueuedSong Q(string name, string csv = Song) => new(name, csv, 1.0);
@@ -419,13 +426,15 @@ public sealed class SessionIntegrationTests : IDisposable
     [Fact]
     public async Task PlaylistPlaysEachSongInTurnAndResetsOctavesBetween()
     {
-        var (host, h) = StartHost(PortMapping.Parse("12"));
+        var (host, h) = StartHost(PortMapping.Parse("12,13"));
         await host.PlayPlaylistAsync("Set", new[] { Q("A"), Q("B") }, 0, repeat: false);
 
-        var songs = SongsPlayed(h.Keys.All);
+        var songs = SongsPlayed(h.Keys.All.Where(p => p.Window == 2));
         Assert.Equal(2, songs.Count);
         Assert.All(songs, s => Assert.Equal(new[] { "1", "2", "3", "4", "5" }, s));
-        Assert.Equal(2 * 3 * 8, h.Keys.All.Count(p => ResetKeys.Contains(p.Key))); // 9, 9, 0 to Player1..8 after each song
+        // Player3 (track 3) ends each song in the high octave: one 9 after each song, the only reset press.
+        Assert.All(SongsPlayed(h.Keys.All.Where(p => p.Window == 3)), s => Assert.Equal(new[] { "8", "0", "2", "3", "4", "9" }, s));
+        Assert.Equal(2, h.Keys.All.Count(p => p.Window == 3 && p.Key == "9"));
         Assert.Equal(new NowPlayingInfo?[] { new("A", "Set", 1, 2), new("B", "Set", 2, 2), null }, h.View.NowPlaying);
         Assert.Contains("♪ Now playing: B (2/2 in Set)", h.View.Dialog);
         Assert.Contains("♪ Playlist Set finished.", h.View.Dialog);
@@ -441,15 +450,16 @@ public sealed class SessionIntegrationTests : IDisposable
         await Wait.Until(() => c.View.Events.Count(e => e == "Stop") == 2, what: "client stops");
         await Task.Delay(300);
         Assert.Equal(new[] { "1", "2", "3", "4", "5", "1", "2", "3", "4", "5" }, h.Keys.All.Select(p => p.Key));
-        // The client's part has octave changes of its own; a reset is the only thing that presses windows 3-5.
-        Assert.Contains(c.Keys.All, p => p.Window == 1);
-        Assert.DoesNotContain(c.Keys.All, p => p.Window >= 3);
+        // No reset at the end of either song: the client's part goes up an octave each time and stays there.
+        Assert.Equal(new[] { "8", "0", "2", "3", "4", "8", "0", "2", "3", "4" }, c.Keys.All.Select(p => p.Key));
 
-        // Stop still resets everyone.
+        // Stop still resets: the client is tracked in the high octave (two ups, kept within the top one), so one 9.
         await host.Stop();
         await Wait.Until(() => c.View.Events.Count(e => e == "Stop") == 3, what: "client stop");
-        await Wait.Until(() => c.Keys.All.Count(p => p.Window >= 3) == 18, what: "client reset");
-        Assert.Equal(24, h.Keys.All.Count(p => ResetKeys.Contains(p.Key)));
+        await Wait.Until(() => c.Keys.All.Count == 11, what: "client reset");
+        Assert.Equal("9", c.Keys.All[^1].Key);
+        await Task.Delay(100);
+        Assert.Equal(10, h.Keys.All.Count);
     }
 
     [Fact]

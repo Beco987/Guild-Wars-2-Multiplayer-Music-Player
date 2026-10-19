@@ -21,7 +21,8 @@ internal sealed class MainForm : Form, IHostView
     private readonly string _dataDir;
     private readonly AppSettings _settings;
     private readonly SongLibrary _library;
-    private readonly Win32KeyOutput _keys = new();
+    // One octave tracker for everything that plays on this computer's game windows (host, client and solo play).
+    private readonly OctaveTracker _keys = new(new Win32KeyOutput());
     private readonly HostSession? _host;
     private readonly ClientSession? _client;
     /// <summary>Client only: plays on this computer's game windows while not connected to a host.</summary>

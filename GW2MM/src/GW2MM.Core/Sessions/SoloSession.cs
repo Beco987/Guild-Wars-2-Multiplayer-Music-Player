@@ -39,7 +39,7 @@ public sealed class SoloSession : IDisposable
         _octaveDelay = octaveDelay;
         _octaveDelayMs = octaveDelayMs;
         _clock = clock;
-        _keys = keys;
+        _keys = OctaveTracker.Of(keys); // shared with whatever else plays on these windows
         _runner = new PlaylistRunner(clock,
             start: song => Task.FromResult(Start(song.Csv, song.Tempo, song.SingleInstrument)),
             end: EndSongAsync,
@@ -187,6 +187,9 @@ public sealed class SoloSession : IDisposable
             _loop = loop;
             loop.Start();
         }
+        // Played to its end: back to the middle octave (a stopped song is reset by the Stop).
+        _ = loop.Completion.ContinueWith(t => t.Result == PlaybackOutcome.Completed && ResetOctavesBetweenSongs()
+            ? _keys.ResetOctavesAsync(_octaveDelayMs()) : Task.CompletedTask, TaskScheduler.Default).Unwrap();
         return times.Count == 0 ? _clock.NowMs : times.Max();
     }
 

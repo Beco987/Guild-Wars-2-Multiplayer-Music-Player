@@ -30,7 +30,7 @@ public sealed class ClientSession : IDisposable
         Library = library;
         _octaveDelayMs = octaveDelayMs;
         _clock = clock;
-        _keys = keys;
+        _keys = OctaveTracker.Of(keys); // shared with whatever else plays on these windows
         _meter = meter;
     }
 
@@ -146,6 +146,10 @@ public sealed class ClientSession : IDisposable
             _loop = loop;
             loop.Start();
         }
+        // A part that plays to its end returns the octaves to the middle one (a stopped one is reset by the Stop).
+        if (!part.KeepOctaves)
+            _ = loop.Completion.ContinueWith(t => t.Result == PlaybackOutcome.Completed ? ResetOctavesAsync() : Task.CompletedTask,
+                TaskScheduler.Default).Unwrap();
     }
 
     /// <summary>"Stop" from the host: stop playing and reset octaves, waiting OctaveDelay ms before each of 9, 9, 0.</summary>

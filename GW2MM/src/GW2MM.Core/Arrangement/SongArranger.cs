@@ -108,15 +108,16 @@ public static class SongArranger
                 if (octaveSwaps == OctaveSwapMode.Original)
                 {
                     var tindex = SongFunctions.AddSwaps(c.Alpha);
-                    var o = SongFunctions.OpportunisticSwaps(tindex, tdur, octaveDelay);
+                    var origin = new List<(int Chord, int Start)>();
+                    var o = SongFunctions.OpportunisticSwaps(tindex, tdur, octaveDelay, origin);
                     outTimes[window] = o.Alpha;
-                    outKeys[window] = SongFunctions.ReplaceChars(o.Num, KeyMap.Replacements(window));
+                    outKeys[window] = Encode(o.Num.Select((n, k) => (n, NoteSwapsIn(tindex[origin[k].Chord]) - origin[k].Start)).ToList(), window);
                 }
                 else if (octaveSwaps == OctaveSwapMode.LiveTimer)
                 {
                     // The changes stay in their chords; the playback loop's live timer presses them early.
                     outTimes[window] = c.Num;
-                    outKeys[window] = SongFunctions.ReplaceChars(SongFunctions.AddSwaps(c.Alpha), KeyMap.Replacements(window));
+                    outKeys[window] = Encode(SongFunctions.AddSwaps(c.Alpha).Select(n => (n, NoteSwapsIn(n))).ToList(), window);
                 }
                 else
                 {
@@ -134,6 +135,34 @@ public static class SongArranger
         for (var w = 3; w <= PortMapping.Tracks; w++)
             merged = SongFunctions.Combine(merged.Num, merged.Alpha, outTimes[w], outKeys[w]);
         return (merged.Num, merged.Alpha);
+    }
+
+    /// <summary>
+    /// Where the 9 / 0 keys of MIDI notes 96 / 97 start in a chord from <see cref="SongFunctions.AddSwaps"/>: they are
+    /// its trailing run of 9s and 0s (AddSwaps writes them last, and every octave change it adds is followed by a note).
+    /// Returns the chord's length when there are none.
+    /// </summary>
+    private static int NoteSwapsIn(string chord)
+    {
+        var start = chord.Length;
+        while (start > 0 && chord[start - 1] is '9' or '0') start--;
+        return start;
+    }
+
+    /// <summary>
+    /// <see cref="SongFunctions.ReplaceChars"/> for one window, except that the 9 / 0 keys from <c>from</c> on (MIDI
+    /// notes 96 / 97) get their own characters (<see cref="KeyMap.NoteSwap"/>) so the octave tracker leaves them out.
+    /// </summary>
+    private static List<string> Encode(List<(string Chord, int NoteSwapsFrom)> chords, int window)
+    {
+        var replacements = KeyMap.Replacements(window);
+        return chords.Select(x =>
+        {
+            var from = Math.Max(0, x.NoteSwapsFrom);
+            var head = SongFunctions.ReplaceChars(new[] { x.Chord[..Math.Min(from, x.Chord.Length)] }, replacements)[0];
+            var tail = from < x.Chord.Length ? string.Concat(x.Chord[from..].Select(ch => KeyMap.NoteSwap(window, ch == '0'))) : "";
+            return head + tail;
+        }).ToList();
     }
 
     /// <summary>

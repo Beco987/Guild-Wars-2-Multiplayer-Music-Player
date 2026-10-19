@@ -197,8 +197,11 @@ public static class SongFunctions
     /// <c>OpportunisticSwaps(notes, times)</c>: when a chord starts with an octave swap and the gap since the
     /// previous chord is at least the OctaveDelay (compared in MIDI ticks, as the original does), the swap is
     /// moved to its own event halfway through the gap. Returns (Num = notes, Alpha = times) like the original.
+    /// <paramref name="origin"/>, when given, receives for each output element the input chord it came from and the
+    /// position in that chord where it starts.
     /// </summary>
-    public static Pair OpportunisticSwaps(IReadOnlyList<string> a1, IReadOnlyList<string> a2, string octaveDelay)
+    public static Pair OpportunisticSwaps(IReadOnlyList<string> a1, IReadOnlyList<string> a2, string octaveDelay,
+        List<(int Chord, int Start)>? origin = null)
     {
         var a3 = new List<string>();
         var a4 = new List<string>();
@@ -216,11 +219,14 @@ public static class SongFunctions
                     a4.Add(AhkValue.Format(AhkValue.Floor(mid)));
                     a3.Add(note[1..]);
                     a4.Add(At(a2, idx));
+                    origin?.Add((idx, 0));
+                    origin?.Add((idx, 1));
                     continue;
                 }
             }
             a3.Add(note);
             a4.Add(At(a2, idx));
+            origin?.Add((idx, 0));
         }
         return new Pair(a3, a4);
     }
