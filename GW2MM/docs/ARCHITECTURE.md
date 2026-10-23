@@ -1,0 +1,160 @@
+# Architecture
+
+## Original application (what was ported)
+
+Two AutoHotkey v1 scripts that share most of their code:
+
+* **Server/host** (`GW2MMConnect.ahk` + `scripts/*`): the GUI and song library. It accepts clients over AHKsock
+  (TCP 27015), and on Play arranges the song for up to 5 player slots, sends each client its part, and plays its
+  own part by posting key messages to windows titled `Player1…Player8`.
+* **Client**: the same GUI and library. It connects to the host, answers clock/ping probes, plays the parts it
+  receives, and can send one of its songs to the host to play.
+
+The only external dependencies were Windows itself, `Midicsv.exe` (MIDI → CSV), Core Audio (via VA.ahk, for
+Sync) and the Guild Wars 2 windows.
+
+## New structure
+
+```
+            ┌──────────────────────── GW2MM.Windows (WinForms) ──────────────────────────┐
+ hotkeys ──►│ MainForm (IHostView / ISessionView)  Port/Settings/NewSong/DataEditor forms│
+            │ Win32KeyOutput  WindowRenamer  HotkeyWindow  AudioInputDelayMeter          │
+            └──────────────┬──────────────────────────────────────────────▲─────────────┘
+                           │ commands                          view calls │ (BeginInvoke)
+            ┌──────────────▼──────────────── GW2MM.Core ───────────────────┴─────────────┐
+            │ HostSession / ClientSession  ── one lock guards slots, mapping, current run│
+            │    │            │                                                          │
+            │    │            └─ PeerConnection (JSON lines over TCP, ordered send queue) │
+            │    ├─ SongLibrary / DataFileEditor / AppSettings (original file formats)    │
+            │    ├─ CsvSong.Parse → SongArranger (TrackWriter, AddSwaps, …) → SongPlan     │
+            │    └─ Schedule → PlaybackLoop (dedicated thread, IClock, IKeyOutput)        │
+            └────────────────────────────────────────────────────────────────────────────┘
+```
+
+Separate processes are kept only where needed: one host per computer and one client per remote computer,
+connected by TCP. Everything else that the original did with timers, `Gosub`, `.bat` files and a second script
+(CsvEditor) is now ordinary in-process code.
+
+## The song-playing loop
+
+### 1. Arrangement (host, `SongArranger`)
+
+A literal port of the original `SongPlayer` label, verified against it (see *Verification* below):
+
+1. `CsvSong.Parse` extracts, per MIDI track (1–25), every `Note_on_c` with velocity > 0 as *(tick, note letter)*,
+   plus the tempo events (only the first one before the first note).
+2. For each slot 1–5 (`TrackWriter`) and each track ticked in the port mapping:
+   simultaneous notes are merged (`Combine`); octave changes are added as key `9`/`0`, and Cs as `8`
+   exactly as the original scripts did (`SongFunctions.AddSwaps`); a change that leads a chord moves to the middle
+   of the preceding gap when that gap is at least *OctaveDelay* MIDI ticks (`SongFunctions.OpportunisticSwaps`),
+   otherwise it is pressed with the chord. (`OctaveSwaps` holds an alternative that nothing uses.)
+   Letters are encoded as one character per *(window, instrument key)* (`KeyMap`). A one-player song skips this
+   and is scheduled by `SingleInstrument.Arrange`. From the raw MIDI pitches of all tracks it builds the chords, and
+   `Route` splits each chord into octave groups with the fewest octave changes. Every press after a change waits
+   OctaveDelay; changes before a chord go into the preceding gap; later notes are delayed only when the song leaves
+   no room. The result is one window-1 part, given to every slot with a track ticked (`SingleInstrument.Players`).
+   The slot's tracks are then merged.
+3. `AddFiller` gives every active slot an element (blank if silent) at every time any slot plays. All parts
+   therefore walk the same timeline.
+4. `CombineFlags` inserts the tempo markers. `DelayToClock` turns tick gaps into ms:
+   `floor(ticks / 500000 × µs-per-quarter × tempoFactor)`, where tempoFactor = 1 − 0.05 × the song's Tempo Modifier.
+   Result: `SlotPlan` = key strings + gaps (the original `NewNotes` / `DelayToPlay`).
+
+### 2. Synchronised start (host, `HostSession.PlayAsync`)
+
+1. Cancel whatever song is preparing or playing (no duplicate loops).
+2. T1 = host clock. Each client's clock at T1 comes from its `ClockTracker`, fed continuously over UDP
+   (`ClockSyncServer` / `ClockSyncClient`, below). A client without a fresh estimate gets the original probes:
+   `ClockRequest` over TCP, then 7 more 50 ms apart; `ClockSampler` estimates its clock at T1 as
+   `tick − ((sent + received)/2 − T1)` from the reply with the shortest round trip (with one probe at T1 that is the
+   original `clientClock − RTT/2`).
+3. Only when some client was probed: wait 2 s (as the original did). This step is cancellable: Stop or a new Play
+   during the wait abandons the run before anything is sent. When no client needed probing, every clock at T1 is
+   moved 2 s earlier instead, so the song starts 2 s sooner with the same 2 s to deliver the parts.
+
+   **UDP clock exchanges.** The host's Welcome gives each client a random token. The client sends a request to the
+   host's port once a second (ten 60 ms apart right after connecting); the host answers at once. Times are read right
+   at the socket: T1 before sending and T4 on arrival (client clock), T2 on arrival and T3 before replying (host
+   clock). Each request carries the four times of the client's recent finished exchanges, so the host keeps no state
+   per exchange. `ClockTracker` takes, over the last 60 s, the minimum of `T2 − T1` (client→host delay + offset) and of
+   `T4 − T3` (host→client delay − offset), each corrected for drift; the offset is half their difference. Drift is
+   the median slope of per-15 s offsets over 5 minutes. Queueing in either direction only adds delay, so each minimum
+   comes from a clear moment of that direction; only the fixed difference between the two routes remains. An
+   estimate needs 5 exchanges in the window and one in the last 5 s.
+4. For each active slot: `time[k] = clock_at_T1 + 4000 − latency + Σ gaps[0..k]` in **that machine's clock**,
+   where latency = slot input delay − host input delay. A slow-reacting game client therefore starts early.
+   Clients get their `SongPart`; the host starts its own loop.
+
+### 3. Playing (`PlaybackLoop`, host and clients)
+
+* Event list (`Schedule`): on the host, element *k+1* is pressed when the clock reaches `time[k]`. The first
+  element (the tempo marker) is never pressed. On a client the first element is pressed on arrival, then the same
+  rule applies. These index semantics come straight from the original timer labels.
+* A dedicated `Highest`-priority thread waits for each due time using a Stopwatch clock: it sleeps (with
+  `timeBeginPeriod(1)`) until about 1.5 ms before, then spins. The original polled `A_TickCount`, which only
+  advances in 10–16 ms steps.
+* Overdue events (a late start, or after a pause) fire in order, at least 1 ms apart. That is the same catch-up
+  the original timer did, one element per tick.
+* `Stop` cancels before the next press. Pause holds the loop until it is resumed. A key-output exception is
+  reported and playback continues. The loop ends after the last element; nothing repeats or restarts on its own.
+* Each key press is `PostMessage(WM_KEYDOWN/WM_KEYUP)` to the visible top-level window whose title starts with
+  `Player<n>`, exactly like the original `PlayNotes`, so the game does not need focus.
+
+### 4. Stop
+
+The host cancels the current run, sends `StopPlayback` to every slot, brings its window forward and resets octaves
+(`OctaveTracker`: each window not in the middle octave gets the one 9 / 0 that brings it back, *OctaveDelay* after the
+last key). A client stops its loop and resets the same way. Every machine also resets when its part finishes.
+
+### 5. Playlists (`PlaylistRunner`, used by `HostSession` and `SoloSession`)
+
+The host runs the queue; a client's playlist arrives as one `PlaylistRequest` (each song's CSV and tempo, like a
+single `PlayRequest`). For each song the host announces `NowPlaying` (to its own window and every client) and
+starts it as above. `StartSongAsync` also records the run's `EndMs`: the latest due time of any part that was played,
+on the host's clock. The host waits until `EndMs + SongTailMs`, ends the song like a Stop but without cancelling
+the queue (`StopPlayback` to every slot, octave reset), pauses `PlaylistGapMs`, and starts the next. `NextSong`
+cancels only the current wait. Stop, a single song (local or requested) or another playlist cancels the queue's
+token. A song that cannot be prepared is skipped. Repeat starts over until stopped (unless a whole pass played
+nothing). The queue itself is `Sessions/PlaylistRunner`, which takes "start a song" and "end a song" functions, so
+the host and a solo client share it. Storage is `Library/PlaylistStore` (`Playlists\<name>.txt`); the UI is
+`Forms/PlaylistPanel`.
+
+### 6. Solo play (`SoloSession`, client not connected)
+
+The client arranges the song itself. It maps the song's tracks that contain notes to slot 2, at most one per open
+`Player<n>` window, so `TrackWriter` gives the k-th track window k exactly as for a client part. It anchors the part
+500 ms ahead on its own clock and plays it with the client loop (`Schedule.ClientEvents`). Window k's keys go to the
+k-th open window, so Player1 + Player3 works. The end time feeds the same `PlaylistRunner`. Stop and the end of each
+playlist song reset octaves like a client Stop. Connecting to a host cancels solo playback. Settings → Offset
+(`Schedule.Stagger`) shifts the k-th window that has notes by (k − 1) × Floor(Offset ÷ n) ms before the loop starts.
+
+### Concurrency rules
+
+* Every session mutation (slots, port mapping, input delays, current run, pause) happens under one lock, and no
+  I/O is awaited while holding it. View callbacks never block (they marshal with `BeginInvoke`).
+* Network reads run on one task per connection, in arrival order. Sends are queued, so callers never block.
+  Clock and ping probes are answered on the network thread for accurate timing.
+* A run is identified by a `SongRun` object. Clock replies and loop-completion callbacks for an old run are
+  ignored, so a stale event cannot affect a newer song.
+
+## Port opening (UPnP)
+
+`Net/UpnpClient` finds the router with an SSDP `M-SEARCH`. The search is sent to the multicast group from every
+active IPv4 adapter, and as unicast to each default gateway. The client then reads the router's device
+description and picks its `WANIPConnection:2`/`:1` or `WANPPPConnection:1` service. `Net/PortOpener` runs the
+host's sequence:
+
+1. `GetSpecificPortMappingEntry`. A forward to another device fails with a message. A forward to this computer
+   is reused, and is only removed on exit when its description is `GW2MM` (left by an earlier run).
+2. `AddPortMapping`, with a permanent lease. If the router refuses it, a 7-day lease is used instead (IGDv2's
+   maximum).
+3. `GetExternalIPAddress`. A private or carrier-grade NAT address means the router is behind another NAT.
+
+`MainForm` runs this in the background after the listener starts and writes the result to the chat box and
+`GW2MM.log`. On exit it calls `DeletePortMapping`, waiting at most 2 seconds.
+
+## Protocol
+
+Newline-delimited JSON over TCP port 27015, defined in `Net/Messages.cs`. Each message documents the original
+frame it replaces (`Tick_Count`, `Rest_1`/`Note_1`, `Stop`, `Sync_Instrument`, `Ping_Server`, `Socket_Ping`,
+`Play;…`/`StartSong`). There is no size limit short of 64 MB per message.

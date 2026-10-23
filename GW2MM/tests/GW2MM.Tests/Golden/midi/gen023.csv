@@ -1,0 +1,60 @@
+0, 0, Header, 1, 1, 1
+1, 0, Start_track
+1, 0, Tempo, 1000000
+1, 0, Instrument_name_t, "Piano, Piano, Piano\000"
+1, 1, Note_off_c, 1, 97, 2
+1, 2, Note_on_c, 3, 97, 14
+1, 2, Note_on_c, 4, 44, 124
+1, 2, Note_on_c, 1, 7, 9
+1, 2, Note_on_c, 5, 12, 72
+1, 93758, Sequence_number, 41044
+1, 93758, Note_on_c, 15, 97, 120
+1, 94091, System_exclusive_packet, 4, 92, 11, 79, 37
+1, 94091, Program_c, 8, 113
+1, 301886, Note_on_c, 0, 27, 58
+1, 302191, Note_on_c, 5, 50, 24
+1, 302191, Channel_aftertouch_c, 15, 46
+1, 302191, Marker_t, ""
+1, 302191, Program_c, 14, 88
+1, 302191, Note_off_c, 13, 97, 55
+1, 302191, System_exclusive_packet, 6, 19, 113, 25, 108, 82, 29
+1, 302191, Channel_aftertouch_c, 2, 2
+1, 302639, Note_on_c, 0, 97, 6
+1, 302640, Pitch_bend_c, 1, 1142
+1, 302641, System_exclusive, 9, 72, 100, 82, 82, 123, 107, 127, 63, 247
+1, 302641, Note_on_c, 5, 97, 99
+1, 302701, Pitch_bend_c, 0, 2753
+1, 302702, Unknown_meta_event, 9, 5, 207, 28, 2, 172, 125
+1, 302702, Poly_aftertouch_c, 13, 5, 104
+1, 302702, Program_c, 6, 112
+1, 302702, System_exclusive_packet, 0
+1, 347456, Unknown_meta_event, 8, 0
+1, 347456, Poly_aftertouch_c, 14, 68, 33
+1, 471029, Program_c, 5, 121
+1, 471177, Note_on_c, 9, 96, 10
+1, 471177, Lyric_t, "Piano, Piano, Piano\000"
+1, 471177, Note_on_c, 1, 97, 0
+1, 471177, Note_on_c, 3, 97, 91
+1, 551497, Note_off_c, 14, 73, 58
+1, 843035, Cue_point_t, ""
+1, 843035, Poly_aftertouch_c, 7, 96, 121
+1, 843035, Note_on_c, 0, 76, 17
+1, 843035, System_exclusive_packet, 8, 13, 81, 93, 67, 6, 62, 54, 125
+1, 987155, Control_c, 11, 124, 35
+1, 987155, Note_on_c, 2, 96, 3
+1, 987155, Program_c, 14, 19
+1, 987155, Note_off_c, 9, 125, 45
+1, 987155, Note_on_c, 4, 96, 0
+1, 987155, Channel_aftertouch_c, 14, 61
+1, 987155, Pitch_bend_c, 14, 15298
+1, 987155, Channel_prefix, 11
+1, 987437, Pitch_bend_c, 2, 1814
+1, 995358, Pitch_bend_c, 6, 1804
+1, 1183488, Poly_aftertouch_c, 1, 68, 31
+1, 1352315, Note_on_c, 2, 59, 34
+1, 1352347, Note_off_c, 10, 97, 61
+1, 1352347, Note_off_c, 10, 65, 95
+1, 1352348, Note_on_c, 5, 97, 14
+1, 1352349, Tempo, 12470500
+1, 1352349, End_track
+0, 0, End_of_file

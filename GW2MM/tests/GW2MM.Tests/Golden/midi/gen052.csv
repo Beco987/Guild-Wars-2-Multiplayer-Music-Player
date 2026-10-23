@@ -1,0 +1,24 @@
+0, 0, Header, 0, 1, 32767
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 0, Note_off_c, 13, 97, 23
+1, 343, Sequence_number, 48328
+1, 93113, Instrument_name_t, "\000\001\177\200éÿ"
+1, 93541, Note_on_c, 2, 43, 120
+1, 93685, Key_signature, 0, "minor"
+1, 199755, Note_on_c, 15, 112, 125
+1, 199755, Note_on_c, 11, 96, 0
+1, 199755, Note_on_c, 3, 86, 0
+1, 404300, Note_on_c, 4, 96, 27
+1, 404756, Note_on_c, 13, 96, 66
+1, 404756, Lyric_t, ""
+1, 404756, Note_off_c, 5, 62, 34
+1, 523557, Note_on_c, 4, 96, 0
+1, 523557, Control_c, 8, 38, 65
+1, 701459, System_exclusive_packet, 5, 110, 76, 26, 33, 117
+1, 701640, Note_on_c, 10, 96, 0
+1, 701916, Sequencer_specific, 6, 108, 171, 97, 187, 247, 220
+1, 701917, Note_on_c, 7, 82, 71
+1, 702076, Control_c, 5, 95, 81
+1, 702076, End_track
+0, 0, End_of_file

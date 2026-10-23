@@ -1,0 +1,82 @@
+0, 0, Header, 1, 4, 480
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 1, Pitch_bend_c, 5, 10728
+1, 1, Note_on_c, 5, 97, 0
+1, 1, Copyright_t, "Hello"
+1, 139422, Program_c, 2, 103
+1, 139422, Poly_aftertouch_c, 1, 65, 21
+1, 139423, Note_on_c, 12, 97, 0
+1, 139424, Note_on_c, 14, 96, 96
+1, 139541, Lyric_t, "ºpèð\033»2å"
+1, 139541, Pitch_bend_c, 0, 9046
+1, 139541, End_track
+2, 0, Start_track
+2, 0, Note_on_c, 5, 102, 50
+2, 1, Control_c, 10, 50, 15
+2, 2, Pitch_bend_c, 4, 15269
+2, 2, Program_c, 14, 16
+2, 217778, Pitch_bend_c, 15, 13146
+2, 359670, Marker_t, "Hello"
+2, 359671, Note_off_c, 12, 97, 30
+2, 359671, Note_off_c, 3, 96, 26
+2, 359671, Note_on_c, 14, 96, 72
+2, 359671, Note_on_c, 9, 10, 84
+2, 359671, Channel_aftertouch_c, 15, 11
+2, 359671, Note_off_c, 5, 3, 13
+2, 359671, Program_c, 2, 67
+2, 359671, Control_c, 2, 125, 34
+2, 436349, Program_c, 4, 3
+2, 436349, Note_on_c, 9, 96, 20
+2, 436349, Note_on_c, 9, 97, 70
+2, 436349, System_exclusive, 3, 56, 42, 247
+2, 725876, Note_on_c, 8, 96, 110
+2, 726078, Poly_aftertouch_c, 2, 97, 43
+2, 726079, Poly_aftertouch_c, 2, 90, 36
+2, 726079, Note_off_c, 7, 97, 71
+2, 726079, System_exclusive, 4, 84, 118, 105, 247
+2, 726079, Note_on_c, 4, 96, 85
+2, 726080, Note_on_c, 3, 29, 126
+2, 726080, Control_c, 7, 96, 106
+2, 999374, Note_on_c, 12, 14, 89
+2, 999374, Unknown_meta_event, 9, 0
+2, 999374, Note_on_c, 1, 96, 23
+2, 999375, Lyric_t, "a, b, c"
+2, 999554, Program_c, 7, 112
+2, 999555, Control_c, 10, 31, 86
+2, 999978, Program_c, 7, 49
+2, 999979, Note_on_c, 12, 97, 94
+2, 999979, Program_c, 13, 94
+2, 999979, End_track
+3, 0, Start_track
+3, 465, Note_on_c, 3, 97, 8
+3, 466, Poly_aftertouch_c, 11, 97, 33
+3, 467, Note_on_c, 8, 96, 93
+3, 467, Note_on_c, 12, 97, 0
+3, 467, Sequencer_specific, 3, 99, 44, 87
+3, 113971, Note_off_c, 6, 97, 80
+3, 113971, Channel_aftertouch_c, 6, 62
+3, 114096, Control_c, 8, 58, 109
+3, 114345, Control_c, 0, 75, 66
+3, 114737, Note_on_c, 15, 29, 88
+3, 114737, Control_c, 0, 13, 22
+3, 152509, Unknown_meta_event, 9, 12, 113, 117, 111, 116, 101, 32, 34, 32, 104, 101, 114, 101
+3, 152509, Lyric_t, "back\\slash"
+3, 152510, Poly_aftertouch_c, 8, 98, 64
+3, 152510, Poly_aftertouch_c, 13, 97, 105
+3, 429556, Poly_aftertouch_c, 2, 11, 18
+3, 429557, Pitch_bend_c, 1, 4931
+3, 429557, End_track
+4, 0, Start_track
+4, 0, Copyright_t, "quote "" here"
+4, 0, Note_on_c, 8, 97, 0
+4, 0, Poly_aftertouch_c, 13, 60, 26
+4, 8493, Pitch_bend_c, 6, 8682
+4, 82992, Control_c, 14, 66, 31
+4, 82992, Note_off_c, 0, 97, 37
+4, 82993, Control_c, 8, 52, 6
+4, 82994, Note_on_c, 2, 46, 27
+4, 82995, Channel_aftertouch_c, 2, 43
+4, 83002, Note_on_c, 10, 84, 24
+4, 83002, End_track
+0, 0, End_of_file

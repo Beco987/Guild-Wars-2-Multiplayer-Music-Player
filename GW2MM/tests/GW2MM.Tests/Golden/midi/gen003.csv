@@ -1,0 +1,42 @@
+0, 0, Header, 1, 1, 96
+1, 0, Start_track
+1, 0, Tempo, 1000000
+1, 210, Note_on_c, 4, 96, 6
+1, 210, Pitch_bend_c, 0, 11554
+1, 448, Note_on_c, 2, 9, 90
+1, 121024, Sequencer_specific, 4, 196, 176, 67, 90
+1, 121025, Marker_t, "\000\001\177\200éÿ"
+1, 121026, Control_c, 3, 106, 57
+1, 121595, Poly_aftertouch_c, 7, 19, 11
+1, 121595, System_exclusive, 8, 80, 29, 63, 92, 88, 70, 126, 247
+1, 121595, Channel_aftertouch_c, 7, 103
+1, 121595, Pitch_bend_c, 7, 9435
+1, 121595, Poly_aftertouch_c, 10, 97, 73
+1, 121595, Note_on_c, 6, 96, 0
+1, 122027, Program_c, 14, 77
+1, 122027, Note_on_c, 11, 90, 18
+1, 122161, Pitch_bend_c, 6, 5112
+1, 336893, Marker_t, "mF¬÷"
+1, 443962, Note_on_c, 5, 74, 0
+1, 443963, Poly_aftertouch_c, 2, 97, 44
+1, 539101, Note_on_c, 3, 97, 67
+1, 539101, Note_on_c, 15, 97, 115
+1, 539101, Unknown_meta_event, 8, 6, 0, 1, 127, 128, 233, 255
+1, 539102, Lyric_t, "a, b, c"
+1, 539150, System_exclusive, 4, 19, 3, 83, 247
+1, 539151, Note_on_c, 9, 97, 95
+1, 539151, Note_on_c, 1, 96, 21
+1, 539391, Sequence_number, 31367
+1, 539391, System_exclusive, 9, 120, 38, 91, 103, 68, 30, 78, 108, 247
+1, 620222, Note_on_c, 10, 3, 66
+1, 639231, Pitch_bend_c, 10, 1393
+1, 639231, Note_off_c, 13, 97, 120
+1, 639277, Pitch_bend_c, 6, 14761
+1, 639534, Note_on_c, 9, 97, 69
+1, 639534, System_exclusive_packet, 6, 14, 12, 109, 31, 90, 49
+1, 639534, Note_on_c, 6, 97, 0
+1, 830972, System_exclusive, 7, 14, 73, 112, 7, 1, 24, 247
+1, 967553, Program_c, 9, 116
+1, 967688, Note_on_c, 0, 28, 20
+1, 967688, End_track
+0, 0, End_of_file
