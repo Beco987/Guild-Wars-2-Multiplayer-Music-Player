@@ -12,7 +12,9 @@ public sealed record PortOpenResult(bool Open, string? ExternalAddress, string M
 
 /// <summary>
 /// Opens the host's TCP port on the router with UPnP and closes it again on exit. A forward that was already
-/// there (set up by hand, or by another program) is used as it is and never removed.
+/// there (set up by hand, or by another program) is used as it is and never removed. The same port is also opened
+/// for UDP, for the clock exchanges (<see cref="ClockSyncServer"/>); that part is best effort, since players fall
+/// back to clock probes over TCP without it.
 /// </summary>
 public sealed class PortOpener
 {
@@ -20,6 +22,7 @@ public sealed class PortOpener
     /// <summary>IGDv2 routers may refuse a permanent (0) lease; 7 days is the longest they must accept.</summary>
     public const int FallbackLeaseSeconds = 604800;
     private const string Protocol = "TCP";
+    private const string ClockProtocol = "UDP";
 
     /// <summary>Returns this network's public IPv4 address as seen from the internet (plain text).</summary>
     public const string PublicAddressService = "https://api.ipify.org";
@@ -27,7 +30,7 @@ public sealed class PortOpener
     private readonly UpnpClient _upnp;
     private readonly Func<CancellationToken, Task<UpnpGateway?>> _discover;
     private readonly Func<CancellationToken, Task<string?>> _publicAddress;
-    private UpnpGateway? _gateway;
+    private UpnpGateway? _gateway, _udpGateway;
     private int _port;
 
     /// <param name="publicAddress">
@@ -96,6 +99,7 @@ public sealed class PortOpener
                 ownedByUs = existing.Description == MappingDescription;
             }
             if (ownedByUs) { _gateway = gateway; _port = port; }
+            await OpenClockPortAsync(gateway, port, ct).ConfigureAwait(false);
 
             var external = await TryGetExternalAddressAsync(gateway, ct).ConfigureAwait(false);
             var publicIp = await TryGetPublicAddressAsync(ct).ConfigureAwait(false);
@@ -118,16 +122,34 @@ public sealed class PortOpener
         }
     }
 
-    private async Task AddAsync(UpnpGateway gateway, int port, CancellationToken ct)
+    private async Task AddAsync(UpnpGateway gateway, int port, CancellationToken ct, string protocol = Protocol)
     {
         try
         {
-            await _upnp.AddMappingAsync(gateway, port, Protocol, MappingDescription, 0, ct).ConfigureAwait(false);
+            await _upnp.AddMappingAsync(gateway, port, protocol, MappingDescription, 0, ct).ConfigureAwait(false);
         }
         catch (UpnpException ex) when (ex.Code != 718) // 718 = ConflictInMappingEntry: a time limit would not help
         {
-            await _upnp.AddMappingAsync(gateway, port, Protocol, MappingDescription, FallbackLeaseSeconds, ct).ConfigureAwait(false);
+            await _upnp.AddMappingAsync(gateway, port, protocol, MappingDescription, FallbackLeaseSeconds, ct).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>The UDP forward for the clock exchanges, if the router allows it (failures are only logged by the players' fallback).</summary>
+    private async Task OpenClockPortAsync(UpnpGateway gateway, int port, CancellationToken ct)
+    {
+        try
+        {
+            var existing = await _upnp.GetMappingAsync(gateway, port, ClockProtocol, ct).ConfigureAwait(false);
+            if (existing is null)
+            {
+                await AddAsync(gateway, port, ct, ClockProtocol).ConfigureAwait(false);
+                _udpGateway = gateway;
+            }
+            else if (existing.InternalClient == gateway.LocalAddress.ToString() && existing.Description == MappingDescription)
+                _udpGateway = gateway; // left over from an earlier run
+        }
+        catch (Exception ex) when (ex is UpnpException or HttpRequestException or System.Xml.XmlException or TaskCanceledException && !ct.IsCancellationRequested) { }
+        if (_udpGateway is not null) _port = port;
     }
 
     private async Task<string?> TryGetExternalAddressAsync(UpnpGateway gateway, CancellationToken ct)
@@ -143,11 +165,14 @@ public sealed class PortOpener
     /// <summary>Removes the forward this program added (nothing when it was already there).</summary>
     public async Task CloseAsync(CancellationToken ct)
     {
-        var gateway = _gateway;
-        if (gateway is null) return;
-        _gateway = null;
-        try { await _upnp.DeleteMappingAsync(gateway, _port, Protocol, ct).ConfigureAwait(false); }
-        catch (Exception ex) when (ex is UpnpException or HttpRequestException or TaskCanceledException) { }
+        var (gateway, udpGateway) = (_gateway, _udpGateway);
+        _gateway = _udpGateway = null;
+        if (gateway is not null)
+            try { await _upnp.DeleteMappingAsync(gateway, _port, Protocol, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is UpnpException or HttpRequestException or TaskCanceledException) { }
+        if (udpGateway is not null)
+            try { await _upnp.DeleteMappingAsync(udpGateway, _port, ClockProtocol, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is UpnpException or HttpRequestException or TaskCanceledException) { }
     }
 
     /// <summary>Addresses that cannot be reached from the internet (private ranges and carrier-grade NAT).</summary>

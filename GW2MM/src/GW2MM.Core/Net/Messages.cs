@@ -27,8 +27,13 @@ namespace GW2MM.Core.Net;
 public abstract record Message;
 
 // ---- host -> client ----
-/// <summary>Player slot assigned to the client (2..5), or null when all slots are taken ("Socket,Socket&lt;n&gt;").</summary>
-public sealed record Welcome(int? Slot) : Message;
+/// <summary>
+/// Player slot assigned to the client (2..5), or null when all slots are taken ("Socket,Socket&lt;n&gt;").
+/// <c>ClockToken</c>: the host follows clocks over UDP (<see cref="ClockSyncServer"/>); the client sends its clock
+/// requests to the host's port with this token (hex). Absent from older hosts.
+/// </summary>
+public sealed record Welcome(int? Slot,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ClockToken = null) : Message;
 /// <summary>
 /// Chat text (both directions). From is the sender's name, set by the host when it passes a message on to the
 /// other clients ("Host" for the host's own messages); a client leaves it empty, as the host knows who sent it.

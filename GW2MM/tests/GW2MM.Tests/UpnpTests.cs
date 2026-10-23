@@ -17,7 +17,8 @@ public sealed class UpnpTests : IDisposable
         private readonly HttpListener _http = new();
         private readonly UdpClient _ssdp = new(new IPEndPoint(IPAddress.Loopback, 0));
         private readonly CancellationTokenSource _stop = new();
-        public readonly Dictionary<int, (string Client, string Description, int Lease)> Mappings = new();
+        public readonly Dictionary<int, (string Client, string Description, int Lease)> Mappings = new();      // TCP
+        public readonly Dictionary<int, (string Client, string Description, int Lease)> UdpMappings = new();
         public readonly List<string> Actions = new();
         public string ExternalAddress = "203.0.113.7";
         public bool RejectPermanentLease;
@@ -101,25 +102,26 @@ public sealed class UpnpTests : IDisposable
             using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
             var args = XDocument.Parse(reader.ReadToEnd()).Descendants().First(e => e.Name.LocalName == action)
                 .Elements().ToDictionary(e => e.Name.LocalName, e => e.Value);
+            var mappings = args.TryGetValue("NewProtocol", out var protocol) && protocol == "UDP" ? UdpMappings : Mappings;
             switch (action)
             {
                 case "GetExternalIPAddress":
                     return Ok(action, ("NewExternalIPAddress", ExternalAddress));
                 case "GetSpecificPortMappingEntry":
-                    return Mappings.TryGetValue(int.Parse(args["NewExternalPort"]), out var m)
+                    return mappings.TryGetValue(int.Parse(args["NewExternalPort"]), out var m)
                         ? Ok(action, ("NewInternalPort", args["NewExternalPort"]), ("NewInternalClient", m.Client), ("NewEnabled", "1"),
                             ("NewPortMappingDescription", m.Description), ("NewLeaseDuration", m.Lease.ToString()))
                         : Fault(714, "NoSuchEntryInArray");
                 case "AddPortMapping":
                     var port = int.Parse(args["NewExternalPort"]);
                     var lease = int.Parse(args["NewLeaseDuration"]);
-                    if (args["NewProtocol"] != "TCP" || args["NewInternalPort"] != args["NewExternalPort"]) return Fault(402, "Invalid Args");
+                    if (args["NewProtocol"] is not ("TCP" or "UDP") || args["NewInternalPort"] != args["NewExternalPort"]) return Fault(402, "Invalid Args");
                     if (RejectPermanentLease && lease == 0) return Fault(725, "OnlyPermanentLeasesSupported"); // wrong code on purpose: routers vary
-                    if (Mappings.TryGetValue(port, out var cur) && cur.Client != args["NewInternalClient"]) return Fault(718, "ConflictInMappingEntry");
-                    Mappings[port] = (args["NewInternalClient"], args["NewPortMappingDescription"], lease);
+                    if (mappings.TryGetValue(port, out var cur) && cur.Client != args["NewInternalClient"]) return Fault(718, "ConflictInMappingEntry");
+                    mappings[port] = (args["NewInternalClient"], args["NewPortMappingDescription"], lease);
                     return Ok(action);
                 case "DeletePortMapping":
-                    return Mappings.Remove(int.Parse(args["NewExternalPort"])) ? Ok(action) : Fault(714, "NoSuchEntryInArray");
+                    return mappings.Remove(int.Parse(args["NewExternalPort"])) ? Ok(action) : Fault(714, "NoSuchEntryInArray");
                 default:
                     return Fault(401, "Invalid Action");
             }
@@ -180,10 +182,12 @@ public sealed class UpnpTests : IDisposable
         Assert.Equal("203.0.113.7", result.ExternalAddress);
         Assert.Contains("Players connect to 203.0.113.7", result.Message);
         Assert.Equal(("127.0.0.1", PortOpener.MappingDescription, 0), _router.Mappings[27015]);
+        Assert.Equal(("127.0.0.1", PortOpener.MappingDescription, 0), _router.UdpMappings[27015]);   // the clock exchanges
         Assert.True(opener.OwnsMapping);
 
         await opener.CloseAsync(CancellationToken.None);
         Assert.Empty(_router.Mappings);
+        Assert.Empty(_router.UdpMappings);
         Assert.False(opener.OwnsMapping);
     }
 
@@ -195,11 +199,11 @@ public sealed class UpnpTests : IDisposable
         var result = await opener.OpenAsync(27015, CancellationToken.None);
         Assert.True(result.Open);
         Assert.Contains("already forwarded to this computer", result.Message);
-        Assert.DoesNotContain("AddPortMapping", _router.Actions);
+        Assert.Equal("my manual forward", _router.Mappings[27015].Description);
 
         await opener.CloseAsync(CancellationToken.None);
         Assert.True(_router.Mappings.ContainsKey(27015));
-        Assert.DoesNotContain("DeletePortMapping", _router.Actions);
+        Assert.Empty(_router.UdpMappings);   // the UDP forward GW2MM added for the clock is removed; the manual TCP one stays
     }
 
     [Fact]

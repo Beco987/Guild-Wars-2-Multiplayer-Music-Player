@@ -56,10 +56,15 @@ public sealed class SessionIntegrationTests : IDisposable
         return (host, m);
     }
 
-    private async Task<(ClientSession Session, Machine M)> StartClient(HostSession host, double offset, string name = "bob", IInputDelayMeter? meter = null, string? libDir = null)
+    private async Task<(ClientSession Session, Machine M)> StartClient(HostSession host, double offset, string name = "bob", IInputDelayMeter? meter = null, string? libDir = null,
+        bool useUdpClock = true)
     {
         var m = NewMachine(offset);
-        var client = new ClientSession(m.View, new SongLibrary(libDir ?? Path.Combine(_dir, "client-" + name)), () => 5, m.Clock, m.Keys, meter ?? new FakeMeter()) { SyncPreDelayMs = 1 };
+        var client = new ClientSession(m.View, new SongLibrary(libDir ?? Path.Combine(_dir, "client-" + name)), () => 5, m.Clock, m.Keys, meter ?? new FakeMeter())
+        {
+            SyncPreDelayMs = 1,
+            UseUdpClock = useUdpClock,
+        };
         Assert.True(await client.ConnectAsync("127.0.0.1", name, host.Port));
         _disposables.Add(client);
         await Wait.Until(() => client.Slot is not null || m.View.Events.Any(l => l.StartsWith("Socket,")), what: "welcome");
@@ -104,6 +109,49 @@ public sealed class SessionIntegrationTests : IDisposable
         Assert.Equal(("9", 1), (c.Keys.All[5].Key, c.Keys.All[5].Window));
         await Task.Delay(200);
         Assert.Equal(5, h.Keys.All.Count);
+    }
+
+    [Fact]
+    public async Task WithClocksFollowedOverUdpTheSongStartsWithoutTheProbeWaitAndInSync()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12,23"));
+        var (_, c) = await StartClient(host, offset: 1_000_000);
+        await Wait.Until(() => host.ClockEstimateOf(2) is not null, timeoutMs: 5000, what: "UDP clock estimate");
+        Assert.InRange(host.ClockEstimateOf(2)!.Value.Offset, -1_000_000 - 2, -1_000_000 + 2); // the client's clock is 1 000 000 ms ahead
+
+        var pressed = h.Clock.NowMs;
+        await host.PlayAsync(Song, 1.0);
+        await Wait.Until(() => h.Keys.Presses.Count >= 5 && c.Keys.Presses.Count >= 5, timeoutMs: 8000, what: "presses");
+        Assert.Contains(h.View.Events, e => e.StartsWith("Clock,Socket2,udp,", StringComparison.Ordinal));
+        Assert.DoesNotContain(h.View.Events, e => e.StartsWith("Tick_Count", StringComparison.Ordinal));          // no probes
+        // No probe wait: the first note comes ClockWaitMs sooner than the 4 s lead (plus the time to arrange the song).
+        Assert.InRange(h.Keys.All[0].Time - pressed, Schedule.StartDelayMs - FastTimings.ClockWaitMs - 20, Schedule.StartDelayMs - FastTimings.ClockWaitMs + 200);
+        Assert.InRange(SongStart(c) - SongStart(h), -5, 10);
+    }
+
+    /// <summary>
+    /// When a machine's song started (real time), from the Song's notes: host track 2 at 0, 200, … ms; client track 3
+    /// "8" at 100, "0" at 200, then 300, 500, 700. A press can be late but never early, so the least-late one counts.
+    /// </summary>
+    private static double SongStart(Machine m)
+    {
+        var presses = m.Keys.All.Take(5).ToList();
+        var due = presses[0].Key == "8" ? new[] { 100, 200, 300, 500, 700 } : new[] { 0, 200, 400, 600, 800 };
+        return Enumerable.Range(0, presses.Count).Min(k => m.Clock.ToReal(presses[k].Time) - due[k]);
+    }
+
+    [Fact]
+    public async Task WithoutUdpTheHostSamplesClocksOverTcpAsBefore()
+    {
+        var (host, h) = StartHost(PortMapping.Parse("12,23"));
+        var (_, c) = await StartClient(host, offset: 1_000_000, useUdpClock: false);
+        await Task.Delay(800);
+        Assert.Null(host.ClockEstimateOf(2));
+        await host.PlayAsync(Song, 1.0);
+        await Wait.Until(() => h.Keys.Presses.Count >= 5 && c.Keys.Presses.Count >= 5, timeoutMs: 8000, what: "presses");
+        Assert.Contains(h.View.Events, e => e.StartsWith("Clock,Socket2,tcp,", StringComparison.Ordinal));
+        Assert.Contains(h.View.Events, e => e.StartsWith("Tick_Count,Socket2", StringComparison.Ordinal));
+        Assert.InRange(SongStart(c) - SongStart(h), -10, 15);
     }
 
     [Fact]

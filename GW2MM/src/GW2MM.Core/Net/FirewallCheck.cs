@@ -114,16 +114,17 @@ public static class FirewallCheck
     }
 
     /// <summary>
-    /// Replaces this program's inbound rules (including the block rules a cancelled prompt leaves) with one rule
-    /// allowing TCP <paramref name="port"/> on every network. Shows the Windows administrator prompt; false if it was
-    /// declined or failed.
+    /// Replaces this program's inbound rules (including the block rules a cancelled prompt leaves) with rules allowing
+    /// TCP <paramref name="port"/> (players connect) and UDP <paramref name="port"/> (clock exchanges) on every network.
+    /// Shows the Windows administrator prompt; false if it was declined or failed.
     /// </summary>
     public static bool AddAllowRule(string exePath, int port)
     {
         if (!OperatingSystem.IsWindows()) return false;
         var program = $"program=\"{exePath}\"";
         var command = $"/c netsh advfirewall firewall delete rule name=all dir=in {program} & " +
-                      $"netsh advfirewall firewall add rule name=\"{RuleName}\" dir=in action=allow {program} protocol=TCP localport={port} profile=any enable=yes";
+                      $"netsh advfirewall firewall add rule name=\"{RuleName}\" dir=in action=allow {program} protocol=TCP localport={port} profile=any enable=yes && " +
+                      $"netsh advfirewall firewall add rule name=\"{RuleName}\" dir=in action=allow {program} protocol=UDP localport={port} profile=any enable=yes";
         try
         {
             using var process = Process.Start(new ProcessStartInfo("cmd.exe", command)

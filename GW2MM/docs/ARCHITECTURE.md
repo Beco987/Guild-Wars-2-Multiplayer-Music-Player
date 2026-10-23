@@ -63,12 +63,24 @@ A literal port of the original `SongPlayer` label, verified against it (see *Ver
 ### 2. Synchronised start (host, `HostSession.PlayAsync`)
 
 1. Cancel whatever song is preparing or playing (no duplicate loops).
-2. T1 = host clock; send `ClockRequest` to every connected client, then 7 more 50 ms apart. Each client
-   answers immediately with its own clock. For every reply, `ClockSampler` estimates the client's clock at host
-   time T1 as `tick − ((sent + received)/2 − T1)`, and keeps the estimate from the shortest round trip. With one
-   probe at T1 that is the original `clientClock − RTT/2`.
-3. Wait 2 s (as the original did). This step is cancellable: Stop or a new Play during the wait abandons the run
-   before anything is sent.
+2. T1 = host clock. Each client's clock at T1 comes from its `ClockTracker`, fed continuously over UDP
+   (`ClockSyncServer` / `ClockSyncClient`, below). A client without a fresh estimate gets the original probes:
+   `ClockRequest` over TCP, then 7 more 50 ms apart; `ClockSampler` estimates its clock at T1 as
+   `tick − ((sent + received)/2 − T1)` from the reply with the shortest round trip (with one probe at T1 that is the
+   original `clientClock − RTT/2`).
+3. Only when some client was probed: wait 2 s (as the original did). This step is cancellable: Stop or a new Play
+   during the wait abandons the run before anything is sent. When no client needed probing, every clock at T1 is
+   moved 2 s earlier instead, so the song starts 2 s sooner with the same 2 s to deliver the parts.
+
+   **UDP clock exchanges.** The host's Welcome gives each client a random token. The client sends a request to the
+   host's port once a second (ten 60 ms apart right after connecting); the host answers at once. Times are read right
+   at the socket: T1 before sending and T4 on arrival (client clock), T2 on arrival and T3 before replying (host
+   clock). Each request carries the four times of the client's recent finished exchanges, so the host keeps no state
+   per exchange. `ClockTracker` takes, over the last 60 s, the minimum of `T2 − T1` (client→host delay + offset) and of
+   `T4 − T3` (host→client delay − offset), each corrected for drift; the offset is half their difference. Drift is
+   the median slope of per-15 s offsets over 5 minutes. Queueing in either direction only adds delay, so each minimum
+   comes from a clear moment of that direction; only the fixed difference between the two routes remains. An
+   estimate needs 5 exchanges in the window and one in the last 5 s.
 4. For each active slot: `time[k] = clock_at_T1 + 4000 − latency + Σ gaps[0..k]` in **that machine's clock**,
    where latency = slot input delay − host input delay. A slow-reacting game client therefore starts early.
    Clients get their `SongPart`; the host starts its own loop.

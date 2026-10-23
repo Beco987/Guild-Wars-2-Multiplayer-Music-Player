@@ -42,7 +42,8 @@ The workflow is the one described in the [GW2MM Guide](https://docs.google.com/d
    the input delays (or use **Sync**), then press **Save**.
    The host plays track *n* in its window Player*n*. A client plays its 1st ticked track in its Player1, its 2nd in
    Player2, and so on.
-4. Select a song and press **F1** (or the round Play button). Every machine starts together about 4 s later. **F3** stops
+4. Select a song and press **F1** (or the round Play button). Every machine starts together about 2 s later (4 s
+   when a player's clock has to be sampled first, see *Timing between computers*). **F3** stops
    everyone and resets the instruments' octaves. **F2** pauses/resumes the host's own playback.
    A client can press **F1** to have the host play the client's selected song, or **F3** (or type `stop` in the chat) to stop.
 5. **Sync** needs Guild Wars 2 open on every machine. After you press OK on its prompt, GW2MM brings the game window
@@ -174,10 +175,26 @@ host and client on the same PC, the second one can't use keys the first already 
 
 Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.
 
+## Timing between computers
+
+Each machine plays its part from its own clock, so the host needs to know how every player's clock compares with
+its own. While connected, each client exchanges a small UDP message with the host once a second, on the host's port
+(27015). Each exchange records four times (sent and received at each end, read right at the network socket), so
+waiting inside either program doesn't count as network delay. The host keeps the smallest delay seen in each
+direction over the last minute: queueing only ever adds delay, so a busy upload, a video call, Wi-Fi bursts or a
+resent packet on one side don't shift the result, and how fast the two clocks drift apart is measured and allowed
+for. A song then starts without sampling clocks first.
+
+A player whose UDP messages don't get through (a firewall or router blocking UDP, or an older GW2MM) has their clock
+sampled over TCP before the song, as before; the song then starts about 4 s after Play instead of 2. When a
+player's connection is very unsteady, the chat says so once (their notes may lag in the game too). `GW2MM.log` has
+a `Clock,Socket<n>,udp,…` or `…,tcp,…` line for each player and song.
+
 ## Port opening (UPnP)
 
 When the host starts, it asks the router to forward TCP port 27015 to this computer using UPnP, so you don't have
-to set up port forwarding by hand. The chat box shows the result:
+to set up port forwarding by hand. It also asks for UDP 27015, for the clock exchanges (without it players' clocks
+are sampled over TCP instead). Forwarding by hand? Forward both TCP and UDP 27015. The chat box shows the result:
 
 * *Opened port 27015 on your router (UPnP). Players connect to 203.0.113.7.* Give that address to your players.
 * *…already forwarded to this computer.* An existing forward (for example one you made by hand) is used as it is
@@ -193,7 +210,7 @@ The "Players connect to" address comes from asking `api.ipify.org` for this netw
 own answer is wrong behind another NAT.) If that lookup fails, the router's answer is shown instead.
 
 **Windows Firewall** is a separate gate from the router. When the host starts, it checks whether the firewall lets
-other computers reach it on the current network. If not, it offers to add a rule ("GW2MM Host", TCP 27015, all
+other computers reach it on the current network. If not, it offers to add rules ("GW2MM Host", TCP and UDP 27015, all
 networks) and Windows asks for administrator permission. This matters because the firewall prompt Windows shows the
 first time ticks *Private* networks only, and home networks are often classed as *Public*. Pressing *Cancel* on
 that prompt makes Windows block the program outright. Third-party firewalls or antivirus suites are not checked.

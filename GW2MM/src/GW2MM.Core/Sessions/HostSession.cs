@@ -30,6 +30,10 @@ public sealed class HostSession : IDisposable
     private readonly Dictionary<PeerConnection, string> _connNames = new();
     private PortMapping _mapping = new();
     private System.Net.Sockets.TcpListener? _listener;
+    private ClockSyncServer? _clockServer;
+    /// <summary>Each connection's clock token and tracker (when the UDP clock exchanges are running).</summary>
+    private readonly Dictionary<PeerConnection, (ulong Token, ClockTracker Tracker)> _clocks = new();
+    private readonly double[] _unsteadyWarned = Enumerable.Repeat(double.NegativeInfinity, PortMapping.Slots + 1).ToArray();
     private SongRun? _current;
     private bool _paused;
     private int _nextId;
@@ -63,6 +67,25 @@ public sealed class HostSession : IDisposable
 
     /// <summary>Settings → Reset octaves between songs: false keeps everyone's octaves between playlist songs.</summary>
     public Func<bool> ResetOctavesBetweenSongs { get; init; } = () => true;
+
+    /// <summary>
+    /// Follow every client's clock continuously over UDP on the host's port (<see cref="ClockSyncServer"/>), so a
+    /// song starts without sampling clocks first. A client without a fresh estimate (UDP blocked, an older version)
+    /// gets the original TCP clock probes. Tests turn this off to check the probes.
+    /// </summary>
+    public bool UseUdpClock { get; init; } = true;
+
+    /// <summary>A round trip varying by more than this (median over minimum) makes the host say the player's connection is unsteady.</summary>
+    public const double UnsteadyJitterMs = 50;
+
+    /// <summary>A connected player's clock as the host currently sees it; null without fresh UDP clock exchanges.</summary>
+    public ClockEstimate? ClockEstimateOf(int slot)
+    {
+        lock (_gate) return _slots[slot] is { } conn ? ClockEstimateOf(conn) : null;
+    }
+
+    private ClockEstimate? ClockEstimateOf(PeerConnection conn) =>
+        _clocks.TryGetValue(conn, out var c) ? c.Tracker.Estimate(_clock.NowMs) : null;
 
     /// <summary>
     /// The tempo factor of the last song started (the song's Data.csv tempo).
@@ -139,6 +162,11 @@ public sealed class HostSession : IDisposable
         }
         _listener = listener;
         Port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        if (UseUdpClock)
+        {
+            _clockServer = ClockSyncServer.TryStart(Port, _clock);
+            if (_clockServer is null) _view.LogEvent($"Clock: UDP port {Port} is not available; players' clocks are sampled over TCP before each song.");
+        }
         _view.SetStatus("Waiting for a peer...");
         _ = Task.Run(AcceptLoopAsync);
     }
@@ -153,16 +181,23 @@ public sealed class HostSession : IDisposable
             catch (Exception) { return; }
             var conn = new PeerConnection(client);
             int? slot = null;
+            string? clockToken = null;
             lock (_gate)
             {
                 for (var s = 2; s <= PortMapping.Slots; s++)
                     if (_slots[s] is null) { _slots[s] = conn; slot = s; break; }
                 _connections.Add(conn);
+                if (_clockServer is { } server)
+                {
+                    var token = BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8));
+                    _clocks[conn] = (token, server.Register(token));
+                    clockToken = token.ToString("x16", CultureInfo.InvariantCulture);
+                }
             }
             conn.Received += OnReceived;
             conn.Closed += OnClosed;
             conn.Start();
-            conn.Send(new Welcome(slot));
+            conn.Send(new Welcome(slot, clockToken));
             if (slot is not null) _view.OnPlayersChanged();
             _view.SetChatEnabled(true);
             _view.SetStatus($"Connected to {conn.RemoteAddress}!");
@@ -186,6 +221,7 @@ public sealed class HostSession : IDisposable
                 if (ReferenceEquals(_slots[s], conn)) { _slots[s] = null; _names[s] = null; }
             _connections.Remove(conn);
             _connNames.Remove(conn);
+            if (_clocks.Remove(conn, out var clock)) _clockServer?.Unregister(clock.Token);
             none = _connections.Count == 0;
         }
         _view.ShowMessage("The client disconnected!");
@@ -351,19 +387,36 @@ public sealed class HostSession : IDisposable
             return null;
         }
 
-        // Sample every machine's clock at (about) the same moment T1.
+        // Every machine's clock at (about) the same moment T1. Players whose clocks are followed continuously (UDP)
+        // are known at once; the others get the original TCP probes.
         List<(int Slot, PeerConnection Conn)> clients;
         lock (_gate)
         {
-            clients = Enumerable.Range(2, PortMapping.Slots - 1).Where(s => _slots[s] is not null).Select(s => (s, _slots[s]!)).ToList();
             run.T1 = _clock.NowMs;
+            clients = new List<(int, PeerConnection)>();
+            for (var s = 2; s <= PortMapping.Slots; s++)
+            {
+                if (_slots[s] is not { } conn) continue;
+                if (ClockEstimateOf(conn) is { } estimate)
+                {
+                    run.Ticks[s] = estimate.ClientClockAt(run.T1);
+                    LogClock(s, estimate);
+                }
+                else clients.Add((s, conn));
+            }
             SendClockProbes(run, clients);
             run.Ticks[1] = _clock.NowMs;
         }
 
+        if (clients.Count == 0)
+        {
+            // Nothing to wait for: the song starts ClockWaitMs sooner, with the same time as before to deliver the parts.
+            for (var s = 1; s <= PortMapping.Slots; s++)
+                if (run.Ticks[s] is { } t) run.Ticks[s] = t - Timings.ClockWaitMs;
+        }
         // More probes a little apart: a single one could hit a lag spike and shift that player for the whole song.
         // The reply with the shortest round trip is kept (ClockSampler).
-        try
+        else try
         {
             for (var p = 1; p < Timings.ClockProbes; p++)
             {
@@ -376,6 +429,10 @@ public sealed class HostSession : IDisposable
             }
             var remaining = run.T1 + Timings.ClockWaitMs - _clock.NowMs;
             if (remaining > 0) await Task.Delay(TimeSpan.FromMilliseconds(remaining), run.Token).ConfigureAwait(false);
+            lock (_gate)
+                foreach (var (s, _) in clients)
+                    if (!double.IsInfinity(run.Clocks.RoundTrip(s)))
+                        _view.LogEvent(string.Format(CultureInfo.InvariantCulture, "Clock,Socket{0},tcp,roundtrip={1:0}", s, run.Clocks.RoundTrip(s)));
         }
         catch (OperationCanceledException) { return null; }
 
@@ -535,6 +592,22 @@ public sealed class HostSession : IDisposable
         Broadcast(new NowPlaying(info.Song, info.Playlist, info.Index, info.Count), except: null);
     }
 
+    /// <summary>
+    /// Logs a player's UDP clock estimate (GW2MM.log), and says in the chat when their connection is unsteady (at
+    /// most once every 10 minutes per player). Call under the lock.
+    /// </summary>
+    private void LogClock(int slot, ClockEstimate e)
+    {
+        var inv = CultureInfo.InvariantCulture;
+        _view.LogEvent(string.Format(inv, "Clock,Socket{0},udp,offset={1:0.0},samples={2},jitter={3:0},skew={4:0}ppm",
+            slot, e.Offset, e.Samples, e.JitterMs, e.SkewPpm));
+        var now = _clock.NowMs;
+        if (e.JitterMs <= UnsteadyJitterMs || now - _unsteadyWarned[slot] < 600_000) return;
+        _unsteadyWarned[slot] = now;
+        var name = _names[slot] is { Length: > 0 } n ? n : "Player " + slot.ToString(inv);
+        _view.AppendDialog($"{name}'s connection is unsteady right now (delays vary by about {e.JitterMs.ToString("0", inv)} ms), so their timing may be off.");
+    }
+
     /// <summary>Sends one clock probe ("Tick_Count") to each client. Call under the lock.</summary>
     private void SendClockProbes(SongRun run, List<(int Slot, PeerConnection Conn)> clients)
     {
@@ -682,6 +755,7 @@ public sealed class HostSession : IDisposable
             _current = null;
         }
         _listener?.Stop();
+        _clockServer?.Dispose();
         List<PeerConnection> all;
         lock (_gate) all = _connections.ToList();
         foreach (var c in all) c.Close();

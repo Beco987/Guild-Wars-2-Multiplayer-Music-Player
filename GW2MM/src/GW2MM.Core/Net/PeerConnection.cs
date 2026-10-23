@@ -25,11 +25,14 @@ public sealed class PeerConnection : IDisposable
         _client = client;
         _client.NoDelay = true;
         _stream = client.GetStream();
-        RemoteAddress = (client.Client.RemoteEndPoint as System.Net.IPEndPoint)?.Address.ToString() ?? "?";
+        RemoteEndPoint = client.Client.RemoteEndPoint as System.Net.IPEndPoint;
+        RemoteAddress = RemoteEndPoint?.Address.ToString() ?? "?";
         if (RemoteAddress.StartsWith("::ffff:", StringComparison.Ordinal)) RemoteAddress = RemoteAddress[7..];
     }
 
     public string RemoteAddress { get; }
+    /// <summary>The other end's address and port (the client's UDP clock requests go to the host's).</summary>
+    public System.Net.IPEndPoint? RemoteEndPoint { get; }
 
     public event Action<PeerConnection, Message>? Received;
     public event Action<PeerConnection>? Closed;

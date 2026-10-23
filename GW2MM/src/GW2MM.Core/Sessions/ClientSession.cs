@@ -38,6 +38,13 @@ public sealed class ClientSession : IDisposable
     /// <summary>Pause between closing the Sync message box and the first test press (the original Sleep, 150).</summary>
     public int SyncPreDelayMs { get; init; } = 150;
     public int? Slot { get; private set; }
+
+    /// <summary>
+    /// Answer the host's offer to follow this computer's clock over UDP (<see cref="ClockSyncClient"/>). Tests turn
+    /// this off to check the TCP probes the host falls back to.
+    /// </summary>
+    public bool UseUdpClock { get; init; } = true;
+    private ClockSyncClient? _clockSync;
     public bool IsConnected { get { lock (_gate) return _conn is not null; } }
     public bool IsPlaying { get { lock (_gate) return _loop is { Completion.IsCompleted: false }; } }
 
@@ -67,8 +74,34 @@ public sealed class ClientSession : IDisposable
         return true;
     }
 
+    /// <summary>Starts sending UDP clock requests to the host's port, when the host offered it.</summary>
+    private void StartClockSync(PeerConnection conn, string? token)
+    {
+        if (!UseUdpClock || token is null || conn.RemoteEndPoint is not { } host
+            || !ulong.TryParse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value)) return;
+        try
+        {
+            var sync = new ClockSyncClient(host, value, _clock);
+            lock (_gate)
+            {
+                _clockSync?.Dispose();
+                _clockSync = sync;
+            }
+            sync.Start();
+        }
+        catch (System.Net.Sockets.SocketException ex) { _view.LogEvent("Clock: UDP clock requests could not start: " + ex.Message); }
+    }
+
+    private void StopClockSync()
+    {
+        ClockSyncClient? sync;
+        lock (_gate) { sync = _clockSync; _clockSync = null; }
+        sync?.Dispose();
+    }
+
     private void OnClosed(PeerConnection conn)
     {
+        StopClockSync();
         lock (_gate) if (ReferenceEquals(_conn, conn)) _conn = null;
         // A part that is already scheduled keeps playing, as in the original.
         _view.SetStatus("Disconnected!");
@@ -124,6 +157,7 @@ public sealed class ClientSession : IDisposable
                 break;
             case Welcome w:
                 Slot = w.Slot;
+                StartClockSync(conn, w.ClockToken);
                 _view.LogEvent("Socket,Socket" + (w.Slot?.ToString(CultureInfo.InvariantCulture) ?? ""));
                 break;
             case SyncInstrument:
@@ -262,6 +296,7 @@ public sealed class ClientSession : IDisposable
 
     public void Dispose()
     {
+        StopClockSync();
         PeerConnection? conn;
         lock (_gate)
         {
