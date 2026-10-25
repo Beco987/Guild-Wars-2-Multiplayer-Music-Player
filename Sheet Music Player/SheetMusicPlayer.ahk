@@ -2,12 +2,12 @@
 ; switches octaves for you (9 = down, 0 = up) as soon as every note of the
 ; current octave section has been played.
 ;
-;   Low octave    : a s d f g h j k
-;   Middle octave : q w e r t y u i
-;   High octave   : 1 2 3 4 5 6 7 8  (number row or numpad)
+; Press the numbers the sheet shows, on any of these rows:
+;   a s d f g h j k  /  q w e r t y u i  /  1 2 3 4 5 6 7 8  /  numpad 1-8
 ;
-; Every row sends 1-8 to the game; the row only tells the script which
-; note of the sheet you played. The game must start in the middle octave.
+; [ ] or a down triangle = low octave, ( ) or an up triangle = high octave.
+;
+; The game must start in the middle octave.
 
 #NoEnv
 #SingleInstance Force
@@ -29,7 +29,7 @@ SetControlDelay, -1
 global Delay := 110
 ;~~~~~~~~~Try Out Different Delays~~~~~~~~~
 
-global Song := []          ; note groups (keys to play, in any order) and "9"/"0" octave steps
+global Song := []          ; note groups (notes 1-8 to play, in any order) and "9"/"0" octave steps
 global Pos := 1            ; index of the group being played
 global Loaded := false
 global Playing := false
@@ -72,42 +72,42 @@ F1::
 return
 
 ;~~~~~~~~~Low octave~~~~~~~~~
-$a::NoteDown(1, "a")
-$s::NoteDown(2, "s")
-$d::NoteDown(3, "d")
-$f::NoteDown(4, "f")
-$g::NoteDown(5, "g")
-$h::NoteDown(6, "h")
-$j::NoteDown(7, "j")
-$k::NoteDown(8, "k")
+$a::NoteDown(1)
+$s::NoteDown(2)
+$d::NoteDown(3)
+$f::NoteDown(4)
+$g::NoteDown(5)
+$h::NoteDown(6)
+$j::NoteDown(7)
+$k::NoteDown(8)
 
 ;~~~~~~~~~Middle octave~~~~~~~~~
-$q::NoteDown(1, "q")
-$w::NoteDown(2, "w")
-$e::NoteDown(3, "e")
-$r::NoteDown(4, "r")
-$t::NoteDown(5, "t")
-$y::NoteDown(6, "y")
-$u::NoteDown(7, "u")
-$i::NoteDown(8, "i")
+$q::NoteDown(1)
+$w::NoteDown(2)
+$e::NoteDown(3)
+$r::NoteDown(4)
+$t::NoteDown(5)
+$y::NoteDown(6)
+$u::NoteDown(7)
+$i::NoteDown(8)
 
 ;~~~~~~~~~High octave~~~~~~~~~
-$1::NoteDown(1, "1")
-$2::NoteDown(2, "2")
-$3::NoteDown(3, "3")
-$4::NoteDown(4, "4")
-$5::NoteDown(5, "5")
-$6::NoteDown(6, "6")
-$7::NoteDown(7, "7")
-$8::NoteDown(8, "8")
-$Numpad1::NoteDown(1, "1")
-$Numpad2::NoteDown(2, "2")
-$Numpad3::NoteDown(3, "3")
-$Numpad4::NoteDown(4, "4")
-$Numpad5::NoteDown(5, "5")
-$Numpad6::NoteDown(6, "6")
-$Numpad7::NoteDown(7, "7")
-$Numpad8::NoteDown(8, "8")
+$1::NoteDown(1)
+$2::NoteDown(2)
+$3::NoteDown(3)
+$4::NoteDown(4)
+$5::NoteDown(5)
+$6::NoteDown(6)
+$7::NoteDown(7)
+$8::NoteDown(8)
+$Numpad1::NoteDown(1)
+$Numpad2::NoteDown(2)
+$Numpad3::NoteDown(3)
+$Numpad4::NoteDown(4)
+$Numpad5::NoteDown(5)
+$Numpad6::NoteDown(6)
+$Numpad7::NoteDown(7)
+$Numpad8::NoteDown(8)
 
 ;~~~~~~~~~Manual octave keys~~~~~~~~~
 $9::OctaveKeyDown(9)
@@ -155,11 +155,10 @@ $Numpad0 Up::
 return
 
 ; Turns sheet music into a list of note groups and octave steps. A group
-; holds every note between two octave changes, as the keys that play them.
+; holds every note between two octave changes.
 ParseSheet(text) {
-	rows := ["asdfghjk", "qwertyui", "12345678"] ; low, middle, high
-	downMarks := Chr(0x25BC) . ")["              ; ▼ ) [
-	upMarks := Chr(0x25B2) . "(]"                ; ▲ ( ]
+	downMarks := Chr(0x25BC) . ")[" ; down triangle, ) and [
+	upMarks := Chr(0x25B2) . "(]"   ; up triangle, ( and ]
 	result := []
 	group := ""
 	octave := 2      ; octave of the sheet
@@ -173,7 +172,7 @@ ParseSheet(text) {
 		} else if InStr(upMarks, c) {
 			if (octave < 3)
 				octave++
-		} else if (n := InStr("12345678", c)) {
+		} else if InStr("12345678", c) {
 			; Only switch octaves when a note needs it, so marks that cancel
 			; out or go past the lowest/highest octave cost no key presses
 			if (octave != gameOctave) {
@@ -186,7 +185,7 @@ ParseSheet(text) {
 					result.Push(step)
 				gameOctave := octave
 			}
-			group .= SubStr(rows[octave], n, 1)
+			group .= c
 		}
 	}
 	if (group != "")
@@ -194,7 +193,7 @@ ParseSheet(text) {
 	return result
 }
 
-NoteDown(digit, char) {
+NoteDown(digit) {
 	; Notes pressed while an octave switch is waiting are queued until it is
 	; done, so they play in the right octave and are counted in order
 	Critical
@@ -206,7 +205,7 @@ NoteDown(digit, char) {
 	if (!Playing || Pos > Song.Length())
 		return
 	group := Song[Pos]
-	if !(i := InStr(group, char, true))
+	if !(i := InStr(group, digit))
 		return
 	group := SubStr(group, 1, i - 1) . SubStr(group, i + 1)
 	Song[Pos] := group
