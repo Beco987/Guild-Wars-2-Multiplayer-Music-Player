@@ -120,6 +120,11 @@ reachable from any hotkey, button or message.
   is F5 on the host. Stored as `Playlists\<name>.txt`. Single songs requested by a client are now announced by name too
   (`PlayRequest` carries the name).
 
+* **Default tempo** (not in the original): Settings → *Default tempo* (`DefaultTempo`, 95% unless set) scales every
+  song's speed on top of its Data.csv tempo; the host's setting covers its players (it arranges every part). The
+  tempo keys count from it. The Settings rows for Octave delay, Offset, Default tempo and Live octave timer have
+  short tooltips.
+
 * **Continuous clock sync over UDP** (not in the original). Each client exchanges a UDP message with the host once a
   second on the host's port; each exchange has four times read at the socket, and the host keeps each direction's
   minimum delay over the last minute (corrected for clock drift), so congestion on one side no longer shifts a

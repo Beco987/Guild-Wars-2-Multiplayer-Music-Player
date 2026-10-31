@@ -90,6 +90,13 @@ public sealed class AppSettings
     /// </summary>
     public bool LiveOctaveTimer { get; set; }
 
+    /// <summary>
+    /// Settings → Default tempo (Config.txt "DefaultTempo", %; 95 unless set): every song plays at this speed, on
+    /// top of its own Data.csv tempo. The host's setting covers its players.
+    /// </summary>
+    public int DefaultTempoPercent { get; set; } = DefaultTempo;
+    public const int DefaultTempo = 95, MinTempo = 25, MaxTempo = 400;
+
     /// <summary>The dusk (dark) look instead of the light one (Config.txt "Theme,Dusk"); used from the next start.</summary>
     public bool DuskTheme { get; set; }
 
@@ -118,6 +125,7 @@ public sealed class AppSettings
             OpenPortAutomatically = c.Get("OpenPort") is not { } o || LegacyConfig.IsTrue(o),
             ResetOctavesBetweenSongs = c.Get("OctaveResetBetweenSongs") is not { } r || LegacyConfig.IsTrue(r),
             LiveOctaveTimer = LegacyConfig.IsTrue(c.Get("LiveOctaveTimer")),
+            DefaultTempoPercent = Ahk.AhkValue.Number(c.Get("DefaultTempo") ?? "") is { } dt && dt >= MinTempo && dt <= MaxTempo ? (int)Math.Round(dt) : DefaultTempo,
             KeysVersion = Ahk.AhkValue.Number(c.Get("KeysVersion") ?? "") is { } kv ? (int)kv : 0,
             Hotkeys = c.WithPrefix(HotkeyPrefix).ToDictionary(kv => kv.Key[HotkeyPrefix.Length..], kv => kv.Value, StringComparer.Ordinal),
         };
@@ -131,6 +139,7 @@ public sealed class AppSettings
             ("CheckForUpdates", CheckForUpdates ? "1" : "0"), ("OpenPort", OpenPortAutomatically ? "1" : "0"),
             ("Offset", OffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)), ("Theme", DuskTheme ? "Dusk" : "Light"),
             ("OctaveResetBetweenSongs", ResetOctavesBetweenSongs ? "1" : "0"), ("LiveOctaveTimer", LiveOctaveTimer ? "1" : "0"),
+            ("DefaultTempo", DefaultTempoPercent.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         });
 
     /// <summary>Client start-up: the original rewrote all four values after asking for the user name.</summary>

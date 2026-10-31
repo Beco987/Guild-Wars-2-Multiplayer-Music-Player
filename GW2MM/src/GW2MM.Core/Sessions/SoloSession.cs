@@ -98,11 +98,14 @@ public sealed class SoloSession : IDisposable
         lock (_gate)
         {
             if (_loop is not { Completion.IsCompleted: false } loop) return;
-            var speed = Math.Clamp(Math.Round(loop.Speed * 100) + percent, 25, 400) / 100.0;
-            loop.SetSpeed(speed);
-            _view.AppendDialog($"Tempo {speed * 100:0}%");
+            var shown = TempoSteps.Next(loop.Speed, DefaultSpeed(), percent);
+            loop.SetSpeed(shown / 100.0 / DefaultSpeed());
+            _view.AppendDialog($"Tempo {shown:0}%");
         }
     }
+
+    /// <summary>Settings → Default tempo: every song's speed on top of its own tempo (1 = as written).</summary>
+    public Func<double> DefaultSpeed { get; init; } = () => 1;
 
     /// <summary>Stop: ends the song and playlist and resets the octaves.</summary>
     public Task StopAsync()
@@ -157,7 +160,7 @@ public sealed class SoloSession : IDisposable
             foreach (var t in tracks) mapping[SoloSlot, t] = true;
             parts = singleInstrument ? 1 : tracks.Count;
             liveTimer = LiveOctaveTimer() && !singleInstrument;
-            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor,
+            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor / DefaultSpeed(),
                 liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Player, singleInstrument)[SoloSlot];
         }
         catch (Exception ex)

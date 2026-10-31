@@ -92,10 +92,13 @@ public sealed class HostSession : IDisposable
     /// </summary>
     public double DefaultTempo { get; private set; } = 1;
 
+    /// <summary>Settings → Default tempo: every song's speed on top of its own tempo (1 = as written).</summary>
+    public Func<double> DefaultSpeed { get; init; } = () => 1;
+
     /// <summary>
     /// F11 / F10 (not in the original, whose tempo keys had no audible effect): plays the rest of the current song
     /// <paramref name="percent"/> % of its tempo faster (or slower). Only while no player is connected: players on
-    /// other computers follow the host's timing. Each new song starts at 100%.
+    /// other computers follow the host's timing. Each new song starts at the default tempo (Settings).
     /// </summary>
     public void ChangeTempo(int percent)
     {
@@ -107,10 +110,10 @@ public sealed class HostSession : IDisposable
                 return;
             }
             if (_current?.Loop is not { Completion.IsCompleted: false } loop) return;
-            var speed = Math.Clamp(Math.Round(loop.Speed * 100) + percent, 25, 400) / 100.0;
-            loop.SetSpeed(speed);
+            var shown = TempoSteps.Next(loop.Speed, DefaultSpeed(), percent);
+            loop.SetSpeed(shown / 100.0 / DefaultSpeed());
             _current.EndMs = loop.LastDueMs ?? _current.EndMs;
-            _view.AppendDialog($"Tempo {speed * 100:0}%");
+            _view.AppendDialog($"Tempo {shown:0}%");
         }
     }
 
@@ -377,7 +380,7 @@ public sealed class HostSession : IDisposable
         lock (_gate) mapping = _mapping.Clone();
         try
         {
-            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor,
+            plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor / DefaultSpeed(),
                 liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Player, singleInstrument);
         }
         catch (Exception ex)

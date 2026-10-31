@@ -158,10 +158,10 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.OctaveDelay = "200";
         s.AlwaysOnTop = true;
         s.SaveDisplaySettings(_dir);
-        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nLiveOctaveTimer,0\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(";Comment line, with a comma\nOctaveDelay,200\nAlwaysOnTop,1\n;Another\nIsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nLiveOctaveTimer,0\nDefaultTempo,95\n", File.ReadAllText(P("Config.txt")));
         s.Name = "Bob";
         s.SaveWithName(_dir);
-        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nLiveOctaveTimer,0\nName,Bob\n", File.ReadAllText(P("Config.txt")));
+        Assert.EndsWith("IsTransparent,1\nCheckForUpdates,1\nOpenPort,1\nOffset,0\nTheme,Light\nOctaveResetBetweenSongs,1\nLiveOctaveTimer,0\nDefaultTempo,95\nName,Bob\n", File.ReadAllText(P("Config.txt")));
         Assert.Equal("Bob", AppSettings.Load(_dir).Name);
         Assert.Equal(200, AppSettings.Load(_dir).OctaveDelayMs);
     }
@@ -186,6 +186,19 @@ public sealed class LibraryAndConfigTests : IDisposable
         s.SaveDisplaySettings(_dir);
         Assert.Contains("OctaveResetBetweenSongs,0\n", File.ReadAllText(P("Config.txt")));
         Assert.False(AppSettings.Load(_dir).ResetOctavesBetweenSongs);
+    }
+
+    [Fact]
+    public void TheDefaultTempoIs95PercentUnlessSet()
+    {
+        Assert.Equal(95, AppSettings.Load(_dir).DefaultTempoPercent);
+        var s = AppSettings.Load(_dir);
+        s.DefaultTempoPercent = 110;
+        s.SaveDisplaySettings(_dir);
+        Assert.Contains("DefaultTempo,110\n", File.ReadAllText(P("Config.txt")));
+        Assert.Equal(110, AppSettings.Load(_dir).DefaultTempoPercent);
+        File.WriteAllText(P("Config.txt"), "DefaultTempo,5\n");                    // out of range: the default
+        Assert.Equal(95, AppSettings.Load(_dir).DefaultTempoPercent);
     }
 
     [Fact]

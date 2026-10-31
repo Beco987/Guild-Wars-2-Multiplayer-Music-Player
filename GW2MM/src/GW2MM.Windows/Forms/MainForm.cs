@@ -193,6 +193,7 @@ internal sealed class MainForm : Form, IHostView
             {
                 ResetOctavesBetweenSongs = () => _settings.ResetOctavesBetweenSongs,
                 LiveOctaveTimer = () => _settings.LiveOctaveTimer,
+                DefaultSpeed = () => _settings.DefaultTempoPercent / 100.0,
             };
             _syncButton = Chip("Sync", Glyph.Metronome, 388);
             _syncButton.Click += async (_, _) => await RunGuarded(_syncButton!, () => _host.SyncAsync(_closing.Token));
@@ -212,6 +213,7 @@ internal sealed class MainForm : Form, IHostView
             {
                 ResetOctavesBetweenSongs = () => _settings.ResetOctavesBetweenSongs,
                 LiveOctaveTimer = () => _settings.LiveOctaveTimer,
+                DefaultSpeed = () => _settings.DefaultTempoPercent / 100.0,
             };
             _connectButton = Chip("Connect…", Glyph.Plug, 388, ButtonKind.Tonal);
             _connectButton.Click += (_, _) =>

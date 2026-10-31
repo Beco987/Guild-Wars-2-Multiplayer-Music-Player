@@ -24,15 +24,30 @@ internal sealed class SettingsForm : ThemedDialog
         var y = Theme.S(12);
         RowCard? previous = null;
 
+        var tips = new ThemedToolTip();
+        FormClosed += (_, _) => tips.Dispose();
+        void Tip(Label label, Control control, string text)
+        {
+            tips.SetToolTip(label, text);
+            tips.SetToolTip(control, text);
+            if (control is FieldBox field) tips.SetToolTip(field.Box, text);
+        }
+
         var playback = Section("Playback");
         var delay = Number(settings.OctaveDelay);
         var offset = Number(settings.OffsetMs.ToString(CultureInfo.InvariantCulture));
-        playback.AddRow("Octave delay", delay);
-        playback.AddRow("Offset", offset);
+        var tempo = Number(settings.DefaultTempoPercent.ToString(CultureInfo.InvariantCulture), "%");
+        Tip(playback.AddRow("Octave delay", delay), delay,
+            "Time between octave changes, so the game has applied one before the next note or change. Set it to about twice your in-game ping.");
+        Tip(playback.AddRow("Offset", offset), offset,
+            "Playing alone on several game windows: spreads their starts over this many ms so no two press a key at the same moment. 0 = off.");
+        Tip(playback.AddRow("Default tempo", tempo), tempo,
+            "The speed every song plays at, on top of its own tempo. 100% = as written. With players, the host's setting is used.");
         var octaveReset = new ToggleSwitch("Reset octaves between songs") { Checked = settings.ResetOctavesBetweenSongs };
         playback.AddRow("Reset octaves between songs", octaveReset);
         var liveTimer = new ToggleSwitch("Live octave timer") { Checked = settings.LiveOctaveTimer };
-        playback.AddRow("Live octave timer", liveTimer);
+        Tip(playback.AddRow("Live octave timer", liveTimer), liveTimer,
+            "Test option: presses each octave change as soon as Octave delay has passed since the last one, instead of halfway between the notes. The host's setting applies to its players.");
 
         var window = Section("Window");
         var onTop = new ToggleSwitch("Always on top") { Checked = settings.AlwaysOnTop };
@@ -109,7 +124,16 @@ internal sealed class SettingsForm : ThemedDialog
                 Dialogs.Show(this, $"Offset must be a number of ms from 0 to {AppSettings.MaxOffsetMs}.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            double tempoValue = AppSettings.DefaultTempo;
+            tempo.Invalid = tempo.Box.Text.Trim().Length > 0
+                && (!AhkValue.TryNumber(tempo.Box.Text.Trim(), out tempoValue) || tempoValue < AppSettings.MinTempo || tempoValue > AppSettings.MaxTempo);
+            if (tempo.Invalid)
+            {
+                Dialogs.Show(this, $"Default tempo must be a number from {AppSettings.MinTempo} to {AppSettings.MaxTempo} %.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             settings.OctaveDelay = delayText.Length > 0 ? delayText : AppSettings.DefaultOctaveDelay;
+            settings.DefaultTempoPercent = (int)Math.Round(tempoValue);
             settings.OffsetMs = (int)Math.Floor(offsetValue);
             settings.ResetOctavesBetweenSongs = octaveReset.Checked;
             settings.LiveOctaveTimer = liveTimer.Checked;
@@ -150,9 +174,9 @@ internal sealed class SettingsForm : ThemedDialog
             return card;
         }
 
-        FieldBox Number(string value)
+        FieldBox Number(string value, string suffix = "ms")
         {
-            var f = new FieldBox { Suffix = "ms", Size = Theme.S(100, 30) };
+            var f = new FieldBox { Suffix = suffix, Size = Theme.S(100, 30) };
             f.Box.Text = value;
             f.Box.TextAlign = HorizontalAlignment.Right;
             f.Box.TextChanged += (_, _) => f.Invalid = false;

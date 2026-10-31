@@ -175,8 +175,11 @@ Host and client have the same default keys. The round **Pause** and **Stop** but
 | F10 / F11 | Tempo −1 % / +1 % for the song playing, while no players are connected | Same, while not connected |
 | Esc | Close (main window) | – |
 
+**Settings → Default tempo** (95% unless set; `DefaultTempo` in Config.txt) is the speed every song plays at, on top
+of its own tempo in Data.csv; 100% plays songs as written. With players, the host's setting applies to everyone.
+
 The tempo keys speed up or slow down the rest of the current song (the chat shows the new tempo); each new song
-starts at 100%. They never apply while playing with others, whose parts must follow the host's timing. Running
+starts at the default tempo. They never apply while playing with others, whose parts must follow the host's timing. Running
 host and client on the same PC, the second one can't use keys the first already has: change them in Keybinds.
 
 Hotkeys are system-wide: while GW2MM runs, other programs (including the game) don't receive those keys.

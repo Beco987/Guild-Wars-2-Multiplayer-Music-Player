@@ -74,3 +74,14 @@ public static class InputDelay
     public static long? Mean(IReadOnlyList<double> samples) =>
         samples.Count == 0 ? null : Ahk.AhkValue.Round(samples.Sum() / samples.Count);
 }
+
+/// <summary>The tempo keys' steps, counted from the default tempo (Settings) the song started at.</summary>
+public static class TempoSteps
+{
+    /// <summary>
+    /// The tempo to show after a key press (in %, 25..400): the current one (<paramref name="loopSpeed"/> times the
+    /// default <paramref name="defaultSpeed"/>) plus <paramref name="percent"/>.
+    /// </summary>
+    public static double Next(double loopSpeed, double defaultSpeed, int percent) =>
+        Math.Clamp(Math.Round(loopSpeed * defaultSpeed * 100) + percent, 25, 400);
+}

@@ -212,6 +212,21 @@ public sealed class SoloSessionTests : IDisposable
     }
 
     [Fact]
+    public void TheDefaultTempoSlowsEverySongAndTheTempoKeysCountFromIt()
+    {
+        using var solo = new SoloSession(_view, _solo.Library, () => "130", () => 1, _clock, _keys, tailMs: 50, gapMs: 50)
+        {
+            DefaultSpeed = () => 0.95,
+        };
+        solo.PlaySong("Duet");
+        SpinWait.SpinUntil(() => KeysIn(1).Count >= 3, 5000);
+        var p = _keys.All.Where(x => x.Window == 1).ToList();
+        Assert.InRange(p[2].Time - p[1].Time, 200 / 0.95 - 10, 200 / 0.95 + 15);   // 200 ms apart at 95%: about 211
+        solo.ChangeTempo(1);
+        Assert.Contains("Tempo 96%", _view.Dialog);
+    }
+
+    [Fact]
     public void TempoKeysChangeTheSongPlayingSolo()
     {
         _solo.PlaySong("Duet");

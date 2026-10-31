@@ -155,6 +155,24 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task TheHostsDefaultTempoAppliesToEveryone()
+    {
+        var m = NewMachine(0);
+        var host = new HostSession(m.View, new SongLibrary(Path.Combine(_dir, "host")), () => "130", m.Clock, m.Keys, new FakeMeter(), FastTimings)
+        {
+            DefaultSpeed = () => 0.8,
+        };
+        host.CommitPortMapping(PortMapping.Parse("12,22"), new[] { "0", "0", "0", "0", "0" });
+        host.Start(0);
+        _disposables.Add(host);
+        var (_, c) = await StartClient(host, 0);
+        await host.PlayAsync(Song, 1.0);
+        await Wait.Until(() => m.Keys.Presses.Count >= 3 && c.Keys.Presses.Count >= 3, timeoutMs: 8000, what: "presses");
+        foreach (var presses in new[] { m.Keys.All, c.Keys.All })
+            Assert.InRange(presses[2].Time - presses[1].Time, 250 - 10, 250 + 15);       // 200 ms apart at 80%
+    }
+
+    [Fact]
     public async Task DoubleOctaveJumpsPlayForHostAndPlayers()
     {
         // Track 2 (the host, Player2): high E, low E 1000 ms later, high E again. Track 3 (the client, its Player1):
