@@ -155,6 +155,38 @@ public sealed class SessionIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task DoubleOctaveJumpsPlayForHostAndPlayers()
+    {
+        // Track 2 (the host, Player2): high E, low E 1000 ms later, high E again. Track 3 (the client, its Player1):
+        // low C at 500, the top C (C6) at 1500.
+        const string jumps = "0, 0, Header, 1, 3, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
+            "2, 0, Start_track\n2, 0, Note_on_c, 0, 76, 90\n2, 1000, Note_on_c, 0, 52, 90\n2, 2000, Note_on_c, 0, 76, 90\n2, 2000, End_track\n" +
+            "3, 0, Start_track\n3, 500, Note_on_c, 0, 48, 90\n3, 1500, Note_on_c, 0, 84, 90\n3, 1500, End_track\n0, 0, End_of_file\n";
+        var (host, h) = StartHost(PortMapping.Parse("12,23"));
+        var (_, c) = await StartClient(host, offset: 1_000_000);
+        await host.PlayAsync(jumps, 1.0);
+        await Wait.Until(() => h.Keys.Presses.Count >= 8 && c.Keys.Presses.Count >= 5, timeoutMs: 10000, what: "presses");
+
+        // Each machine's song start (real time), from its least-late press: a press can be late but never early.
+        static double Start(Machine m, List<Press> presses, double[] due) => Enumerable.Range(0, presses.Count).Min(k => m.Clock.ToReal(presses[k].Time) - due[k]);
+        var hp = h.Keys.All.Take(8).ToList();
+        Assert.All(hp, p => Assert.Equal(2, p.Window));
+        Assert.Equal(new[] { "0", "3", "9", "9", "3", "0", "0", "3" }, hp.Select(p => p.Key));
+        var hostDue = new double[] { 0, 0, 333, 666, 1000, 1333, 1666, 2000 };
+        var hostStart = Start(h, hp, hostDue);
+        for (var k = 0; k < hp.Count; k++) Assert.InRange(h.Clock.ToReal(hp[k].Time) - hostStart, hostDue[k], hostDue[k] + 20);
+
+        var cp = c.Keys.All.Take(5).ToList();
+        Assert.All(cp, p => Assert.Equal(1, p.Window));
+        Assert.Equal(new[] { "9", "1", "0", "0", "8" }, cp.Select(p => p.Key));
+        var clientDue = new double[] { 500, 500, 833, 1166, 1500 };
+        var clientStart = Start(c, cp, clientDue);
+        for (var k = 0; k < cp.Count; k++) Assert.InRange(c.Clock.ToReal(cp[k].Time) - clientStart, clientDue[k], clientDue[k] + 20);
+        // One timeline for both machines.
+        Assert.InRange(clientStart - hostStart, -10, 15);
+    }
+
+    [Fact]
     public async Task WithTheLiveOctaveTimerPlayersPressOctaveChangesEarly()
     {
         var (host, _) = StartHost(PortMapping.Parse("12,23"), liveOctaveTimer: true);

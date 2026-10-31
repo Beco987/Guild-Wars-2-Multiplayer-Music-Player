@@ -20,15 +20,25 @@ public enum OctaveSwapMode
     Improved,
 
     /// <summary>
-    /// What the player uses: exactly the original scripts' <c>AddSwaps</c> / <c>OpportunisticSwaps</c>. A chord that
-    /// starts with an octave change gets the change as its own event at the midpoint of the gap since the previous
-    /// chord when that gap (in MIDI ticks) is at least OctaveDelay; otherwise the change is pressed with the chord.
-    /// The oracle tests check it against the AutoHotkey scripts byte for byte.
+    /// Exactly the original scripts' <c>AddSwaps</c> / <c>OpportunisticSwaps</c>. A chord that starts with an octave
+    /// change gets the change as its own event at the midpoint of the gap since the previous chord when that gap (in
+    /// MIDI ticks) is at least OctaveDelay; otherwise the change is pressed with the chord. A jump straight between the
+    /// low and high octave gets no change at all, and its notes are dropped. The oracle tests check it against the
+    /// AutoHotkey scripts byte for byte; the player uses <see cref="Player"/>.
     /// </summary>
     Original,
 
     /// <summary>
-    /// Test option (Settings → Live octave timer): the original <c>AddSwaps</c> without <c>OpportunisticSwaps</c>.
+    /// What the player uses: <see cref="Original"/>, except that a jump straight between the low and high octave
+    /// (high E to low E, say) gets two octave changes ("99" / "00") instead of dropping the notes. The two changes go
+    /// into the gap before the note, OctaveDelay apart where the gap allows, and no note is ever moved
+    /// (<see cref="OctaveSwaps.PlaceForPlayer"/>). Every other chord is the original's, change for change.
+    /// </summary>
+    Player,
+
+    /// <summary>
+    /// Test option (Settings → Live octave timer): the original <c>AddSwaps</c> (with the two changes of
+    /// <see cref="Player"/> for a jump between the low and high octave) without <c>OpportunisticSwaps</c>.
     /// Every octave change stays at the start of its chord; playback then presses it early with a live timer
     /// (see <see cref="Playback.PlaybackLoop"/>).
     /// </summary>
@@ -36,8 +46,8 @@ public enum OctaveSwapMode
 }
 
 /// <summary>
-/// The alternative octave handling (see <see cref="OctaveSwapMode.Improved"/>; the player uses the original's,
-/// <see cref="SongFunctions.AddSwaps"/> and <see cref="SongFunctions.OpportunisticSwaps"/>). Guild Wars 2 instruments play one octave
+/// Octave handling beyond the original's: <see cref="AddSwaps"/> and <see cref="PlaceForPlayer"/> for the player
+/// (<see cref="OctaveSwapMode.Player"/>), and <see cref="Place"/> for the test-only <see cref="OctaveSwapMode.Improved"/>. Guild Wars 2 instruments play one octave
 /// at a time; "9" moves down an octave and "0" up. The game applies an octave change only after a round trip to
 /// the server, so a note pressed too soon after it still sounds in the old octave. OctaveDelay is that time.
 /// </summary>
@@ -137,6 +147,122 @@ public static class OctaveSwaps
             outTimes.Add(time);
         }
         return (outChords, outTimes);
+    }
+
+    /// <summary>
+    /// The player's placement (<see cref="OctaveSwapMode.Player"/>), for chords from <see cref="AddSwaps"/>:
+    /// <list type="bullet">
+    /// <item>A chord that starts with two octave changes (a jump between the low and high octave) gets both as their
+    /// own events in the gap since the previous chord (<see cref="PlaceTwo"/>): OctaveDelay apart and OctaveDelay
+    /// before the note where the gap allows, sharing the gap evenly where it does not. Notes never move.</item>
+    /// <item>Every other chord is placed exactly as the original <see cref="SongFunctions.OpportunisticSwaps"/>.</item>
+    /// </list>
+    /// OctaveDelay is milliseconds here (150 when blank), converted with <paramref name="msPerTick"/>; the original's
+    /// rule for one change keeps comparing it with MIDI ticks. Returns (Num = chords, Alpha = times) like
+    /// OpportunisticSwaps; <paramref name="origin"/> receives each output element's chord and start position in it.
+    /// </summary>
+    public static SongFunctions.Pair PlaceForPlayer(IReadOnlyList<string> chords, IReadOnlyList<string> times, string octaveDelay,
+        Func<double, double> msPerTick, List<(int Chord, int Start)>? origin = null)
+    {
+        var delayMs = SingleInstrument.DelayMs(octaveDelay);
+        var outChords = new List<string>();
+        var outTimes = new List<string>();
+        void Add(string chord, string time, int idx, int start)
+        {
+            outChords.Add(chord);
+            outTimes.Add(time);
+            origin?.Add((idx, start));
+        }
+        double? lastSwap = null; // when the latest octave change is pressed (MIDI ticks)
+        for (var idx = 0; idx < chords.Count; idx++)
+        {
+            var chord = chords[idx];
+            var time = idx < times.Count ? times[idx] : "";
+            var t = AhkValue.Number(time);
+            if (LeadingChanges(chord) == 2)
+            {
+                var p = idx == 0 ? null : AhkValue.Number(idx - 1 < times.Count ? times[idx - 1] : "");
+                if (p is { } prev && t is { } now && PlaceTwo(prev, now, lastSwap, delayMs / Math.Max(msPerTick(now), 1e-9)) is { } at)
+                {
+                    Add(chord[0].ToString(), AhkValue.Format(at.First), idx, 0);
+                    Add(chord[1].ToString(), AhkValue.Format(at.Second), idx, 1);
+                    Add(chord[2..], time, idx, 2);
+                    lastSwap = HasChange(chord[2..]) ? now : at.Second;
+                }
+                else
+                {
+                    Add(chord, time, idx, 0); // no room for two separate presses: both with the note
+                    lastSwap = t ?? lastSwap;
+                }
+                continue;
+            }
+            if (SongFunctions.OpportunisticTime(chords, times, idx, octaveDelay) is { } mid)
+            {
+                Add(chord[0].ToString(), mid, idx, 0);
+                Add(chord[1..], time, idx, 1);
+                if (KeyIsChange(chord, 0)) lastSwap = AhkValue.Number(mid);
+                if (HasChange(chord[1..])) lastSwap = t ?? lastSwap;
+                continue;
+            }
+            Add(chord, time, idx, 0);
+            if (HasChange(chord)) lastSwap = t ?? lastSwap;
+        }
+        return new SongFunctions.Pair(outChords, outTimes);
+    }
+
+    /// <summary>
+    /// Where the two octave changes before a note go, as MIDI ticks: the note is at <paramref name="t"/>, the previous
+    /// chord at <paramref name="p"/>, the last octave change (if any) at <paramref name="lastSwap"/>, and OctaveDelay is
+    /// <paramref name="d"/> ticks. Notes never move, so the changes always fall strictly between the two chords.
+    /// <list type="number">
+    /// <item>Room for OctaveDelay three times over: at one and two thirds of the gap (evenly through it, as the
+    /// original puts one change at its middle).</item>
+    /// <item>Room for OctaveDelay between the changes, before the note and since the last change: OctaveDelay and
+    /// twice OctaveDelay before the note.</item>
+    /// <item>Less room: the time from the last change (or from the previous chord) to the note is shared evenly,
+    /// so the changes are as far apart, and as far ahead of the note, as the song allows.</item>
+    /// </list>
+    /// Null when there is no room for two separate presses (a gap under 3 ticks).
+    /// </summary>
+    public static (long First, long Second)? PlaceTwo(double p, double t, double? lastSwap, double d)
+    {
+        var gap = t - p;
+        double s1, s2;
+        if (gap >= 3 * d)
+        {
+            s1 = p + gap / 3;
+            s2 = p + 2 * gap / 3;
+        }
+        else
+        {
+            var fromLast = lastSwap is { } l ? (t - l) / 3 : double.PositiveInfinity; // three equal steps: last change, first, second, note
+            var fromPrev = (t - p - 1) / 2;                                          // two equal steps after the previous chord
+            var step = Math.Min(fromLast, fromPrev);
+            if (step >= d) { s1 = t - 2 * d; s2 = t - d; }
+            else if (fromLast <= fromPrev) { s1 = lastSwap!.Value + step; s2 = lastSwap.Value + 2 * step; }
+            else { s1 = p + 1; s2 = p + 1 + step; }
+        }
+        var first = (long)Math.Floor(s1);
+        var second = (long)Math.Floor(s2);
+        return first > p && second > first && second < t ? (first, second) : null;
+    }
+
+    /// <summary>How many octave changes in the same direction a chord starts with (at most 2 from <see cref="AddSwaps"/>).</summary>
+    private static int LeadingChanges(string chord)
+    {
+        var n = 0;
+        while (n < chord.Length && chord[n] is '9' or '0' && chord[n] == chord[0] && n < SongArranger.NoteSwapsIn(chord)) n++;
+        return n;
+    }
+
+    /// <summary>Whether the key at <paramref name="i"/> is an octave change the arrangement added (not MIDI note 96 / 97).</summary>
+    private static bool KeyIsChange(string chord, int i) => chord[i] is '9' or '0' && i < SongArranger.NoteSwapsIn(chord);
+
+    private static bool HasChange(string chord)
+    {
+        for (var i = 0; i < chord.Length; i++)
+            if (KeyIsChange(chord, i)) return true;
+        return false;
     }
 
     /// <summary>

@@ -1,8 +1,12 @@
 using GW2MM.Core.Arrangement;
+using GW2MM.Core.Playback;
 
 namespace GW2MM.Tests;
 
-/// <summary>The improved octave handling (OctaveSwapMode.Improved) against the original's behaviour.</summary>
+/// <summary>
+/// The octave handling beyond the original's: the player's two changes for a jump between the low and high octave
+/// (OctaveSwapMode.Player), and the test-only OctaveSwapMode.Improved, against the original's behaviour.
+/// </summary>
 public sealed class OctaveSwapsTests
 {
     private static readonly Func<double, double> OneMsPerTick = _ => 1;
@@ -118,6 +122,7 @@ public sealed class OctaveSwapsTests
             .SelectMany(n => n).Select(c => KeyMap.Decode(c)?.Key ?? ""));
         Assert.Equal("91", Keys(OctaveSwapMode.Original));        // the two high D's are lost
         Assert.Equal("910022", Keys(OctaveSwapMode.Improved));   // low C, up, up, D, D
+        Assert.Equal("910022", Keys(OctaveSwapMode.Player));     // the same keys in the player's mode
     }
 
     [Fact]
@@ -134,5 +139,91 @@ public sealed class OctaveSwapsTests
             .Where(n => n.Length > 0).Select(n => string.Concat(n.Select(c => KeyMap.Decode(c)?.Key ?? ""))).ToList();
         Assert.Equal(new[] { "1", "0", "2" }, Chords(OctaveSwapMode.Original));   // the change moved to its own element
         Assert.Equal(new[] { "1", "02" }, Chords(OctaveSwapMode.LiveTimer));      // pressed early by playback instead
+    }
+
+    // ------------------------------------------------------------------ the player's two changes (OctaveSwapMode.Player)
+
+    [Fact]
+    public void TwoChangesWithPlentyOfRoomGoEvenlyThroughTheGap() =>
+        Assert.Equal((333L, 666L), OctaveSwaps.PlaceTwo(0, 1000, null, 100));
+
+    [Fact]
+    public void TwoChangesWithLessRoomGoOctaveDelayApartAndOctaveDelayBeforeTheNote() =>
+        Assert.Equal((50L, 150L), OctaveSwaps.PlaceTwo(0, 250, null, 100));
+
+    [Fact]
+    public void TwoChangesWithoutEnoughRoomShareItEvenlyAndNeverMoveTheNote()
+    {
+        Assert.Equal((1L, 60L), OctaveSwaps.PlaceTwo(0, 120, null, 100));   // 59 apart and 60 before the note, not 100
+        Assert.Null(OctaveSwaps.PlaceTwo(0, 2, null, 100));                 // no room for two presses: both go with the note
+    }
+
+    [Fact]
+    public void ARecentOctaveChangePushesTheFirstOfTwoLater()
+    {
+        // A change was pressed with the previous chord (at 0): the steps from it to the note are shared evenly.
+        Assert.Equal((83L, 166L), OctaveSwaps.PlaceTwo(0, 250, 0, 100));
+        // One long before makes no difference.
+        Assert.Equal((50L, 150L), OctaveSwaps.PlaceTwo(0, 250, -500, 100));
+    }
+
+    [Fact]
+    public void HighEToLowEAndBackGetsTwoChangesBeforeEachNote()
+    {
+        var chords = OctaveSwaps.AddSwaps(new[] { "e", "c", "e" });   // high E, low E, high E
+        Assert.Equal(new[] { "0e", "", "e" }, SongFunctions.AddSwaps(new[] { "e", "c", "e" }));   // the original drops the low E
+        Assert.Equal(new[] { "0e", "99c", "00e" }, chords);
+        var placed = OctaveSwaps.PlaceForPlayer(chords, new[] { "0", "1000", "1300", "" }, "100", _ => 1);
+        Assert.Equal(new[] { "0e", "9", "9", "c", "0", "0", "e" }, placed.Num);
+        Assert.Equal(new[] { "0", "333", "666", "1000", "1100", "1200", "1300" }, placed.Alpha);
+    }
+
+    [Fact]
+    public void TwoChangesUseOctaveDelayInMillisecondsAtTheSongsTempo()
+    {
+        var chords = new[] { "e", "99c" };
+        var times = new[] { "0", "120", "" };
+        Assert.Equal(new[] { "0", "1", "60", "120" }, OctaveSwaps.PlaceForPlayer(chords, times, "100", _ => 1).Alpha);  // 100 ticks: no room
+        Assert.Equal(new[] { "0", "20", "70", "120" }, OctaveSwaps.PlaceForPlayer(chords, times, "100", _ => 2).Alpha);  // 2 ms a tick: 50 ticks
+    }
+
+    [Fact]
+    public void OneChangeIsPlacedExactlyAsTheOriginal()
+    {
+        // No jump between the low and high octave: the player's placement is the original's, change for change
+        // (including a blank or zero OctaveDelay, and a 9 key from MIDI note 96).
+        var letters = new[] { "a", "w", "e", "s", "z", "a", "s", "q", "w", "9", "s" };
+        var times = new[] { "0", "40", "400", "420", "900", "901", "1300", "1350", "2000", "2100", "2400", "" };
+        var chords = SongFunctions.AddSwaps(letters);
+        Assert.Equal(chords, OctaveSwaps.AddSwaps(letters));
+        foreach (var delay in new[] { "130", "0", "", "1000", "40" })
+        {
+            var original = SongFunctions.OpportunisticSwaps(chords, times, delay);
+            var player = OctaveSwaps.PlaceForPlayer(chords, times, delay, _ => 1);
+            Assert.Equal(original.Num, player.Num);
+            Assert.Equal(original.Alpha, player.Alpha);
+        }
+    }
+
+    [Fact]
+    public void HighEToLowEPlaysInTheModesThePlayerUses()
+    {
+        // High E, low E 1000 ms later, high E 1000 ms after that.
+        var song = CsvSong.Parse(new[]
+        {
+            "0, 0, Header, 1, 2, 480", "1, 0, Start_track", "1, 0, Tempo, 500000", "1, 0, End_track",
+            "2, 0, Start_track", "2, 0, Note_on_c, 0, 76, 90", "2, 1000, Note_on_c, 0, 52, 90", "2, 2000, Note_on_c, 0, 76, 90", "2, 2000, End_track", "0, 0, End_of_file",
+        });
+        List<(string Keys, double At)> Played(OctaveSwapMode mode)
+        {
+            var part = SongArranger.Arrange(song, PortMapping.Parse("22"), "130", 1.0, mode)[2];
+            var times = Schedule.AbsoluteTimes(part, 0, 0);   // element k + 1 is pressed at times[k]
+            return Enumerable.Range(0, times.Count).Where(k => k + 1 < part.Notes.Count && part.Notes[k + 1].Length > 0)
+                .Select(k => (string.Concat(part.Notes[k + 1].Select(c => KeyMap.Decode(c)!.Value.Key)), times[k] - Schedule.StartDelayMs)).ToList();
+        }
+        Assert.Equal(new[] { ("03", 0.0), ("3", 2000.0) }, Played(OctaveSwapMode.Original));                     // the low E is lost
+        Assert.Equal(new[] { ("03", 0.0), ("9", 333.0), ("9", 666.0), ("3", 1000.0), ("0", 1333.0), ("0", 1666.0), ("3", 2000.0) },
+            Played(OctaveSwapMode.Player));                                                                       // what the player uses
+        Assert.Equal(new[] { ("03", 0.0), ("993", 1000.0), ("003", 2000.0) }, Played(OctaveSwapMode.LiveTimer)); // pressed early by playback
     }
 }

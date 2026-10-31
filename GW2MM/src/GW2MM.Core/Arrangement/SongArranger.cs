@@ -25,7 +25,7 @@ public sealed record SongPlan(IReadOnlyList<SlotPlan> Slots)
 public static class SongArranger
 {
     public static SongPlan Arrange(CsvSong song, PortMapping mapping, string octaveDelay, double? tempoFactor,
-        OctaveSwapMode octaveSwaps = OctaveSwapMode.Original, bool singleInstrument = false)
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Player, bool singleInstrument = false)
     {
         if (singleInstrument)
         {
@@ -93,7 +93,7 @@ public static class SongArranger
     /// to Player<i>k</i>.
     /// </summary>
     internal static (List<string> Times, List<string> Keys) TrackWriter(CsvSong song, PortMapping mapping, int slot, string octaveDelay,
-        OctaveSwapMode octaveSwaps = OctaveSwapMode.Original, Func<double, double>? msPerTick = null)
+        OctaveSwapMode octaveSwaps = OctaveSwapMode.Player, Func<double, double>? msPerTick = null)
     {
         var outTimes = Enumerable.Range(0, PortMapping.Tracks + 1).Select(_ => new List<string>()).ToArray();
         var outKeys = Enumerable.Range(0, PortMapping.Tracks + 1).Select(_ => new List<string>()).ToArray();
@@ -105,11 +105,14 @@ public static class SongArranger
             {
                 var c = SongFunctions.Combine(song.TrackTimes[track], song.TrackNotes[track], empty, empty);
                 var tdur = c.Num;
-                if (octaveSwaps == OctaveSwapMode.Original)
+                if (octaveSwaps is OctaveSwapMode.Original or OctaveSwapMode.Player)
                 {
-                    var tindex = SongFunctions.AddSwaps(c.Alpha);
+                    var original = octaveSwaps == OctaveSwapMode.Original;
+                    var tindex = original ? SongFunctions.AddSwaps(c.Alpha) : OctaveSwaps.AddSwaps(c.Alpha);
                     var origin = new List<(int Chord, int Start)>();
-                    var o = SongFunctions.OpportunisticSwaps(tindex, tdur, octaveDelay, origin);
+                    var o = original
+                        ? SongFunctions.OpportunisticSwaps(tindex, tdur, octaveDelay, origin)
+                        : OctaveSwaps.PlaceForPlayer(tindex, tdur, octaveDelay, msPerTick ?? (_ => 1), origin);
                     outTimes[window] = o.Alpha;
                     outKeys[window] = Encode(o.Num.Select((n, k) => (n, NoteSwapsIn(tindex[origin[k].Chord]) - origin[k].Start)).ToList(), window);
                 }
@@ -117,7 +120,7 @@ public static class SongArranger
                 {
                     // The changes stay in their chords; the playback loop's live timer presses them early.
                     outTimes[window] = c.Num;
-                    outKeys[window] = Encode(SongFunctions.AddSwaps(c.Alpha).Select(n => (n, NoteSwapsIn(n))).ToList(), window);
+                    outKeys[window] = Encode(OctaveSwaps.AddSwaps(c.Alpha).Select(n => (n, NoteSwapsIn(n))).ToList(), window);
                 }
                 else
                 {
@@ -142,7 +145,7 @@ public static class SongArranger
     /// its trailing run of 9s and 0s (AddSwaps writes them last, and every octave change it adds is followed by a note).
     /// Returns the chord's length when there are none.
     /// </summary>
-    private static int NoteSwapsIn(string chord)
+    internal static int NoteSwapsIn(string chord)
     {
         var start = chord.Length;
         while (start > 0 && chord[start - 1] is '9' or '0') start--;

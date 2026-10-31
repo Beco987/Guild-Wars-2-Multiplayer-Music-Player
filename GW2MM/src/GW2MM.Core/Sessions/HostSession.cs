@@ -378,7 +378,7 @@ public sealed class HostSession : IDisposable
         try
         {
             plan = SongArranger.Arrange(CsvSong.Parse(LegacyText.Lines(csvText)), mapping, OctaveDelay(), tempoFactor,
-                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Original, singleInstrument);
+                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Player, singleInstrument);
         }
         catch (Exception ex)
         {
@@ -405,7 +405,8 @@ public sealed class HostSession : IDisposable
                 else clients.Add((s, conn));
             }
             SendClockProbes(run, clients);
-            run.Ticks[1] = _clock.NowMs;
+            // The host's own clock at T1 is T1 (reading it again here would add the time spent on the estimates).
+            run.Ticks[1] = run.T1;
         }
 
         if (clients.Count == 0)

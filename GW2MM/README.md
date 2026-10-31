@@ -93,6 +93,12 @@ pressed on its own at the middle of that gap; otherwise it is pressed together w
 so the rhythm and the sync between players are unchanged. OctaveDelay is 100 ms unless set (Settings → Octave delay).
 Set it to about twice your in-game ping.
 
+A jump straight between the low and high octave (high E to low E, say) needs two octave changes. The original scripts
+added none and the note was simply not played. GW2MM presses both changes in the gap before the note: OctaveDelay
+apart and OctaveDelay ahead of the note when the gap has room (evenly through the gap when it has plenty), and
+sharing the gap evenly when it doesn't. The note always keeps its time. This applies to every part, whether you play
+alone on one window, alone on several, or with other players. (One-player songs handle any jump their own way, above.)
+
 **Octave reset.** Every computer keeps track of each game window's octave (low, middle or high) through the songs,
 counting the octave changes GW2MM adds; the 9 / 0 keys of MIDI notes 96 / 97 are played but not counted. A window
 is taken to be in the middle octave unless that says otherwise. When a song finishes or is stopped (and on F4), each

@@ -208,27 +208,36 @@ public static class SongFunctions
         for (var idx = 0; idx < a1.Count; idx++)
         {
             var note = a1[idx];
-            if (idx != 0 && note.Length > 0 && note[0] is '9' or '0')
+            if (OpportunisticTime(a1, a2, idx, octaveDelay) is { } mid)
             {
-                var dif = Sub(At(a2, idx), At(a2, idx - 1));
-                if (AhkValue.Compare(dif is null ? "" : FormatNumber(dif.Value), octaveDelay) >= 0)
-                {
-                    a3.Add(note[0].ToString());
-                    var prev = AhkValue.Number(At(a2, idx - 1));
-                    double? mid = prev is null || dif is null ? null : prev.Value + dif.Value / 2;
-                    a4.Add(AhkValue.Format(AhkValue.Floor(mid)));
-                    a3.Add(note[1..]);
-                    a4.Add(At(a2, idx));
-                    origin?.Add((idx, 0));
-                    origin?.Add((idx, 1));
-                    continue;
-                }
+                a3.Add(note[0].ToString());
+                a4.Add(mid);
+                a3.Add(note[1..]);
+                a4.Add(At(a2, idx));
+                origin?.Add((idx, 0));
+                origin?.Add((idx, 1));
+                continue;
             }
             a3.Add(note);
             a4.Add(At(a2, idx));
             origin?.Add((idx, 0));
         }
         return new Pair(a3, a4);
+    }
+
+    /// <summary>
+    /// One chord of <see cref="OpportunisticSwaps"/>: the time its leading octave change moves to (the midpoint of the
+    /// gap since the previous chord), or null when it stays with the chord.
+    /// </summary>
+    internal static string? OpportunisticTime(IReadOnlyList<string> a1, IReadOnlyList<string> a2, int idx, string octaveDelay)
+    {
+        var note = a1[idx];
+        if (idx == 0 || note.Length == 0 || note[0] is not ('9' or '0')) return null;
+        var dif = Sub(At(a2, idx), At(a2, idx - 1));
+        if (AhkValue.Compare(dif is null ? "" : FormatNumber(dif.Value), octaveDelay) < 0) return null;
+        var prev = AhkValue.Number(At(a2, idx - 1));
+        double? mid = prev is null || dif is null ? null : prev.Value + dif.Value / 2;
+        return AhkValue.Format(AhkValue.Floor(mid));
     }
 
     /// <summary><c>replaceChars</c>: applies each (from, to) replacement in order to every item.</summary>

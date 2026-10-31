@@ -149,6 +149,68 @@ public sealed class SoloSessionTests : IDisposable
         Assert.Contains(Enumerable.Range(1, 4).Select(k => _keys.All.Where(x => x.Window == 1).ElementAt(k).Time - _keys.All.Where(x => x.Window == 1).ElementAt(k - 1).Time), g => g > 450);
     }
 
+    // Track 2: high E, low E 1000 ms later, high E again; track 3: low C at 500, the top C (C6) at 1500.
+    private const string Jumps = "0, 0, Header, 1, 3, 480\n1, 0, Start_track\n1, 0, Tempo, 500000\n1, 0, End_track\n" +
+        "2, 0, Start_track\n2, 0, Note_on_c, 0, 76, 90\n2, 1000, Note_on_c, 0, 52, 90\n2, 2000, Note_on_c, 0, 76, 90\n2, 2000, End_track\n" +
+        "3, 0, Start_track\n3, 500, Note_on_c, 0, 48, 90\n3, 1500, Note_on_c, 0, 84, 90\n3, 1500, End_track\n0, 0, End_of_file\n";
+
+    /// <summary>A window's first presses (as many as <paramref name="due"/>): keys, and times from the song's start.</summary>
+    private (List<string> Keys, List<double> Times) Window(int window, double[] due, double start)
+    {
+        var presses = _keys.All.Where(p => p.Window == window).Take(due.Length).ToList();
+        return (presses.Select(p => p.Key).ToList(), presses.Select(p => p.Time - start).ToList());
+    }
+
+    /// <summary>When the song started, from a window's least-late press: a press can be late but never early.</summary>
+    private double SongStart(int window, double[] due)
+    {
+        var presses = _keys.All.Where(p => p.Window == window).Take(due.Length).ToList();
+        return Enumerable.Range(0, presses.Count).Min(k => presses[k].Time - due[k]);
+    }
+
+    private static void AssertTimes(double[] expected, List<double> actual)
+    {
+        Assert.Equal(expected.Length, actual.Count);
+        for (var k = 0; k < expected.Length; k++) Assert.InRange(actual[k], expected[k], expected[k] + 20);
+    }
+
+    private static readonly double[] TrackTwoDue = { 0, 0, 333, 666, 1000, 1333, 1666, 2000 };
+
+    [Fact]
+    public void ADoubleOctaveJumpPlaysSoloOnOneWindow()
+    {
+        // One part (track 2 only): high E, then low E (two octaves down), then high E (two up).
+        var oneTrack = Jumps[..Jumps.IndexOf("3, 0, Start_track", StringComparison.Ordinal)] + "0, 0, End_of_file\n";
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Jump.csv"), oneTrack);
+        File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Jump, 2, 0, x\n");
+        _solo.PlaySong("Jump");
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 8, 5000);
+        var (keys, times) = Window(1, TrackTwoDue, SongStart(1, TrackTwoDue));
+        // Both changes go ahead of each note, evenly through the 1000 ms gap; the notes keep their time.
+        Assert.Equal(new[] { "0", "3", "9", "9", "3", "0", "0", "3" }, keys);
+        AssertTimes(TrackTwoDue, times);
+    }
+
+    [Fact]
+    public void DoubleOctaveJumpsPlaySoloOnSeveralWindows()
+    {
+        File.WriteAllText(Path.Combine(_dir, "Csv", "Jumps.csv"), Jumps);
+        File.AppendAllText(Path.Combine(_dir, "Data.csv"), "Jumps, 2, 0, x\n");
+        _solo.PlaySong("Jumps");
+        SpinWait.SpinUntil(() => _keys.Presses.Count >= 13, 5000);
+        var start = SongStart(1, TrackTwoDue);
+        var (w1, t1) = Window(1, TrackTwoDue, start);
+        Assert.Equal(new[] { "0", "3", "9", "9", "3", "0", "0", "3" }, w1);
+        AssertTimes(TrackTwoDue, t1);
+        // Player2: low C (one change down, with the note), then the top C two octaves up. Both windows share the
+        // song's timing (Offset is off).
+        var due2 = new double[] { 500, 500, 833, 1166, 1500 };
+        var (w2, t2) = Window(2, due2, start);
+        Assert.Equal(new[] { "9", "1", "0", "0", "8" }, w2);
+        Assert.InRange(SongStart(2, due2) - start, -10, 10);
+        AssertTimes(due2.Select(d => d + (SongStart(2, due2) - start)).ToArray(), t2);
+    }
+
     [Fact]
     public void TempoKeysChangeTheSongPlayingSolo()
     {

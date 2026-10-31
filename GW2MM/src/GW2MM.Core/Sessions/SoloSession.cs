@@ -158,7 +158,7 @@ public sealed class SoloSession : IDisposable
             parts = singleInstrument ? 1 : tracks.Count;
             liveTimer = LiveOctaveTimer() && !singleInstrument;
             part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor,
-                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Original, singleInstrument)[SoloSlot];
+                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Player, singleInstrument)[SoloSlot];
         }
         catch (Exception ex)
         {
