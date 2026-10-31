@@ -1,0 +1,25 @@
+0, 0, Header, 0, 1, -7600
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 1, Pitch_bend_c, 14, 7252
+1, 1, Note_off_c, 0, 96, 70
+1, 1, Channel_aftertouch_c, 4, 47
+1, 2, Program_c, 3, 98
+1, 7, Note_on_c, 10, 96, 0
+1, 374, System_exclusive, 7, 31, 107, 27, 110, 95, 9, 247
+1, 833, Program_c, 8, 33
+1, 4771, Control_c, 2, 53, 115
+1, 4771, Pitch_bend_c, 6, 1791
+1, 149834, Note_on_c, 13, 60, 83
+1, 426886, Pitch_bend_c, 12, 2617
+1, 426948, Note_on_c, 11, 124, 16
+1, 427237, Channel_aftertouch_c, 8, 102
+1, 427237, Instrument_name_t, "a, b, c"
+1, 427237, Channel_aftertouch_c, 2, 94
+1, 427326, Note_on_c, 8, 59, 112
+1, 439039, Note_off_c, 8, 97, 86
+1, 439039, Pitch_bend_c, 9, 15493
+1, 439039, Control_c, 7, 32, 84
+1, 439109, System_exclusive, 4, 39, 36, 75, 247
+1, 439109, End_track
+0, 0, End_of_file

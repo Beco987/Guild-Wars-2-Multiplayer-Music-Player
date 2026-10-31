@@ -1,0 +1,95 @@
+name: GW2MM (.NET port)
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["GW2MM/**", ".github/workflows/gw2mm.yml"]
+    # Pushing a tag such as v2.0.1 builds, tests and publishes a GitHub release. The apps check that release on launch.
+    # A push to main (a merged pull request) publishes the next patch release (latest v* tag + 1) automatically.
+    tags: ["v*"]
+  pull_request:
+    paths: ["GW2MM/**", ".github/workflows/gw2mm.yml"]
+  # Publishing a release on the GitHub website (new tag vX.Y.Z) attaches the executables to it.
+  release:
+    types: [published]
+  # "Run workflow" with a version (e.g. 2.0.1) publishes a release of the chosen branch.
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Publish a release with this version (e.g. 2.0.1, or 'next' for the latest release + 1); leave empty to only build and test"
+        required: false
+        default: ""
+
+permissions:
+  contents: write  # needed only to create the release on tag pushes
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: GW2MM
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the release tags, to number this build
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ github.event.inputs.release_version }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          # The next patch version after the newest vX.Y.Z tag (2.0.5 -> 2.0.6).
+          LATEST=$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          LATEST=${LATEST:-v2.0.0}
+          IFS=. read -r MAJ MIN PAT <<< "${LATEST#v}"
+          NEXT="$MAJ.$MIN.$((PAT + 1))"
+          TAG=""
+          VALUE=""
+          if [ -n "$RELEASE_TAG" ]; then TAG="$RELEASE_TAG"
+          elif [ "$INPUT_VERSION" = "next" ]; then TAG="v$NEXT"
+          elif [ -n "$INPUT_VERSION" ]; then TAG="v${INPUT_VERSION#v}"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAG="$GITHUB_REF_NAME"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then TAG="v$NEXT"  # a merged pull request
+          elif [ -n "$PR_NUMBER" ]; then VALUE="$NEXT-pr.$PR_NUMBER"                                                # a pull request build
+          else VALUE="$NEXT-dev.$GITHUB_RUN_NUMBER"                                                                # any other branch
+          fi
+          if [ -n "$TAG" ] && ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Release tags must look like v2.0.1 (got '$TAG')"; exit 1
+          fi
+          [ -n "$TAG" ] && VALUE="${TAG#v}"
+          echo "Version $VALUE${TAG:+ (release $TAG)}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "value=$VALUE" >> "$GITHUB_OUTPUT"
+      - name: Test
+        run: dotnet test GW2MM.sln -c Release --logger "console;verbosity=normal"
+      - name: Publish
+        run: |
+          V="${{ steps.version.outputs.value }}"
+          EXTRA=""; [ -n "$V" ] && EXTRA="-p:Version=$V"
+          dotnet publish src/GW2MM.Host -c Release -o publish $EXTRA
+          dotnet publish src/GW2MM.Client -c Release -o publish $EXTRA
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GW2MM
+          path: |
+            GW2MM/publish/GW2MM-Host.exe
+            GW2MM/publish/GW2MM-Client.exe
+      - name: Publish release
+        if: steps.version.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" publish/GW2MM-Host.exe publish/GW2MM-Client.exe --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" publish/GW2MM-Host.exe publish/GW2MM-Client.exe --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "GW2MM $TAG" --generate-notes
+          fi

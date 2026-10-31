@@ -1,0 +1,8 @@
+0, 0, Header, 1, 1, 480
+1, 0, Start_track
+1, 0, Tempo, 705881
+1, 70285, MIDI_port, 1
+1, 70285, Pitch_bend_c, 4, 1762
+1, 70285, Pitch_bend_c, 7, 1076
+1, 70285, End_track
+0, 0, End_of_file

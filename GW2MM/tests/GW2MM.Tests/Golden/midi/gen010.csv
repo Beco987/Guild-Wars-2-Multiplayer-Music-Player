@@ -1,0 +1,48 @@
+0, 0, Header, 1, 2, 1
+1, 0, Start_track
+1, 0, Tempo, 500000
+1, 172067, Marker_t, "tab\011new\012line"
+1, 172067, Note_on_c, 5, 61, 103
+1, 172068, System_exclusive, 6, 23, 15, 35, 67, 97, 247
+1, 172068, End_track
+2, 0, Start_track
+2, 260351, Note_on_c, 1, 80, 123
+2, 260411, Note_on_c, 2, 47, 40
+2, 260412, Channel_aftertouch_c, 10, 50
+2, 260412, Key_signature, 6, "major"
+2, 260550, Pitch_bend_c, 7, 13808
+2, 260550, Note_on_c, 5, 96, 24
+2, 260550, Note_on_c, 2, 96, 19
+2, 261008, Note_on_c, 10, 14, 66
+2, 261009, System_exclusive_packet, 6, 67, 89, 117, 85, 7, 19
+2, 261010, Program_c, 2, 18
+2, 428281, System_exclusive_packet, 8, 28, 59, 50, 11, 86, 97, 26, 81
+2, 428281, Unknown_meta_event, 9, 5, 72, 101, 108, 108, 111
+2, 428281, Control_c, 6, 87, 84
+2, 428282, Copyright_t, "Piano, Piano, Piano\000"
+2, 428282, Note_on_c, 11, 96, 69
+2, 428283, Note_on_c, 7, 92, 94
+2, 428438, Note_on_c, 11, 97, 88
+2, 428438, Program_c, 15, 85
+2, 428910, Program_c, 2, 120
+2, 429023, Note_on_c, 6, 97, 87
+2, 429023, Note_on_c, 3, 97, 53
+2, 429023, Note_on_c, 1, 97, 52
+2, 429406, Poly_aftertouch_c, 10, 96, 121
+2, 429637, Control_c, 10, 73, 113
+2, 429840, Unknown_meta_event, 126, 3, 12, 161, 111
+2, 429840, Channel_prefix, 8
+2, 429840, System_exclusive, 7, 88, 113, 112, 12, 116, 96, 247
+2, 429840, Note_on_c, 7, 65, 48
+2, 429840, Channel_aftertouch_c, 10, 59
+2, 429840, Channel_aftertouch_c, 3, 29
+2, 429840, Note_on_c, 10, 59, 0
+2, 523850, Program_c, 12, 119
+2, 523850, Channel_aftertouch_c, 8, 18
+2, 523889, Poly_aftertouch_c, 1, 97, 71
+2, 659791, MIDI_port, 10
+2, 659804, Sequencer_specific, 3, 233, 74, 95
+2, 659804, Note_off_c, 10, 63, 88
+2, 659804, Key_signature, -6, "major"
+2, 659804, End_track
+0, 0, End_of_file

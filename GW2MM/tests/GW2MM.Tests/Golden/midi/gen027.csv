@@ -1,0 +1,63 @@
+0, 0, Header, 1, 1, 1
+1, 0, Start_track
+1, 0, Tempo, 500000
+1, 0, Note_on_c, 14, 97, 43
+1, 0, Poly_aftertouch_c, 3, 97, 43
+1, 0, Channel_aftertouch_c, 7, 22
+1, 292, Program_c, 13, 68
+1, 293, Program_c, 12, 52
+1, 293, Time_signature, 4, 4, 74, 8
+1, 294, Note_on_c, 10, 97, 0
+1, 295, Channel_aftertouch_c, 15, 16
+1, 500, Note_off_c, 8, 102, 10
+1, 500, Channel_aftertouch_c, 0, 0
+1, 172929, Channel_aftertouch_c, 4, 59
+1, 172929, Channel_aftertouch_c, 11, 120
+1, 172929, Note_off_c, 2, 97, 72
+1, 172929, Note_on_c, 15, 94, 8
+1, 173045, Note_on_c, 15, 48, 0
+1, 173281, Program_c, 11, 101
+1, 173281, Note_on_c, 6, 88, 0
+1, 173281, Instrument_name_t, "tab\011new\012line"
+1, 173282, Poly_aftertouch_c, 10, 97, 127
+1, 173282, Note_on_c, 8, 56, 23
+1, 173283, Program_c, 0, 23
+1, 173283, Note_on_c, 0, 96, 18
+1, 173283, System_exclusive, 5, 118, 124, 61, 46, 247
+1, 173528, Time_signature, 1, 1, 66, 8
+1, 173626, Poly_aftertouch_c, 3, 97, 36
+1, 173627, Program_c, 5, 122
+1, 173627, Unknown_meta_event, 10, 3, 92, 4, 245
+1, 173627, Pitch_bend_c, 3, 1372
+1, 199956, Control_c, 11, 122, 94
+1, 199956, Note_off_c, 15, 92, 102
+1, 200157, Sequencer_specific, 5, 72, 60, 5, 35, 63
+1, 200158, Note_on_c, 9, 97, 40
+1, 200159, Channel_aftertouch_c, 13, 54
+1, 227900, Note_on_c, 9, 97, 20
+1, 227901, Program_c, 13, 103
+1, 227901, Poly_aftertouch_c, 6, 45, 7
+1, 227901, Channel_aftertouch_c, 7, 68
+1, 228124, Channel_aftertouch_c, 5, 93
+1, 228124, Note_on_c, 5, 96, 50
+1, 228125, Sequencer_specific, 0
+1, 281885, Note_on_c, 3, 96, 0
+1, 358357, Pitch_bend_c, 10, 11344
+1, 358358, Note_on_c, 15, 87, 82
+1, 358567, Note_on_c, 12, 96, 127
+1, 358567, Note_on_c, 7, 97, 0
+1, 358567, Control_c, 5, 65, 65
+1, 358568, Note_on_c, 15, 97, 77
+1, 358569, Note_on_c, 10, 96, 46
+1, 358913, Note_on_c, 3, 57, 120
+1, 358913, Note_on_c, 12, 96, 64
+1, 640115, Channel_aftertouch_c, 1, 119
+1, 640115, Channel_aftertouch_c, 11, 43
+1, 912408, Note_on_c, 0, 90, 75
+1, 912409, Cue_point_t, ""
+1, 912410, Note_on_c, 9, 79, 31
+1, 912411, Lyric_t, "7Eµ\177&\006\021"
+1, 912411, Pitch_bend_c, 4, 3485
+1, 912412, Channel_aftertouch_c, 1, 91
+1, 912412, End_track
+0, 0, End_of_file

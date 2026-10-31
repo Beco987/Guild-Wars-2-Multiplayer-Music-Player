@@ -1,0 +1,6 @@
+0, 0, Header, 1, 1, 480
+1, 0, Start_track
+1, 0, Tempo, 1000000
+1, 0, Tempo, 3178752
+1, 0, End_track
+0, 0, End_of_file

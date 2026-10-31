@@ -1,0 +1,186 @@
+using System.Globalization;
+using GW2MM.Core.Ahk;
+using GW2MM.Core.Config;
+
+namespace GW2MM.Windows.Forms;
+
+/// <summary>
+/// The Settings window, the same on host and client except that only the host has the UPnP option and only the
+/// client has the server connection. Saving writes Config.txt and applies the values immediately (the original
+/// restarted the whole script, which also dropped every network connection). Cancel, Esc or closing discard edits.
+/// </summary>
+internal sealed class SettingsForm : ThemedDialog
+{
+    private const int Width96 = 340;
+
+    /// <summary>The client's link to a server: whether it is connected, and connecting (asks for name and IP) or disconnecting.</summary>
+    public sealed record Connection(Func<bool> IsConnected, Action<IWin32Window> Connect, Action Disconnect);
+
+    /// <param name="connection">The client's server connection; null on the host (no server section).</param>
+    public SettingsForm(AppSettings settings, string dataDir, bool isHost, Action applied, Action<IWin32Window> showKeybinds,
+        Connection? connection = null) : base("Settings", Width96, "Settings")
+    {
+        var cardWidth = Theme.S(Width96 - 32);
+        var y = Theme.S(12);
+        RowCard? previous = null;
+
+        var tips = new ThemedToolTip();
+        FormClosed += (_, _) => tips.Dispose();
+        void Tip(Label label, Control control, string text)
+        {
+            tips.SetToolTip(label, text);
+            tips.SetToolTip(control, text);
+            if (control is FieldBox field) tips.SetToolTip(field.Box, text);
+        }
+
+        var playback = Section("Playback");
+        var delay = Number(settings.OctaveDelay);
+        var offset = Number(settings.OffsetMs.ToString(CultureInfo.InvariantCulture));
+        var tempo = Number(settings.DefaultTempoPercent.ToString(CultureInfo.InvariantCulture), "%");
+        Tip(playback.AddRow("Octave delay", delay), delay,
+            "Time between octave changes, so the game has applied one before the next note or change. Set it to about twice your in-game ping.");
+        Tip(playback.AddRow("Offset", offset), offset,
+            "Playing alone on several game windows: spreads their starts over this many ms so no two press a key at the same moment. 0 = off.");
+        Tip(playback.AddRow("Default tempo", tempo), tempo,
+            "The speed every song plays at, on top of its own tempo. 100% = as written. With players, the host's setting is used.");
+        var octaveReset = new ToggleSwitch("Reset octaves between songs") { Checked = settings.ResetOctavesBetweenSongs };
+        playback.AddRow("Reset octaves between songs", octaveReset);
+        var liveTimer = new ToggleSwitch("Live octave timer") { Checked = settings.LiveOctaveTimer };
+        Tip(playback.AddRow("Live octave timer", liveTimer), liveTimer,
+            "Test option: presses each octave change as soon as Octave delay has passed since the last one, instead of halfway between the notes. The host's setting applies to its players.");
+
+        var window = Section("Window");
+        var onTop = new ToggleSwitch("Always on top") { Checked = settings.AlwaysOnTop };
+        var transparent = new ToggleSwitch("Transparent") { Checked = settings.IsTransparent };
+        var dusk = new ToggleSwitch("Dusk theme") { Checked = settings.DuskTheme };
+        window.AddRow("Always on top", onTop);
+        window.AddRow("Transparent", transparent);
+        window.AddRow("Dusk theme", dusk);
+
+        var other = Section(isHost ? "Startup & network" : "Startup");
+        var updates = new ToggleSwitch("Check for updates on launch") { Checked = settings.CheckForUpdates };
+        other.AddRow("Check for updates on launch", updates);
+        ToggleSwitch? openPort = null;
+        if (isHost)
+        {
+            openPort = new ToggleSwitch("Open port automatically (UPnP)") { Checked = settings.OpenPortAutomatically };
+            other.AddRow("Open port automatically (UPnP)", openPort);
+        }
+
+        // Client only: connect to a server (or leave it). The row follows the connection while the window is open.
+        if (connection is not null)
+        {
+            var server = Section("Server");
+            var button = new ThemedButton("Connect…", ButtonKind.Tonal, Glyph.Plug) { FixedHeight = Theme.S(30) };
+            var label = server.AddRow("Not connected", button);
+            void Refresh()
+            {
+                var on = connection.IsConnected();
+                label.Text = on ? "Connected" : "Not connected";
+                button.Text = on ? "Disconnect" : "Connect…";
+                button.Kind = on ? ButtonKind.Secondary : ButtonKind.Tonal;
+                button.Size = button.GetPreferredSize(Size.Empty);
+                button.Left = server.Width - Theme.S(16) - button.Width;
+            }
+            button.Click += (_, _) =>
+            {
+                if (connection.IsConnected()) connection.Disconnect();
+                else connection.Connect(this);
+                Refresh();
+            };
+            Refresh();
+            var refresh = new System.Windows.Forms.Timer { Interval = 300 };
+            refresh.Tick += (_, _) => Refresh();
+            refresh.Start();
+            FormClosed += (_, _) => refresh.Dispose();
+        }
+
+        var keys = Section(null);
+        var edit = new ThemedButton("Edit…", ButtonKind.Secondary, Glyph.Keyboard) { FixedHeight = Theme.S(30) };
+        edit.Size = edit.GetPreferredSize(Size.Empty);
+        edit.Click += (_, _) => showKeybinds(this);
+        keys.AddRow("Keybinds", edit);
+
+        SetBodyHeight((int)Math.Ceiling((keys.Bottom + Theme.S(16)) / Theme.Scale));
+        var save = AddButton("Save", ButtonKind.Primary);
+        var cancel = AddButton("Cancel", ButtonKind.Secondary);
+        cancel.Click += (_, _) => Close();     // a modeless window: Cancel (and Esc) just close it
+        AcceptButton = save;
+        CancelButton = cancel;
+        save.Click += (_, _) =>
+        {
+            var delayText = delay.Box.Text.Trim();
+            delay.Invalid = delayText.Length > 0 && (!AhkValue.TryNumber(delayText, out var d) || d < 0);
+            if (delay.Invalid)
+            {
+                Dialogs.Show(this, "Octave delay must be a number of ms.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            double offsetValue = 0;
+            offset.Invalid = offset.Box.Text.Trim().Length > 0
+                && (!AhkValue.TryNumber(offset.Box.Text.Trim(), out offsetValue) || offsetValue < 0 || offsetValue > AppSettings.MaxOffsetMs);
+            if (offset.Invalid)
+            {
+                Dialogs.Show(this, $"Offset must be a number of ms from 0 to {AppSettings.MaxOffsetMs}.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            double tempoValue = AppSettings.DefaultTempo;
+            tempo.Invalid = tempo.Box.Text.Trim().Length > 0
+                && (!AhkValue.TryNumber(tempo.Box.Text.Trim(), out tempoValue) || tempoValue < AppSettings.MinTempo || tempoValue > AppSettings.MaxTempo);
+            if (tempo.Invalid)
+            {
+                Dialogs.Show(this, $"Default tempo must be a number from {AppSettings.MinTempo} to {AppSettings.MaxTempo} %.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            settings.OctaveDelay = delayText.Length > 0 ? delayText : AppSettings.DefaultOctaveDelay;
+            settings.DefaultTempoPercent = (int)Math.Round(tempoValue);
+            settings.OffsetMs = (int)Math.Floor(offsetValue);
+            settings.ResetOctavesBetweenSongs = octaveReset.Checked;
+            settings.LiveOctaveTimer = liveTimer.Checked;
+            settings.AlwaysOnTop = onTop.Checked;
+            settings.IsTransparent = transparent.Checked;
+            settings.CheckForUpdates = updates.Checked;
+            if (openPort is not null) settings.OpenPortAutomatically = openPort.Checked;
+            var themeChanged = settings.DuskTheme != dusk.Checked;
+            settings.DuskTheme = dusk.Checked;
+            try
+            {
+                settings.SaveDisplaySettings(dataDir);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Dialogs.Show(this, "Could not save Config.txt: " + ex.Message, Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            applied();
+            if (themeChanged)
+                Dialogs.Show(this, "The new theme is used the next time you start GW2MM.", Texts.AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Information,
+                    heading: dusk.Checked ? "Dusk theme" : "Light theme");
+            Close();
+        };
+
+        RowCard Section(string? title)
+        {
+            // Each section starts below the previous card, which has grown by the rows added to it.
+            if (previous is not null) y = previous.Bottom + Theme.S(14);
+            if (title is not null)
+            {
+                Body.Controls.Add(new Overline(title) { Location = new Point(Theme.S(20), y) });
+                y += Theme.S(18);
+            }
+            var card = new RowCard(cardWidth) { Location = new Point(Theme.S(16), y) };
+            Body.Controls.Add(card);
+            previous = card;
+            return card;
+        }
+
+        FieldBox Number(string value, string suffix = "ms")
+        {
+            var f = new FieldBox { Suffix = suffix, Size = Theme.S(100, 30) };
+            f.Box.Text = value;
+            f.Box.TextAlign = HorizontalAlignment.Right;
+            f.Box.TextChanged += (_, _) => f.Invalid = false;
+            return f;
+        }
+    }
+}

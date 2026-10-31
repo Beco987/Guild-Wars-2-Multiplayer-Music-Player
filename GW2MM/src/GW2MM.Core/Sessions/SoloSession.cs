@@ -1,0 +1,219 @@
+using GW2MM.Core.Arrangement;
+using GW2MM.Core.Library;
+using GW2MM.Core.Playback;
+using GW2MM.Core.Text;
+
+namespace GW2MM.Core.Sessions;
+
+/// <summary>
+/// A client playing on its own while it is not connected to a host (not in the original): songs and playlists from
+/// its library play on this computer's Guild Wars 2 windows. The song's tracks that contain notes go, in order, to
+/// Player1, Player2, …: the same arrangement a host gives a client that is assigned all of them. Which windows are
+/// open does not matter: keys for a window that is not open are skipped, as for the host and players.
+/// </summary>
+public sealed class SoloSession : IDisposable
+{
+    /// <summary>Time from pressing Play to the first note.</summary>
+    public const double LeadMs = 500;
+
+    private readonly object _gate = new();
+    private readonly ISessionView _view;
+    private readonly IClock _clock;
+    private readonly IKeyOutput _keys;
+    private readonly Func<string> _octaveDelay;
+    private readonly Func<int> _octaveDelayMs;
+    private readonly PlaylistRunner _runner;
+    private readonly Func<int> _offsetMs;
+    private PlaybackLoop? _loop;
+    private string? _lastWhere;
+
+    /// <param name="octaveDelay">OctaveDelay text for the arrangement (as the host uses it).</param>
+    /// <param name="octaveDelayMs">Pause between octave-reset presses (as the client uses it after a Stop).</param>
+    /// <param name="offsetMs">Settings → Offset: spread the windows' starts over this many ms (see <see cref="Schedule.Stagger"/>).</param>
+    public SoloSession(ISessionView view, SongLibrary library, Func<string> octaveDelay,
+        Func<int> octaveDelayMs, IClock clock, IKeyOutput keys, int tailMs = 1500, int gapMs = 1500, Func<int>? offsetMs = null)
+    {
+        _offsetMs = offsetMs ?? (() => 0);
+        _view = view;
+        Library = library;
+        _octaveDelay = octaveDelay;
+        _octaveDelayMs = octaveDelayMs;
+        _clock = clock;
+        _keys = OctaveTracker.Of(keys); // shared with whatever else plays on these windows
+        _runner = new PlaylistRunner(clock,
+            start: song => Task.FromResult(Start(song.Csv, song.Tempo, song.SingleInstrument)),
+            end: EndSongAsync,
+            announce: info => { _view.AppendDialog(info.Notice); _view.OnNowPlaying(info); },
+            ended: (name, _, finished) =>
+            {
+                if (finished) _view.AppendDialog($"♪ Playlist {name} finished.");
+                _view.OnNowPlaying(null);
+            },
+            report: _view.ReportProblem)
+        {
+            TailMs = tailMs,
+            CurrentEnd = () => { lock (_gate) return _loop?.LastDueMs; },
+            GapMs = gapMs,
+        };
+    }
+
+    public SongLibrary Library { get; }
+    public bool IsPlaying { get { lock (_gate) return _loop is { Completion.IsCompleted: false }; } }
+    public bool IsPlaylistRunning => _runner.IsRunning;
+
+    /// <summary>Play (Songs tab): plays one song from the library on this computer.</summary>
+    public void PlaySong(string name)
+    {
+        CancelPlaylist();
+        if (Library.ReadSongCsv(name) is not { } csv)
+        {
+            _view.ReportProblem(name.Length == 0 ? "Select a song first." : $"The song {name} is not in the library.");
+            return;
+        }
+        if (Start(csv, Library.TempoFactor(name), Library.IsSingleInstrument(name)) is null) return;
+        var info = new NowPlayingInfo(name, null, 0, 0);
+        _view.AppendDialog(info.Notice);
+        _view.OnNowPlaying(info);
+    }
+
+    /// <summary>Play (Playlists tab): plays a playlist on this computer.</summary>
+    public Task PlayPlaylistAsync(Playlist playlist, int startIndex, bool shuffle, bool repeat)
+    {
+        var (songs, first) = QueuedSongs.FromLibrary(Library, playlist, startIndex, shuffle, _view.ReportProblem);
+        return _runner.RunAsync(playlist.Name, songs, first, repeat);
+    }
+
+    public bool NextSong() => _runner.Next();
+
+    /// <summary>F2: pauses / resumes the song playing here (a new song starts unpaused).</summary>
+    public void TogglePause()
+    {
+        lock (_gate)
+            if (_loop is { Completion.IsCompleted: false } loop) loop.SetPaused(!loop.IsPaused);
+    }
+
+    /// <summary>F11 / F10: plays the rest of the current song <paramref name="percent"/> % faster (or slower).</summary>
+    public void ChangeTempo(int percent)
+    {
+        lock (_gate)
+        {
+            if (_loop is not { Completion.IsCompleted: false } loop) return;
+            var shown = TempoSteps.Next(loop.Speed, DefaultSpeed(), percent);
+            loop.SetSpeed(shown / 100.0 / DefaultSpeed());
+            _view.AppendDialog($"Tempo {shown:0}%");
+        }
+    }
+
+    /// <summary>Settings → Default tempo: every song's speed on top of its own tempo (1 = as written).</summary>
+    public Func<double> DefaultSpeed { get; init; } = () => 1;
+
+    /// <summary>Stop: ends the song and playlist and resets the octaves.</summary>
+    public Task StopAsync()
+    {
+        CancelPlaylist();
+        lock (_gate)
+        {
+            _loop?.Stop();
+            _loop = null;
+        }
+        return _keys.ResetOctavesAsync(_octaveDelayMs());
+    }
+
+    /// <summary>Stops without resetting octaves (the client connected to a host, which takes over).</summary>
+    public void Cancel()
+    {
+        CancelPlaylist();
+        lock (_gate)
+        {
+            _loop?.Stop();
+            _loop = null;
+        }
+    }
+
+    private void CancelPlaylist()
+    {
+        if (_runner.Cancel()) _view.OnNowPlaying(null);
+    }
+
+    /// <summary>Arranges and starts a song on the open windows; returns when its last note is due, or null.</summary>
+    private double? Start(string csvText, double? tempoFactor, bool singleInstrument = false)
+    {
+        lock (_gate)
+        {
+            _loop?.Stop();
+            _loop = null;
+        }
+        SlotPlan part;
+        var liveTimer = false;
+        var parts = 0;
+        try
+        {
+            var song = CsvSong.Parse(LegacyText.Lines(csvText));
+            // A one-player song: every track on one instrument, in Player1.
+            var tracks = singleInstrument ? new List<int> { 1 } : Enumerable.Range(1, PortMapping.Tracks).Where(t => song.TrackNotes[t].Count > 0).ToList();
+            if (tracks.Count == 0)
+            {
+                _view.ReportProblem("The song has no notes to play.");
+                return null;
+            }
+            var mapping = new PortMapping();
+            foreach (var t in tracks) mapping[SoloSlot, t] = true;
+            parts = singleInstrument ? 1 : tracks.Count;
+            liveTimer = LiveOctaveTimer() && !singleInstrument;
+            part = SongArranger.Arrange(song, mapping, _octaveDelay(), tempoFactor / DefaultSpeed(),
+                liveTimer ? OctaveSwapMode.LiveTimer : OctaveSwapMode.Player, singleInstrument)[SoloSlot];
+        }
+        catch (Exception ex)
+        {
+            _view.ReportProblem("Could not prepare the song: " + ex.Message);
+            return null;
+        }
+        if (!part.IsActive)
+        {
+            _view.ReportProblem("The song has too few notes to play.");
+            return null;
+        }
+
+        var where = "Not connected: playing on " + string.Join(", ", Enumerable.Range(1, parts).Select(KeyMap.WindowTitle)) + ".";
+        if (where != _lastWhere) _view.AppendDialog(where); // once, and again when a song has a different number of parts
+        _lastWhere = where;
+        // Anchored like a client's part: the first element plays at once, then each at its time. Offset staggers the
+        // windows (solo play only: players on other computers always follow the host's timing).
+        var now = _clock.NowMs;
+        var times = Schedule.AbsoluteTimes(part, now + LeadMs - Schedule.StartDelayMs, 0);
+        var events = Schedule.Stagger(Schedule.ClientEvents(part.Notes, times.Select(t => (double?)t).ToList()), _offsetMs(), now);
+        if (events.Count > 0 && events[^1].DueMs is { } last) times = times.Append(last).ToList();
+        var loop = new PlaybackLoop(events, _clock, _keys, octaveTimerMs: liveTimer ? _octaveDelayMs() : null);
+        loop.KeyError += ex => _view.ReportProblem("Key press failed: " + ex.Message);
+        lock (_gate)
+        {
+            _loop = loop;
+            loop.Start();
+        }
+        // Played to its end: back to the middle octave (a stopped song is reset by the Stop).
+        _ = loop.Completion.ContinueWith(t => t.Result == PlaybackOutcome.Completed && ResetOctavesBetweenSongs()
+            ? _keys.ResetOctavesAsync(_octaveDelayMs()) : Task.CompletedTask, TaskScheduler.Default).Unwrap();
+        return times.Count == 0 ? _clock.NowMs : times.Max();
+    }
+
+    /// <summary>The arrangement for a client slot sends its k-th track to window k.</summary>
+    private const int SoloSlot = 2;
+
+    /// <summary>Settings → Live octave timer (test option; see <see cref="HostSession.LiveOctaveTimer"/>).</summary>
+    public Func<bool> LiveOctaveTimer { get; init; } = () => false;
+
+    /// <summary>Settings → Reset octaves between songs: false keeps the octaves between playlist songs.</summary>
+    public Func<bool> ResetOctavesBetweenSongs { get; init; } = () => true;
+
+    private Task EndSongAsync()
+    {
+        lock (_gate)
+        {
+            _loop?.Stop();
+            _loop = null;
+        }
+        return ResetOctavesBetweenSongs() ? _keys.ResetOctavesAsync(_octaveDelayMs()) : Task.CompletedTask;
+    }
+
+    public void Dispose() => Cancel();
+}

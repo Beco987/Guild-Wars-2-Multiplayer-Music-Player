@@ -1,0 +1,47 @@
+0, 0, Header, 0, 1, -6360
+1, 0, Start_track
+1, 0, Tempo, 400000
+1, 0, Control_c, 10, 28, 111
+1, 0, Note_on_c, 12, 96, 0
+1, 96780, Pitch_bend_c, 0, 3608
+1, 151190, Marker_t, "a, b, c"
+1, 151190, Sequencer_specific, 3, 77, 161, 164
+1, 151191, Tempo, 16579404
+1, 151192, Channel_aftertouch_c, 9, 125
+1, 151193, Note_on_c, 15, 50, 0
+1, 151193, Note_on_c, 13, 66, 0
+1, 337201, Cue_point_t, "quote "" here"
+1, 337344, Note_on_c, 8, 97, 45
+1, 337344, System_exclusive_packet, 1, 72
+1, 337344, Channel_aftertouch_c, 15, 78
+1, 337345, Note_on_c, 2, 96, 11
+1, 337345, Poly_aftertouch_c, 9, 97, 107
+1, 337345, Note_off_c, 3, 40, 62
+1, 337346, Note_on_c, 8, 96, 27
+1, 337347, Note_on_c, 6, 97, 4
+1, 337347, Note_off_c, 13, 75, 63
+1, 337347, Time_signature, 9, 0, 39, 8
+1, 337700, System_exclusive_packet, 5, 37, 53, 91, 29, 55
+1, 483900, Note_on_c, 0, 97, 50
+1, 483900, Channel_aftertouch_c, 7, 77
+1, 483901, Note_off_c, 6, 97, 57
+1, 645475, Note_on_c, 9, 96, 39
+1, 645475, Program_c, 5, 34
+1, 749721, Tempo, 5302094
+1, 749721, Pitch_bend_c, 4, 1659
+1, 829976, Note_on_c, 3, 97, 72
+1, 829976, Pitch_bend_c, 11, 15841
+1, 829976, Text_t, "\000\001\177\200éÿ"
+1, 830232, Note_on_c, 15, 96, 93
+1, 830232, Note_on_c, 10, 3, 0
+1, 830427, Note_on_c, 15, 112, 0
+1, 830430, Poly_aftertouch_c, 12, 52, 122
+1, 830431, Unknown_meta_event, 9, 7, 97, 44, 32, 98, 44, 32, 99
+1, 830432, Pitch_bend_c, 4, 7848
+1, 830433, Program_c, 6, 99
+1, 830433, Pitch_bend_c, 2, 16357
+1, 830855, Poly_aftertouch_c, 4, 96, 66
+1, 831298, Pitch_bend_c, 13, 13130
+1, 831299, Sequencer_specific, 6, 51, 229, 88, 38, 72, 110
+1, 831299, End_track
+0, 0, End_of_file
