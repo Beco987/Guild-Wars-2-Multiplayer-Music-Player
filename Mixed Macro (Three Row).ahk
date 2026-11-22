@@ -4,8 +4,9 @@
 ; before it: the right number, in the right octave. A wrong note still
 ; plays, but the script keeps waiting for the right one.
 ;
-; Notes joined by / are a chord, like [3/5/8]: play them in any order. The
-; octave switches once every note of the chord has been played.
+; Notes joined by / are a chord, like [3/5/8], and so are notes between
+; { and }, like {3 5 8}: play them in any order. The octave switches once
+; every note of the chord has been played.
 ;
 ; Press the numbers the sheet shows, on the row of the note's octave:
 ;   a s d f g h j k  = low octave
@@ -64,7 +65,7 @@ Gui, Add, Edit, R10 w400 vPianoCode
 Gui, Add, Text,, Copy/paste sheet music into the box, press F1 to play/pause a song
 Gui, Add, Text,, F2 to reload the application
 Gui, Add, Text,, F3 to close the application
-Gui, Add, Text,, Version 0.28
+Gui, Add, Text,, Version 0.29
 Gui, Show
 return
 
@@ -171,13 +172,15 @@ $Numpad0 Up::
 return
 
 ; Turns sheet music into the list of chords to play, in order. A chord holds
-; the notes joined by / (any order), or a single note, and its octave.
+; the notes joined by / or between { } (any order), or a single note, and its octave.
 ParseSheet(text) {
 	downMarks := Chr(0x25BC) . ")[" ; down triangle, ) and [
 	upMarks := Chr(0x25B2) . "(]"   ; up triangle, ( and ]
 	chords := []
 	octave := 2   ; the sheet starts in the middle octave
-	join := false ; a / came after the last note
+	join := false    ; a / came after the last note
+	inBraces := false ; between { and }
+	firstInBraces := false ; no note yet since the {
 	Loop, Parse, text
 	{
 		c := A_LoopField
@@ -189,15 +192,22 @@ ParseSheet(text) {
 				octave++
 		} else if (c = "/") {
 			join := true
+		} else if (c = "{") {
+			inBraces := true
+			firstInBraces := true
+		} else if (c = "}") {
+			inBraces := false
 		} else if InStr("12345678", c) {
-			; A note after a / joins the chord before it, if both are in the
-			; same octave (a chord can't be played in any order across octaves)
+			; A note joins the chord before it after a /, or inside { } (except
+			; the first note after the {), if both are in the same octave (a
+			; chord can't be played in any order across octaves)
 			n := chords.Length()
-			if (join && n && chords[n].octave = octave)
+			if ((join || (inBraces && !firstInBraces)) && n && chords[n].octave = octave)
 				chords[n].notes .= c
 			else
 				chords.Push({notes: c, octave: octave})
 			join := false
+			firstInBraces := false
 		}
 	}
 	return chords
