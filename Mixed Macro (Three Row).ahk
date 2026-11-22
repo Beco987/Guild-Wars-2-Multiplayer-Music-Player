@@ -4,6 +4,9 @@
 ; before it: the right number, in the right octave. A wrong note still
 ; plays, but the script keeps waiting for the right one.
 ;
+; Notes joined by / are a chord, like [3/5/8]: play them in any order. The
+; octave switches once every note of the chord has been played.
+;
 ; Press the numbers the sheet shows, on the row of the note's octave:
 ;   a s d f g h j k  = low octave
 ;   q w e r t y u i  = middle octave
@@ -39,8 +42,8 @@ global Delay := 110
 ; false: a note counts on any row
 global RowOctaves := true
 
-global Song := []          ; the notes of the sheet in order, each {digit, octave}
-global Pos := 1            ; index of the next note of the sheet to play
+global Song := []          ; the sheet in order, one chord (or single note) each: {notes, octave}
+global Pos := 1            ; index of the chord being played
 global GameOctave := 2     ; octave the game is in: 1 = low, 2 = middle, 3 = high
 global Loaded := false
 global Playing := false
@@ -61,7 +64,7 @@ Gui, Add, Edit, R10 w400 vPianoCode
 Gui, Add, Text,, Copy/paste sheet music into the box, press F1 to play/pause a song
 Gui, Add, Text,, F2 to reload the application
 Gui, Add, Text,, F3 to close the application
-Gui, Add, Text,, Version 0.27
+Gui, Add, Text,, Version 0.28
 Gui, Show
 return
 
@@ -167,12 +170,14 @@ $Numpad0 Up::
 	KeyUp()
 return
 
-; Turns sheet music into the list of notes to play, each with its octave
+; Turns sheet music into the list of chords to play, in order. A chord holds
+; the notes joined by / (any order), or a single note, and its octave.
 ParseSheet(text) {
 	downMarks := Chr(0x25BC) . ")[" ; down triangle, ) and [
 	upMarks := Chr(0x25B2) . "(]"   ; up triangle, ( and ]
-	notes := []
-	octave := 2 ; the sheet starts in the middle octave
+	chords := []
+	octave := 2   ; the sheet starts in the middle octave
+	join := false ; a / came after the last note
 	Loop, Parse, text
 	{
 		c := A_LoopField
@@ -182,11 +187,20 @@ ParseSheet(text) {
 		} else if InStr(upMarks, c) {
 			if (octave < 3)
 				octave++
+		} else if (c = "/") {
+			join := true
 		} else if InStr("12345678", c) {
-			notes.Push({digit: c, octave: octave})
+			; A note after a / joins the chord before it, if both are in the
+			; same octave (a chord can't be played in any order across octaves)
+			n := chords.Length()
+			if (join && n && chords[n].octave = octave)
+				chords[n].notes .= c
+			else
+				chords.Push({notes: c, octave: octave})
+			join := false
 		}
 	}
-	return notes
+	return chords
 }
 
 ; octave is the octave of the key's row: 1 = low, 2 = middle, 3 = high, 0 = any
@@ -201,10 +215,15 @@ NoteDown(digit, octave) {
 	SendInput, {%digit%}
 	if (!Playing || Pos > Song.Length())
 		return
-	; Only the next note of the sheet counts, and only in its own octave
-	note := Song[Pos]
-	if (digit != note.digit || (RowOctaves && octave && octave != note.octave))
+	; Only a note of the current chord counts, and only in its own octave
+	chord := Song[Pos]
+	if (RowOctaves && octave && octave != chord.octave)
 		return
+	if !(i := InStr(chord.notes, digit))
+		return
+	chord.notes := SubStr(chord.notes, 1, i - 1) . SubStr(chord.notes, i + 1)
+	if (chord.notes != "")
+		return ; notes of the chord still to play
 	Pos++
 	ToNextOctave()
 }
